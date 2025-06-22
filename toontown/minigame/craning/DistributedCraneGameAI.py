@@ -34,6 +34,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def __init__(self, air, minigameId):
         DistributedMinigameAI.__init__(self, air, minigameId)
+        air.memoryDebugger.track_weak(self, "CraneGame")
         self.setProfileSkillKey(None)  # By default, no ranked mode.
 
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()

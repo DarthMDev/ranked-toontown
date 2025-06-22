@@ -13,7 +13,7 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
     def __init__(self, air, boss, index):
         DistributedObjectAI.DistributedObjectAI.__init__(self, air)
         FSM.FSM.__init__(self, 'DistributedCashbotBossCraneAI')
-        
+        air.memoryDebugger.track_weak(self, "CraneGameCrane")
         self.boss = boss
         self.index = index
 

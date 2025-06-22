@@ -25,6 +25,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
 
     def __init__(self, air, boss, index):
         DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.__init__(self, air, boss)
+        air.memoryDebugger.track_weak(self, "CraneGameSafe")
         self.index = index
         
         self.avoidHelmet = 0
