@@ -79,7 +79,7 @@ class PlayerSkillProfile:
             key=key,
             mu=int(rating.mu),
             sigma=int(rating.sigma),
-            skill_rating=STARTING_RATING,
+            skill_rating=STARTING_RATING-500,
             wins=0,
             games_played=0,
             placements_needed=10
