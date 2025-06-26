@@ -200,7 +200,7 @@ class ToonAvatarDetailPanel(DirectFrame):
                         av_profile = self.avatar.getSkillProfile(profile)
                         if av_profile is None:
                             continue
-                        text += self.__formatRankDescription(av_profile, title=prefix)
+                        text += '\n' + self.__formatRankDescription(av_profile, title=prefix)
 
         else:
             text = TTLocalizer.AvatarDetailPanelOffline
@@ -217,15 +217,15 @@ class ToonAvatarDetailPanel(DirectFrame):
         """
         # If no prefix was provided, generate one using the key.
         if title is None:
-            title = profile.key.replace('_', ' ').title() + ": "
+            title = profile.key.replace('_', ' ').title()
 
         # If they still need placements, simply only convey that.
         if profile.placements_needed > 0:
-            return f"{title}{profile.placements_needed} placements remaining"
+            return f"{title}: {profile.placements_needed} placements left"
 
         # Otherwise, they have a valid rank.
         rank = Rank.get_from_skill_rating(profile.skill_rating)
-        return f"{title}{rank.colored_with_sr(profile.skill_rating)}"
+        return f"{title}: {rank.colored_with_sr(profile.skill_rating)}"
 
     def __showAvatar(self):
         messenger.send('wakeup')

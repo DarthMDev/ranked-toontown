@@ -1,3 +1,5 @@
+import random
+
 from direct.directnotify import DirectNotifyGlobal
 from direct.gui import DirectGuiGlobals as DGG
 from direct.interval.LerpInterval import LerpColorScaleInterval
@@ -5,6 +7,7 @@ from direct.interval.MetaInterval import Sequence
 from direct.task.Task import Task
 
 from libotp import *
+from otp.otpbase.OTPLocalizerEnglish import EmoteFuncDict
 from toontown.distributed import DelayDelete
 from toontown.toon import ToonHead
 from toontown.toonbase import ToontownGlobals
@@ -316,7 +319,7 @@ class Purchase(PurchaseBase):
                 toon.reparentTo(render)
             self.counters[pos].setPos(thisPos * -0.15, 0, toon.getHeight() / 10 + 0.25)
             self.counters[pos].reparentTo(aspect2d)
-            self.rankAdjustments[pos].setPos(thisPos * -0.1, 0, -0.825)
+            self.rankAdjustments[pos].setPos(thisPos * -0.15, 0, -0.825)
             if toon.getDoId() in self.skillProfileDeltas:
                 deltas = self.skillProfileDeltas[toon.getDoId()]
                 self.rankAdjustments[pos].reparentTo(aspect2d)
@@ -325,9 +328,8 @@ class Purchase(PurchaseBase):
                 sr_delta = get_raw_formatted_string([
                     Component(message=f"({'+' if deltas.skill_rating > 0 else ''}{deltas.skill_rating})\n\n", color='green' if deltas.skill_rating > 0 else 'red'),
                 ])
-                rank_title = rank.colored_with_sr(profile.skill_rating)
                 if profile.placements_needed > 0:
-                    rank_title = f"Unranked\nPlacements left: {profile.placements_needed}\n{rank_title}"
+                    rank_title = f"Unranked\nPlacements left: {profile.placements_needed}\n"
                 else:
                     rank_title = rank.colored_with_sr(profile.skill_rating) + ' ' + sr_delta
                 debug_openskill_adj = get_raw_formatted_string([
@@ -356,16 +358,22 @@ class Purchase(PurchaseBase):
         taskMgr.doMethodLater(countDownDelay, reqCountDown, 'countDownTask')
 
         def celebrate(task):
-            for counter in task.counters:
-                counter.hide()
-
+            winner_emotes = ('Delighted', 'Happy', 'Dance', 'Taunt', 'Happy', 'Bow', 'Laugh')
+            loser_emotes = ('Cringe', 'Belly Flop', 'Banana Peel', 'Confused', 'Sad', 'Angry', 'Furious', 'Sleepy', 'Cry')
+            spec_emotes = ('Applause',)
             winningPoints = max(task.pointsArray)
-            for i in range(len(task.ids)):
-                if task.pointsArray[i] == winningPoints:
-                    avId = task.ids[i]
-                    if avId in base.cr.doId2do:
-                        toon = base.cr.doId2do[avId]
-                        toon.setAnimState('jump', 1.0)
+            for index, avId in enumerate(task.ids):
+                if avId not in base.cr.doId2do:
+                    continue
+
+                toon = base.cr.doId2do[avId]
+
+                if task.pointsArray[index] == winningPoints:
+                    toon.playEmote(EmoteFuncDict[random.choice(winner_emotes)], 1, None)
+                elif task.pointsArray[index] != 0:
+                    toon.playEmote(EmoteFuncDict[random.choice(loser_emotes)], 1, None)
+                else:
+                    toon.playEmote(EmoteFuncDict[random.choice(spec_emotes)], 1, None)
 
             base.playSfx(task.celebrateSound)
             return Task.done
