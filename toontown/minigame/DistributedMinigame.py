@@ -146,6 +146,7 @@ class DistributedMinigame(DistributedObject.DistributedObject):
         return
 
     def delete(self):
+        self.updatePlayerNametags()
         self.notify.debug('BASE: delete')
         if self.hasLocalToon:
             self.unload()
@@ -433,7 +434,7 @@ class DistributedMinigame(DistributedObject.DistributedObject):
             # If this is a ranked game, append the rank component.
             if self.isRanked():
                 profile = toon.getSkillProfile(self.getSkillProfileKey())
-                rank = Rank.get_from_skill_rating(profile.skill_rating).colored() if profile else get_raw_formatted_string([MinimalJsonMessagePart("Unranked", color='gray')])
+                rank = Rank.get_from_skill_rating(profile.skill_rating).colored() if profile and profile.placements_needed <= 0 else get_raw_formatted_string([MinimalJsonMessagePart("Unranked", color='gray')])
                 name += f"\n{rank}"
 
             toon.setFancyNametag(name)

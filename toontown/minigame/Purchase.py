@@ -322,12 +322,18 @@ class Purchase(PurchaseBase):
                 self.rankAdjustments[pos].reparentTo(aspect2d)
                 profile = toon.getSkillProfile(deltas.key)
                 rank = Rank.get_from_skill_rating(profile.skill_rating)
-                self.rankAdjustments[pos]['text'] = get_raw_formatted_string([
-                    Component(message=str(rank), color='white'),
-                    Component(message=f" ({profile.skill_rating} SR)", color='gray'),
+                sr_delta = get_raw_formatted_string([
                     Component(message=f"({'+' if deltas.skill_rating > 0 else ''}{deltas.skill_rating})\n\n", color='green' if deltas.skill_rating > 0 else 'red'),
+                ])
+                rank_title = rank.colored_with_sr(profile.skill_rating)
+                if profile.placements_needed > 0:
+                    rank_title = f"Unranked\nPlacements left: {profile.placements_needed}\n{rank_title}"
+                else:
+                    rank_title = rank.colored_with_sr(profile.skill_rating) + ' ' + sr_delta
+                debug_openskill_adj = get_raw_formatted_string([
                     Component(message=f"mu: {profile.mu} ({'+' if deltas.mu > 0 else ''}{deltas.mu})\nsigma: {profile.sigma} ({'+' if deltas.sigma > 0 else ''}{deltas.sigma})", color='gray'),
                 ])
+                self.rankAdjustments[pos]['text'] = f"{rank_title}{debug_openskill_adj}"
             else:
                 self.totalCounters[pos].setPos(thisPos * -0.15, 0, -0.825)
                 self.totalCounters[pos].reparentTo(aspect2d)

@@ -14,6 +14,7 @@ from toontown.toonbase.ToontownBattleGlobals import Tracks, Levels
 from .Experience import Experience
 from ..archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart
 from ..battle.GagTrackBarGUI import GagTrackBarGUI
+from ..matchmaking.player_skill_profile import PlayerSkillProfile
 from ..matchmaking.rank import Rank
 from ..matchmaking.skill_profile_keys import SkillProfileKey
 
@@ -190,15 +191,17 @@ class ToonAvatarDetailPanel(DirectFrame):
                 }
 
                 # If we are in the same area, add their rank. This is temporary.
+                SKILL_PROFILES_TO_SHOW = {
+                    SkillProfileKey.CRANING_SOLOS.value: "Solos Rank",
+                    SkillProfileKey.CRANING_FFA.value: "FFA Rank"
+                }
                 if self.avatar is not None:
-                    solos_profile = self.avatar.getSkillProfile(SkillProfileKey.CRANING_SOLOS.value)
-                    if solos_profile is not None:
-                        rank = Rank.get_from_skill_rating(solos_profile.skill_rating)
-                        text += f"\nSolos Rank: {rank.colored_with_sr(solos_profile.skill_rating)}"
-                    ffa_profile = self.avatar.getSkillProfile(SkillProfileKey.CRANING_FFA.value)
-                    if ffa_profile is not None:
-                        rank = Rank.get_from_skill_rating(ffa_profile.skill_rating)
-                        text += f"\nFFA Rank: {rank.colored_with_sr(ffa_profile.skill_rating)}"
+                    for profile, prefix in SKILL_PROFILES_TO_SHOW.items():
+                        av_profile = self.avatar.getSkillProfile(profile)
+                        if av_profile is None:
+                            continue
+                        text += self.__formatRankDescription(av_profile, title=prefix)
+
         else:
             text = TTLocalizer.AvatarDetailPanelOffline
         self.dataText['text'] = text
@@ -206,6 +209,23 @@ class ToonAvatarDetailPanel(DirectFrame):
         self.__updateTrophyInfo()
         self.__updateLaffInfo()
         return
+
+    def __formatRankDescription(self, profile: PlayerSkillProfile, title=None):
+        """
+        Provides a color formatted string to display on the detail panel for a specific rank. Can be used for multiple
+        different skill profiles to provide a total career overview for a player.
+        """
+        # If no prefix was provided, generate one using the key.
+        if title is None:
+            title = profile.key.replace('_', ' ').title() + ": "
+
+        # If they still need placements, simply only convey that.
+        if profile.placements_needed > 0:
+            return f"{title}{profile.placements_needed} placements remaining"
+
+        # Otherwise, they have a valid rank.
+        rank = Rank.get_from_skill_rating(profile.skill_rating)
+        return f"{title}{rank.colored_with_sr(profile.skill_rating)}"
 
     def __showAvatar(self):
         messenger.send('wakeup')
