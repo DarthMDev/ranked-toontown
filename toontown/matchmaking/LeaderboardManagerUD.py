@@ -47,6 +47,11 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
         # Any toon that we just got word of needs to start being tracked if they aren't already.
         for result in results:
             profile = PlayerSkillProfile.from_astron(result)
+
+            # If this player hasn't finished placements, they do not exist on the leaderboard in our context.
+            if profile.placements_needed > 0:
+                continue
+
             players = self.__leaderboard_active_players_cache.get(profile.key)
             if players is None:
                 players = []
