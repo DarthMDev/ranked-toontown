@@ -149,7 +149,12 @@ class OpenSkillMatch:
             for memberIndex, member in enumerate(team):
                 old_player = self.teams[teamIndex].as_list()[memberIndex]
                 old_player.sigma = int(round(member.sigma))
-                old_player.mu = int(round(member.mu))
+
+                # If this was a placement match for this player, make hidden MMR more volatile.
+                mu_diff = member.mu - old_player.mu
+                mu_multiplier = 2.0 if old_player.placements_needed > 0 else 1.0
+                old_player.mu += (mu_diff * mu_multiplier)
+                old_player.mu = int(round(old_player.mu))
 
         # Update games played for everyone involved. If it's the winning team, give them a win.
         for i, team in enumerate(self.teams):
