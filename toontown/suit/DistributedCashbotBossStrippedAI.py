@@ -20,6 +20,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
     def __init__(self, air, game):
         DistributedBossCogStrippedAI.__init__(self, air, game, 'm')
         FSM.FSM.__init__(self, 'DistributedCashbotBossAI')
+        air.memoryDebugger.track_weak(self, "CraneGameBoss")
 
         self.game = game
 

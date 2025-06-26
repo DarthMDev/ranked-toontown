@@ -4,6 +4,7 @@ from direct.distributed.PyDatagram import PyDatagram
 from otp.distributed.OtpDoGlobals import *
 from otp.astron.AstronInternalRepository import AstronInternalRepository
 from otp.astron import MsgTypes
+from toontown.util.dev.memory_debugger import MemoryDebugger
 
 
 class ToontownInternalRepository(AstronInternalRepository):
@@ -15,6 +16,7 @@ class ToontownInternalRepository(AstronInternalRepository):
                  threadedNet=None):
         AstronInternalRepository.__init__(self, baseChannel, serverId, dcFileNames, dcSuffix, connectMethod,
                                           threadedNet)
+        self.memoryDebugger = MemoryDebugger()
 
     def getAvatarIdFromSender(self):
         return self.getMsgSender() & 0xFFFFFFFF

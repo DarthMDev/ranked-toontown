@@ -602,7 +602,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
          gui.find('**/CloseBtn_Rllvr'),
          gui.find('**/CloseBtn_UP')), relief=None, scale=2, text=TTLocalizer.CashbotCraneLeave, text_scale=0.04, text_pos=(0, -0.07), text_fg=VBase4(1, 1, 1, 1), pos=(1.05, 0, -0.82), command=self.__leaveCrane)
         
-        self.accept('escape', self.__leaveCrane)
+        self.accept(base.controls.CRANE_EXIT_KEY, self.__leaveCrane)
         
         self.accept(base.controls.CRANE_GRAB_KEY, self.__controlPressed)
         self.accept(base.controls.CRANE_GRAB_KEY + '-up', self.__controlReleased)
@@ -628,7 +628,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             self.closeButton.destroy()
             self.closeButton = None
         
-        self.ignore('escape')
+        self.ignore(base.controls.CRANE_EXIT_KEY)
         self.ignore(base.controls.CRANE_GRAB_KEY)
         self.ignore(f'{base.controls.CRANE_GRAB_KEY}-up')
         self.ignore('InputState-forward')

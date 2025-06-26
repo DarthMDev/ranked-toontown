@@ -627,7 +627,13 @@ class OptionElement(DirectFrame):
 
         return str(setting)
 
-    def registerKey(self, keybind: str) -> None:
+    def registerKey(self, keybind: str, mouse=None) -> None:
+        """
+        Called when we are in the accepting keybind state. If mouse param is not None, that means this was a mouse button
+        event and the keybind parameter is garbage. A bit hacky, but it makes event cleanup and management easier.
+        """
+        if mouse is not None:
+            keybind = mouse
         base.settings.setControl(self.optionName, keybind)
         self.doneRegisterKey()
 
@@ -700,7 +706,11 @@ class OptionElement(DirectFrame):
             self.controlTask = f"{self.optionName}-updateControl"
 
             self.optionModifier.configure(text='...', image_color=Vec4(0.2, 0.9, 0.9, 1))
-            base.buttonThrowers[0].node().setButtonDownEvent(self.controlTask)
+
+            bt = base.buttonThrowers[0].node()
+            mw = base.buttonThrowers[0].getParent().node()
+            bt.setButtonDownEvent(self.controlTask)
+            mw.setButtonDownPattern(self.controlTask)
 
             messenger.send("disable-hotkeys")
             self.accept(self.controlTask, self.registerKey)

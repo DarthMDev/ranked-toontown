@@ -25,6 +25,7 @@ class ControlSettings:
     QUEST_HOTKEY: str = "end"
     GALLERY_HOTKEY: str = "g"
     CRANE_GRAB_KEY: str = "control"
+    CRANE_EXIT_KEY: str = "escape"
     ACTION_BUTTON: str = "delete"
     SECONDARY_ACTION: str = "insert"
     CHAT_HOTKEY: str = "t"

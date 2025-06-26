@@ -10029,6 +10029,7 @@ OptionNames = {
     "QUEST_HOTKEY": "ToonTask Hotkey",
     "GALLERY_HOTKEY": "Cog Gallery Hotkey",
     "CRANE_GRAB_KEY": "Crane Grab Key",
+    "CRANE_EXIT_KEY": "Crane Exit Key",
     "ACTION_BUTTON": "Action Button",
     "SECONDARY_ACTION": "Secondary Action Button",
     "CHAT_HOTKEY": "Chat Button",

@@ -46,6 +46,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         DistributedGoonAI.DistributedGoonAI.__init__(self, air, 0)
         DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.__init__(self, air, boss)
 
+        air.memoryDebugger.track_weak(self, "CraneGameGoon")
         # A tube covering our intended path, so other goons will see
         # and avoid us.
         cn = CollisionNode('tubeNode')
