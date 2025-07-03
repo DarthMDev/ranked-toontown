@@ -275,8 +275,9 @@ class CraneGamePracticeCheatAI:
         safesToMove = availableSafes[:safesNeeded]  # Take only as many as we need
 
         # Reposition each safe
+        taskMgr.remove('repositionSafe')
         for _, safeToMove in safesToMove:
-            self.repositionSafe(safeToMove, craneX, craneY, repositionDistance)
+            taskMgr.doMethodLater(0.1, self.repositionSafe, 'repositionSafe', extraArgs=(safeToMove, craneX, craneY, repositionDistance))
 
     def checkSafePosition(self, x, y, safes):
         # Safe radius is approximately 4 units (collision sphere is about 8 units)
