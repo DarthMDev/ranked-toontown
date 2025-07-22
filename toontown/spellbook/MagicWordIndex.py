@@ -2022,8 +2022,7 @@ class SetCraneSpawn(MagicWord):
         if not (1 <= spawn <= 8):
             return "Incorrect spawn position, please enter between 1 to 8!"
 
-        boss.wantCustomCraneSpawns = True
-        boss.d_setCraneSpawn(True, args[0] - 1, invoker.doId)
+        boss.setCraneSpawn(args[0] - 1, invoker.doId)
 
         return ("Set your spawn position to #%s" % (spawn))
 

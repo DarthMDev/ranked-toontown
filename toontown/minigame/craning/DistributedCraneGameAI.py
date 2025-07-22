@@ -963,8 +963,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def __startNextRound(self, task=None):
         """Start the next round in a best-of match"""
         # Rotate spawn positions for variety
-        self.__rotateSpawnPositions()
-        
+        if not self.customSpawnOrderSet:
+            self.__rotateSpawnPositions()
+
         # Use proper FSM transitions like the RestartCraneRound magic word
         self.gameFSM.request("cleanup")
         self.gameFSM.request('prepare')
@@ -1217,8 +1218,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_addScore(self, avId: int, amount: int, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
         self.sendUpdate('addScore', [avId, amount, reason.to_astron()])
 
-    def d_setCraneSpawn(self, want, spawn, toonId):
-        self.sendUpdate('setCraneSpawn', [want, spawn, toonId])
+    def setCraneSpawn(self, spawn, toonId):
+        self.customSpawnOrderSet = True
+        self.toonSpawnpointOrder[self.getParticipantIdsNotSpectating().index(toonId)] = spawn
 
     """
     FSM states

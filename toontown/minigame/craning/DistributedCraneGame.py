@@ -80,8 +80,6 @@ class DistributedCraneGame(DistributedMinigame):
         self.roundWins = {}  # Maps avId -> number of rounds won
         self.boss = None
         self.bossRequest = None
-        self.wantCustomCraneSpawns = False
-        self.customSpawnPositions = {}
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
         self.modifiers = []
         self.heatDisplay = CraneLeagueHeatDisplay()
@@ -390,27 +388,6 @@ class DistributedCraneGame(DistributedMinigame):
         applied immediately.
         """
 
-        # If we want custom crane spawns, completely override the spawn logic.
-        if self.wantCustomCraneSpawns:
-            for toon in self.getParticipantIdsNotSpectating():
-                if toon in self.customSpawnPositions:
-                    # Use the stored custom position for this toon
-                    toonWantedPosition = self.customSpawnPositions[toon]
-                else:
-                    # Or pick a random spot if it doesn't exist
-                    stop = 7 if len(self.getParticipantIdsNotSpectating()) <= 8 else 15
-                    toonWantedPosition = random.randrange(0, stop)
-
-                # Retrieve the position/HPR from the global constants
-                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
-                pos = Point3(*posHpr[0:3])
-                hpr = VBase3(*posHpr[3:6])
-
-                # Instantly set the toon's position/orientation
-                toon.setPosHpr(pos, hpr)
-            return
-
-        # Otherwise, use the pre-defined spawn-point order as normal
         for i, toon in enumerate(self.getParticipantsNotSpectating()):
             spawn_index = self.toonSpawnpointOrder[i]
             posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
