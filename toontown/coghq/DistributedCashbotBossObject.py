@@ -42,8 +42,9 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.craneId = 0
         self.cleanedUp = 0
         
-        # An attribute to cache the last 7 speed for the object
+        # An attribute to cache the last 7 speeds and velocities for the object
         self.speeds = []
+        self.velocities = []
             
         # A CollisionNode to keep me out of walls and floors, and to
         # keep others from bumping into me.  We use PieBitmask instead
@@ -135,22 +136,29 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     def startSpeedCaching(self, task):
 
         speed = self.physicsObject.getVelocity().length()
+        vel = self.physicsObject.getVelocity()
 
         if len(self.speeds) > 6:
             self.speeds.pop(0)
+
+        if len(self.velocities) > 6:
+            self.velocities.pop(0)
         
         self.speeds.append(speed)
+        self.velocities.append(vel)
 
         return Task.again
         
     def resetSpeedCaching(self):
         
         self.speeds = []
+        self.velocities = []
         taskMgr.remove(self.startCacheName)
 
     def activatePhysics(self):
         if not self.physicsActivated:
             self.speeds.append(self.physicsObject.getVelocity().length())
+            self.velocities.append(self.physicsObject.getVelocity())
             taskMgr.doMethodLater(0.1, self.startSpeedCaching, self.startCacheName)
             self.boss.physicsMgr.attachPhysicalNode(self.node())
             base.cTrav.addCollider(self.collisionNodePath, self.handler)
@@ -214,8 +222,13 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             
             #get the velocity of the object, relative to the crane
             speed = max(self.speeds)
-            impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
-            
+            vel = max(self.velocities)
+            vel = self.crane.root.getRelativeVector(render, vel)
+            vel.normalize()
+            clash_impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
+            ttr_impact = vel[1]
+            impact = max(clash_impact, ttr_impact)
+
             if impact >= self.getMinImpact():
                 self.hitBossSoundInterval.start()
             else:
