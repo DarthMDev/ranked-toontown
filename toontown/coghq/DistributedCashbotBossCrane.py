@@ -61,11 +61,19 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.avId = 0
         
         self.cableLength = 20
+        self.cableLengthMin = 16.5
+        self.cableLengthMax = 23.5
+        self.cableLengthDefault = 20
+        self.cableLengthChangeRate = 3.0  # units per second
         self.numLinks = 3
         self.initialArmPosition = (0, 20, 0)
         
         self.slideSpeed = self.emptySlideSpeed
         self.rotateSpeed = self.emptyRotateSpeed
+        
+        # Cable length adjustment tracking
+        self.cableExtendPressed = False
+        self.cableRetractPressed = False
         
         # This number increments each time we change direction on the
         # crane controls.  It's used to update the animation
@@ -137,6 +145,8 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.pendingFree = False
 
         self.inputs = [0, 0, 0, 0] #up, down, left, right
+        # Will be set in announceGenerate
+        self.cableLengthTaskName = None
 
     def getName(self):
         return 'NormalCrane-%s' % self.index
@@ -160,6 +170,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         
         self.craneAdviceName = self.uniqueName('craneAdvice')
         self.magnetAdviceName = self.uniqueName('magnetAdvice')
+        self.cableLengthTaskName = self.uniqueName('cableLengthAdjust')
         
         # Load up the control model and the stick.  We have to do some
         # reparenting so we can set things up to slide and scale
@@ -378,9 +389,29 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             anp.setZ(-z)
 
     def setCableLength(self, length):
+        # Clamp the length to valid range
+        length = max(self.cableLengthMin, min(length, self.cableLengthMax))
         self.cableLength = length
         linkWidth = float(length) / float(self.numLinks)
-        self.shell.setRadius(linkWidth + 1)
+        if hasattr(self, 'shell') and self.shell:
+            self.shell.setRadius(linkWidth + 1)
+        # Only force reposition links if physics is not active
+        # When physics is active, let the shell collision constraint handle the adjustment naturally
+        # This preserves all momentum from crane movement
+        if not self.physicsActivated:
+            self.__updateCableLinkPositions()
+    
+    def __updateCableLinkPositions(self):
+        """Update the positions of all cable links to match the current cable length.
+        Only call this when physics is NOT active, as it forces positions and overrides physics."""
+        if not hasattr(self, 'activeLinks') or not self.activeLinks:
+            return
+        for linkNum in range(self.numLinks):
+            an, anp, cnp = self.activeLinks[linkNum]
+            z = float(linkNum + 1) / float(self.numLinks) * self.cableLength
+            anp.setPos(self.crane.getPos(self.cable))
+            anp.setZ(-z)
+    
 
     def setupCable(self):
         activated = self.physicsActivated
@@ -606,6 +637,12 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         
         self.accept(base.controls.CRANE_GRAB_KEY, self.__controlPressed)
         self.accept(base.controls.CRANE_GRAB_KEY + '-up', self.__controlReleased)
+        
+        # Cable length adjustment keybinds
+        self.accept(base.controls.CRANE_EXTEND_KEY, self.__cableExtendPressed)
+        self.accept(base.controls.CRANE_EXTEND_KEY + '-up', self.__cableExtendReleased)
+        self.accept(base.controls.CRANE_RETRACT_KEY, self.__cableRetractPressed)
+        self.accept(base.controls.CRANE_RETRACT_KEY + '-up', self.__cableRetractReleased)
 
         base.localAvatar.enableCraneControls()
         self.accept('InputState-forward', self.__upArrow)
@@ -614,6 +651,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.accept('InputState-turnRight', self.__rightArrow)
 
         taskMgr.add(self.__watchControls, 'watchCraneControls')
+        taskMgr.add(self.__watchCableLength, self.cableLengthTaskName)
         
         # Up in the sky, it's hard to read what people are saying.
         NametagGlobals.setOnscreenChatForced(1)
@@ -631,6 +669,10 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.ignore(base.controls.CRANE_EXIT_KEY)
         self.ignore(base.controls.CRANE_GRAB_KEY)
         self.ignore(f'{base.controls.CRANE_GRAB_KEY}-up')
+        self.ignore(base.controls.CRANE_EXTEND_KEY)
+        self.ignore(base.controls.CRANE_EXTEND_KEY + '-up')
+        self.ignore(base.controls.CRANE_RETRACT_KEY)
+        self.ignore(base.controls.CRANE_RETRACT_KEY + '-up')
         self.ignore('InputState-forward')
         self.ignore('InputState-reverse')
         self.ignore('InputState-turnLeft')
@@ -639,10 +681,13 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         
         self.arrowVert = 0
         self.arrowHorz = 0
+        self.cableExtendPressed = False
+        self.cableRetractPressed = False
         
         NametagGlobals.setOnscreenChatForced(0)
         
         taskMgr.remove('watchCraneControls')
+        taskMgr.remove(self.cableLengthTaskName)
         self.__setMoveSound(None)
         return
 
@@ -652,6 +697,23 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.__moveCraneArcHinge(self.arrowHorz, self.arrowVert)
         if not self.arrowHorz and not self.arrowVert:
             self.__setMoveSound(None)
+        return Task.cont
+    
+    def __watchCableLength(self, task):
+        """Task that smoothly adjusts cable length based on key presses."""
+        if not (self.cableExtendPressed or self.cableRetractPressed):
+            return Task.cont
+        
+        dt = globalClock.getDt()
+        changeAmount = self.cableLengthChangeRate * dt
+        
+        if self.cableExtendPressed:
+            newLength = min(self.cableLength + changeAmount, self.cableLengthMax)
+            self.setCableLength(newLength)
+        elif self.cableRetractPressed:
+            newLength = max(self.cableLength - changeAmount, self.cableLengthMin)
+            self.setCableLength(newLength)
+        
         return Task.cont
 
     def __exitCrane(self):
@@ -734,6 +796,18 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             self.inputs[3] = 1
         else:
             self.inputs[3] = 0
+    
+    def __cableExtendPressed(self):
+        self.cableExtendPressed = True
+    
+    def __cableExtendReleased(self):
+        self.cableExtendPressed = False
+    
+    def __cableRetractPressed(self):
+        self.cableRetractPressed = True
+    
+    def __cableRetractReleased(self):
+        self.cableRetractPressed = False
 
     def __moveCraneArcHinge(self, xd, yd):
         dt = globalClock.getDt()
@@ -1217,6 +1291,9 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         toon = base.cr.doId2do.get(avId)
         if not toon:
             return
+        
+        # Reset cable length to default when entering crane
+        self.setCableLength(self.cableLengthDefault)
             
         self.grabTrack = self.makeToonGrabInterval(toon)
         
@@ -1289,6 +1366,8 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         pass
 
     def enterControlled(self, avId):
+        # Reset cable length to default when entering crane
+        self.setCableLength(self.cableLengthDefault)
         if avId != localAvatar.doId:
             if self.oldState == 'LocalControlled':
                 # The local toon is no longer in control of the crane.
@@ -1363,6 +1442,11 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.__straightenCable()
 
     def enterLocalFree(self):
+        # Reset cable length to default when exiting crane
+        self.setCableLength(self.cableLengthDefault)
+        self.cableExtendPressed = False
+        self.cableRetractPressed = False
+        
         if self.fadeTrack:
             self.fadeTrack.finish()
             self.fadeTrack = None
@@ -1408,6 +1492,8 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
 
     def enterFree(self):
         self.__turnOffMagnet()
+        # Reset cable length to default when exiting crane
+        self.setCableLength(self.cableLengthDefault)
         if self.avId != localAvatar.doId:
             if self.fadeTrack:
                 self.fadeTrack.finish()

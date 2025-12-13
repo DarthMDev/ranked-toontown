@@ -26,6 +26,8 @@ class ControlSettings:
     GALLERY_HOTKEY: str = "g"
     CRANE_GRAB_KEY: str = "control"
     CRANE_EXIT_KEY: str = "escape"
+    CRANE_EXTEND_KEY: str = "page_up"
+    CRANE_RETRACT_KEY: str = "page_down"
     ACTION_BUTTON: str = "delete"
     SECONDARY_ACTION: str = "insert"
     CHAT_HOTKEY: str = "t"
