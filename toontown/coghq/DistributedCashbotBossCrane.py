@@ -45,6 +45,13 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     emptySlideSpeed = 10    # feet per second
     emptyRotateSpeed = 20   # degrees per second
     
+    # Speed multipliers based on cable length (longer = slower due to increased moment of inertia)
+    # At min length (16.5): 1.15x speed
+    # At default length (20): 1.0x speed 
+    # At max length (23.5): 1.15x speed
+    cableLengthSpeedMin = 1.0  # Speed multiplier at minimum cable length
+    cableLengthSpeedMax = 1.2  # Speed multiplier at maximum cable length
+    
     # These points will be useful for sticking the control stick into
     # the toon's hands.
     lookAtPoint = Point3(0.3, 0, 0.1)
@@ -976,11 +983,27 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     def __moveCraneArcHinge(self, xd, yd):
         dt = globalClock.getDt()
         
-        h = self.arm.getH() + xd * self.rotateSpeed * dt
+        # Calculate speed multiplier based on cable length
+        # Longer cables = slower movement (more moment of inertia)
+        # Interpolate between min and max speed multipliers based on cable length
+        cableLengthRange = self.cableLengthMax - self.cableLengthMin
+        if cableLengthRange > 0:
+            # Normalize cable length to 0-1 range (0 = min, 1 = max)
+            normalizedLength = (self.cableLength - self.cableLengthMin) / cableLengthRange
+            # Interpolate speed multiplier (inverse: longer = slower)
+            speedMultiplier = self.cableLengthSpeedMin + (self.cableLengthSpeedMax - self.cableLengthSpeedMin) * normalizedLength
+        else:
+            speedMultiplier = 1.0
+        
+        # Apply speed multiplier to both rotation and sliding
+        effectiveRotateSpeed = self.rotateSpeed * speedMultiplier
+        effectiveSlideSpeed = self.slideSpeed * speedMultiplier
+        
+        h = self.arm.getH() + xd * effectiveRotateSpeed * dt
         limitH = max(min(h, self.armMaxH), self.armMinH)
         self.arm.setH(limitH)
         
-        y = self.crane.getY() + yd * self.slideSpeed * dt
+        y = self.crane.getY() + yd * effectiveSlideSpeed * dt
         limitY = max(min(y, self.craneMaxY), self.craneMinY)
         
         atLimit = limitH != h or limitY != y
