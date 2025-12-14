@@ -28,6 +28,7 @@ class ControlSettings:
     CRANE_EXIT_KEY: str = "escape"
     CRANE_EXTEND_KEY: str = "page_up"
     CRANE_RETRACT_KEY: str = "page_down"
+    DRONE_DEPLOY_KEY: str = "f"
     ACTION_BUTTON: str = "delete"
     SECONDARY_ACTION: str = "insert"
     CHAT_HOTKEY: str = "t"

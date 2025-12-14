@@ -5,6 +5,7 @@ import time
 from direct.directnotify import DirectNotifyGlobal
 from direct.fsm import FSM
 from direct.task.TaskManagerGlobal import taskMgr
+from panda3d.core import Point3
 
 from toontown.coghq import CraneLeagueGlobals
 from toontown.coghq import DistributedCashbotBossSideCraneAI
@@ -57,6 +58,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         # Captured DOT damage for synergy explosions
         self.capturedDotDamageForExplosion = None
         self.activeTaskObjects = {}  # Maps taskKey -> actual task object
+        
+        # Drone tracking
+        self.drones = []  # List of deployed drones
 
     def allowedToSafeHelmet(self, toonId: int) -> bool:
         if toonId not in self.safeHelmetCooldownsDict:
@@ -1031,6 +1035,39 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             # Clean up all tasks for the oldest explosion
             for taskKey in explodeGroups[oldestCounter]:
                 self.cleanupExplodeTask(taskKey)
+
+    def deployDroneForToon(self, toonId, craneId):
+        """Deploy a drone for the specified toon."""
+        if self.drones is None:
+            self.drones = []
+        
+        # Check if there are any opponents (toons other than the owner)
+        if not self.game:
+            return
+        involvedToons = self.game.getParticipantIdsNotSpectating()
+        opponents = [tid for tid in involvedToons if tid != toonId]
+        
+        # If no opponents, don't deploy (or deploy and immediately vanish)
+        if not opponents:
+            return
+        
+        # Get the toon's position
+        toon = self.air.doId2do.get(toonId)
+        if not toon:
+            return
+        
+        # Spawn drone above the toon
+        toonPos = toon.getPos()
+        dronePos = Point3(toonPos.getX(), toonPos.getY(), toonPos.getZ() + 15)  # 15 units above
+        
+        # Create the drone
+        from toontown.coghq import DistributedGoonDroneAI
+        drone = DistributedGoonDroneAI.DistributedGoonDroneAI(self.air, self, toonId)
+        drone.generateWithRequired(self.zoneId)
+        # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI
+        # b_setPosition expects a tuple/list of (x, y, z)
+        drone.b_setPosition([dronePos.getX(), dronePos.getY(), dronePos.getZ()])
+        self.drones.append(drone)
 
     def delete(self):
         # Clean up all status effects and tasks before deletion

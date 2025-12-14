@@ -10032,6 +10032,7 @@ OptionNames = {
     "CRANE_EXIT_KEY": "Crane Exit Key",
     "CRANE_EXTEND_KEY": "Crane Extend Cable",
     "CRANE_RETRACT_KEY": "Crane Retract Cable",
+    "DRONE_DEPLOY_KEY": "Deploy Drone",
     "ACTION_BUTTON": "Action Button",
     "SECONDARY_ACTION": "Secondary Action Button",
     "CHAT_HOTKEY": "Chat Button",

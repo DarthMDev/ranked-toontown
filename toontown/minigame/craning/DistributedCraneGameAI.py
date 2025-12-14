@@ -1691,3 +1691,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Update boss if it exists
         if self.getBoss() is not None:
             self.getBoss().setRuleset(self.ruleset)
+    
+    def requestDeployDrone(self):
+        """Handle request to deploy a drone from client."""
+        avId = self.air.getAvatarIdFromSender()
+        if avId not in self.getParticipantIdsNotSpectating():
+            return
+        if self.boss:
+            self.boss.deployDroneForToon(avId, None)

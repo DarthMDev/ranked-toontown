@@ -1341,11 +1341,21 @@ class DistributedCraneGame(DistributedMinigame):
         self.accept("LocalSetFinalBattleMode", self.toFinalBattleMode)
         self.accept("LocalSetOuchMode", self.toOuchMode)
         self.accept("ChatMgr-enterMainMenu", self.chatClosed)
+        
+        # Enable drone deployment keybind (works from anywhere)
+        self.accept(base.controls.DRONE_DEPLOY_KEY, self.__deployDrone)
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
 
         self.__checkSpectatorState()
+    
+    def __deployDrone(self):
+        """Deploy a drone above the local toon."""
+        if not self.hasLocalToon:
+            return
+        # Request drone deployment from server
+        self.sendUpdate('requestDeployDrone', [])
 
     def exitPlay(self):
 
@@ -1356,6 +1366,9 @@ class DistributedCraneGame(DistributedMinigame):
         self.scoreboard.finish()
 
         self.walkStateData.exit()
+        
+        # Disable drone deployment keybind
+        self.ignore(base.controls.DRONE_DEPLOY_KEY)
 
     def enterVictory(self):
         if self.victor == 0:

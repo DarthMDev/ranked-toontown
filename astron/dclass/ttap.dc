@@ -198,6 +198,7 @@ from toontown.coghq import CrusherCell/AI
 from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
 from toontown.suit import DistributedGoon/AI
+from toontown.coghq import DistributedGoonDrone/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -3111,6 +3112,15 @@ dclass DistributedGoon : DistributedCrushableEntity {
   setMovie(uint8, uint32, int32/10, int16) broadcast ram;
 };
 
+dclass DistributedGoonDrone : DistributedGoon {
+  setOwnerId(uint32) broadcast ram;
+  setTargetId(uint32) broadcast ram;
+  shootLaser(uint32) airecv clsend;
+  requestLaserHit(uint32) airecv clsend;
+  destroyDrone() broadcast clsend airecv;
+  vanishWithPoof() broadcast clsend airecv;
+};
+
 dclass DistributedGridGoon : DistributedGoon {
   setPathPts(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) broadcast ram;
 };
@@ -3966,6 +3976,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   updateSpawnOrder(uint32[]) airecv clsend;
   setBestOf(uint8) airecv clsend broadcast ram;
   setRoundInfo(uint8, uint8[]) broadcast ram;
+  requestDeployDrone() airecv clsend;
   nextRound() airecv clsend;
   setCraneSpawn(bool, uint8, uint32) broadcast ram;
   updateCombo(uint32 avId, uint8) broadcast ram;
