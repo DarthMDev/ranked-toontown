@@ -86,6 +86,12 @@ class DistributedCraneGame(DistributedMinigame):
         self.heatDisplay.hide()
         self.endVault = None
         self.statusIndicators = {}  # Dictionary to store status indicators for each toon
+        self.droneCooldowns = {}  # Track drone cooldowns {avId: (startTime, duration)}
+        
+        # Drone cooldown UI elements (shown near leave button when on crane)
+        self.droneCooldownIndicator = None
+        self.droneCooldownText = None
+        self.droneCooldownTask = None
         
         # Status effect system will be set via setStatusEffectSystemId
         self.statusEffectSystem : DistributedStatusEffectSystem | None = None
@@ -1344,6 +1350,9 @@ class DistributedCraneGame(DistributedMinigame):
         
         # Enable drone deployment keybind (works from anywhere)
         self.accept(base.controls.DRONE_DEPLOY_KEY, self.__deployDrone)
+        
+        # Show "Drone Ready!" at the start if not on cooldown
+        self.__initializeDroneIndicator()
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
@@ -1354,6 +1363,16 @@ class DistributedCraneGame(DistributedMinigame):
         """Deploy a drone above the local toon."""
         if not self.hasLocalToon:
             return
+        
+        # Check if on cooldown
+        currentTime = globalClock.getFrameTime()
+        if base.localAvatar.doId in self.droneCooldowns:
+            startTime, duration = self.droneCooldowns[base.localAvatar.doId]
+            endTime = startTime + duration
+            if currentTime < endTime:
+                # Still on cooldown, don't send request
+                return
+        
         # Request drone deployment from server
         self.sendUpdate('requestDeployDrone', [])
 
@@ -1367,12 +1386,137 @@ class DistributedCraneGame(DistributedMinigame):
 
         self.walkStateData.exit()
         
+        # Clean up drone cooldown indicator
+        self.__cleanupDroneCooldownIndicator()
+        
         # Disable drone deployment keybind
         self.ignore(base.controls.DRONE_DEPLOY_KEY)
+    
+    def setDroneCooldown(self, avId, duration):
+        """Receive drone cooldown from server and update UI."""
+        startTime = globalClock.getFrameTime()
+        self.droneCooldowns[avId] = (startTime, duration)
+        
+        # Only show cooldown indicator for local toon
+        if avId == base.localAvatar.doId:
+            self.__showDroneCooldownIndicator(startTime, duration)
+    
+    def __showDroneCooldownIndicator(self, startTime, duration):
+        """Display the drone cooldown indicator near the leave button."""
+        from panda3d.core import TransparencyAttrib
+        
+        # Clean up existing indicator
+        self.__cleanupDroneCooldownIndicator()
+        
+        # Create cooldown text indicator (simple version)
+        # Note: Change the first value in pos (X coordinate) to move left/right
+        # Increase X to move right, decrease to move left
+        self.droneCooldownText = OnscreenText(
+            text='',
+            pos=(1.6, -0.9),  # Changed from 1.05 to 1.6 (moved right)
+            scale=0.05,
+            fg=(1, 0.3, 0.3, 1),
+            align=TextNode.ACenter,
+            mayChange=True,
+            parent=aspect2d
+        )
+        
+        # Store cooldown info
+        self.droneCooldownStartTime = startTime
+        self.droneCooldownDuration = duration
+        
+        # Start update task
+        if self.droneCooldownTask:
+            taskMgr.remove(self.droneCooldownTask)
+        self.droneCooldownTask = taskMgr.add(
+            self.__updateDroneCooldownTask,
+            'droneCooldownTask',
+            extraArgs=[],
+            appendTask=True
+        )
+    
+    def __updateDroneCooldownTask(self, task):
+        """Update the drone cooldown display."""
+        if not self.droneCooldownText:
+            return task.done
+        
+        currentTime = globalClock.getFrameTime()
+        elapsed = currentTime - self.droneCooldownStartTime
+        remaining = max(0, self.droneCooldownDuration - elapsed)
+        
+        if remaining <= 0:
+            # Cooldown finished - keep showing "Ready" until round ends
+            self.droneCooldownText['text'] = 'Drone Ready!'
+            self.droneCooldownText['fg'] = (0.3, 1.0, 0.3, 1)
+            # Keep the task running to maintain the display
+            return task.cont
+        else:
+            # Show remaining time
+            minutes = int(remaining // 60)
+            seconds = int(remaining % 60)
+            self.droneCooldownText['text'] = f'Drone: {minutes}:{seconds:02d}'
+        
+        return task.cont
+    
+    def __cleanupDroneCooldownIndicator(self, task=None):
+        """Remove the drone cooldown indicator."""
+        if self.droneCooldownTask:
+            taskMgr.remove(self.droneCooldownTask)
+            self.droneCooldownTask = None
+        
+        if self.droneCooldownText:
+            self.droneCooldownText.destroy()
+            self.droneCooldownText = None
+        
+        return task.done if task else None
+    
+    def __initializeDroneIndicator(self):
+        """Initialize the drone indicator at the start of play."""
+        # Check if local toon has an active cooldown
+        localAvId = base.localAvatar.doId
+        if localAvId in self.droneCooldowns:
+            startTime, duration = self.droneCooldowns[localAvId]
+            # If cooldown is still active, show it
+            self.__showDroneCooldownIndicator(startTime, duration)
+        else:
+            # No cooldown, show "Drone Ready!"
+            self.__showDroneReadyIndicator()
+    
+    def __showDroneReadyIndicator(self):
+        """Show the 'Drone Ready!' indicator without a cooldown."""
+        from panda3d.core import TransparencyAttrib
+        
+        # Clean up existing indicator
+        self.__cleanupDroneCooldownIndicator()
+        
+        # Create "Drone Ready!" text
+        self.droneCooldownText = OnscreenText(
+            text='Drone Ready!',
+            pos=(1.4, -0.9),
+            scale=0.05,
+            fg=(0.3, 1.0, 0.3, 1),
+            align=TextNode.ACenter,
+            mayChange=True,
+            parent=aspect2d
+        )
+    
+    def __cleanupAllDrones(self):
+        """Request the server to clean up all active drones."""
+        # Send a request to the AI to clean up all drones
+        self.sendUpdate('requestCleanupDrones', [])
 
     def enterVictory(self):
         if self.victor == 0:
             return
+
+        # Clean up all drones when round ends
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache
+        self.droneCooldowns.clear()
+        
+        # Clean up drone cooldown indicator
+        self.__cleanupDroneCooldownIndicator()
 
         victor = base.cr.getDo(self.victor)
         if self.victor == self.localAvId:
@@ -1410,6 +1554,16 @@ class DistributedCraneGame(DistributedMinigame):
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
         self.__cleanupRulesPanel()
+        
+        # Clean up all drones when entering cleanup
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache
+        self.droneCooldowns.clear()
+        
+        # Clean up drone cooldown indicator
+        self.__cleanupDroneCooldownIndicator()
+        
         for toon in self.getParticipants():
             toon.setGhostMode(False)
             toon.show()
@@ -1953,6 +2107,12 @@ class DistributedCraneGame(DistributedMinigame):
 
     def __nextRound(self, task=None):
         """Transition to the next round"""
+        # Clean up all drones when round restarts
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache for next round
+        self.droneCooldowns.clear()
+        
         # The server will handle the transition to the next round automatically
         # We just need to clean up the victory state
         return Task.done

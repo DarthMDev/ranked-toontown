@@ -113,6 +113,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.practiceCheatHandler: CraneGamePracticeCheatAI = CraneGamePracticeCheatAI(self)
 
         self.statusEffectSystem: DistributedStatusEffectSystemAI | None = None
+        self.droneCooldowns = {}  # Track drone deployment cooldowns per player {avId: nextAvailableTime}
 
         # Memory leak prevention - track event listeners and task names
         self._deathListenerEvents = []
@@ -1588,6 +1589,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
+        
+        # Clean up all drones before cleaning up other objects
+        if self.boss and hasattr(self.boss, 'drones'):
+            for drone in list(self.boss.drones):
+                if drone:
+                    drone.vanishWithPoof()
+            self.boss.drones = []
+        
+        # Reset drone cooldowns for all players
+        self.droneCooldowns.clear()
+        
         self.__deleteCraningObjects()
         self.__deleteBoss()
         self.gameFSM.request('inactive')
@@ -1697,5 +1709,34 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         avId = self.air.getAvatarIdFromSender()
         if avId not in self.getParticipantIdsNotSpectating():
             return
+        
+        # Check cooldown (90 seconds = 1.5 minutes)
+        currentTime = globalClock.getFrameTime()
+        DRONE_COOLDOWN = 90  # Integer seconds for DC compatibility
+        
+        if avId in self.droneCooldowns:
+            nextAvailableTime = self.droneCooldowns[avId]
+            if currentTime < nextAvailableTime:
+                # Still on cooldown
+                remainingTime = nextAvailableTime - currentTime
+                self.notify.debug(f'Drone deployment on cooldown for {avId}, {remainingTime:.1f}s remaining')
+                return
+        
+        # Set cooldown
+        self.droneCooldowns[avId] = currentTime + DRONE_COOLDOWN
+        
+        # Broadcast cooldown to all clients (duration as uint32)
+        self.sendUpdate('setDroneCooldown', [avId, int(DRONE_COOLDOWN)])
+        
         if self.boss:
             self.boss.deployDroneForToon(avId, None)
+    
+    def requestCleanupDrones(self):
+        """Handle request to clean up all drones."""
+        if self.boss and hasattr(self.boss, 'drones'):
+            # Clean up all active drones
+            for drone in list(self.boss.drones):
+                if drone:
+                    # Send vanishWithPoof to clients, which will then requestDelete
+                    drone.vanishWithPoof()
+            self.boss.drones = []
