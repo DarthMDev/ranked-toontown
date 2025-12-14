@@ -3978,6 +3978,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   setRoundInfo(uint8, uint8[]) broadcast ram;
   requestDeployDrone() airecv clsend;
   setDroneCooldown(uint32, uint32) broadcast;
+  clearAllDroneCooldowns() broadcast;
   requestCleanupDrones() airecv clsend;
   nextRound() airecv clsend;
   setCraneSpawn(bool, uint8, uint32) broadcast ram;

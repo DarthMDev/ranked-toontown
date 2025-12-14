@@ -1597,8 +1597,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                     drone.vanishWithPoof()
             self.boss.drones = []
         
-        # Reset drone cooldowns for all players
+        # Reset drone cooldowns for all players and broadcast the reset
         self.droneCooldowns.clear()
+        self.sendUpdate('clearAllDroneCooldowns', [])
         
         self.__deleteCraningObjects()
         self.__deleteBoss()

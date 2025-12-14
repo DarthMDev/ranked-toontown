@@ -1401,6 +1401,14 @@ class DistributedCraneGame(DistributedMinigame):
         if avId == base.localAvatar.doId:
             self.__showDroneCooldownIndicator(startTime, duration)
     
+    def clearAllDroneCooldowns(self):
+        """Clear all drone cooldowns (called by server on round restart)."""
+        self.droneCooldowns.clear()
+        # If the indicator is showing a cooldown, show "Drone Ready!" instead
+        if self.droneCooldownText:
+            self.__cleanupDroneCooldownIndicator()
+            self.__showDroneReadyIndicator()
+    
     def __showDroneCooldownIndicator(self, startTime, duration):
         """Display the drone cooldown indicator near the leave button."""
         from panda3d.core import TransparencyAttrib
