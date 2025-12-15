@@ -1,3 +1,5 @@
+import random
+
 from panda3d.core import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
@@ -69,6 +71,8 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
             self._announceHealDrone()
         elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
             self._announceExplosiveDrone()
+        elif self.droneType == CraneLeagueGlobals.DroneType.STUN:
+            self._announceStunDrone()
         else:
             # Unknown type, vanish
             self.vanishWithPoof()
@@ -103,6 +107,10 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
             self.setTargetId(self.boss.doId)
         # Wait 3 seconds for it to fly to CFO, then explode
         taskMgr.doMethodLater(3.0, self.performExplosion, self.uniqueName('performExplosion'))
+
+    def _announceStunDrone(self):
+        """Initialize stun drone behavior - stuns all goons."""
+        taskMgr.doMethodLater(1.0, self.performStun, self.uniqueName('performStun'))
         
     def flyBehavior(self, task):
         """Fly around and gradually move toward target."""
@@ -316,7 +324,7 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
             return Task.done
         
         # Send heal request to client for visual feedback
-        self.sendUpdate('requestHeal', [])
+        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.HEAL.value])
         
         # Heal to full on AI side
         maxHp = owner.getMaxHp()
@@ -333,7 +341,7 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
             return Task.done
         
         # Send explosion request to client for visual feedback
-        self.sendUpdate('requestExplode', [])
+        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.EXPLOSIVE.value])
         
         # Deal damage to CFO (50 damage)
         explosionDamage = 50
@@ -344,22 +352,24 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
         # Vanish after explosion
         taskMgr.doMethodLater(0.5, self.vanishWithPoof, self.uniqueName('vanishAfterExplosion'))
         return Task.done
-    
-    def requestHeal(self):
-        """Handle heal request from client (validation only, healing done on AI)."""
-        avId = self.air.getAvatarIdFromSender()
-        # Validate the request
-        if not self.validate(avId, avId in self.boss.game.getParticipants(), 'requestHeal from unknown avatar'):
-            return
-        # Healing is already done in performHeal, this is just for validation
-    
-    def requestExplode(self):
-        """Handle explosion request from client (validation only, damage done on AI)."""
-        avId = self.air.getAvatarIdFromSender()
-        # Validate the request
-        if not self.validate(avId, avId in self.boss.game.getParticipants(), 'requestExplode from unknown avatar'):
-            return
-        # Damage is already done in performExplosion, this is just for validation
+
+    def performStun(self, task):
+        """Explode and deal damage to CFO."""
+        if not self.boss:
+            self.vanishWithPoof()
+            return Task.done
+
+        # Send explosion request to client for visual feedback
+        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.STUN.value])
+
+        # Disable every goon in the arena
+        if hasattr(self.boss, 'game') and self.boss.game:
+            for goon in self.boss.game.goons:
+                taskMgr.doMethodLater(2 + random.random() / 4, goon.stun, goon.uniqueName('droneStun'), extraArgs=[self.ownerId, 10])
+
+        # Vanish after explosion
+        taskMgr.doMethodLater(3.5, self.vanishWithPoof, self.uniqueName('vanishAfterStun'))
+        return Task.done
     
     def delete(self):
         """Clean up when deleted."""
