@@ -1708,6 +1708,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def requestDeployDrone(self, slotIndex=0):
         """Handle request to deploy a drone from client."""
+        # Check if drones are enabled
+        if not self.ruleset.WANT_DRONES:
+            avId = self.air.getAvatarIdFromSender()
+            self.notify.warning(f"Client {avId} attempted to deploy drone but drones are disabled")
+            return
         avId = self.air.getAvatarIdFromSender()
         if avId not in self.getParticipantIdsNotSpectating():
             return
