@@ -216,9 +216,11 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             self.sendUpdate('destroyDrone', [])
             self.destroyDrone()
             
-    def vanishWithPoof(self):
+    def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect (called from AI or locally)."""
         if self.isEmpty():
+            if task:
+                return Task.done
             return
         
         # Create poof effect using DustCloud (same as when appearing)
@@ -228,6 +230,9 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         def disableAfterPoof():
             self.disable()
         taskMgr.doMethodLater(0.3, lambda task: disableAfterPoof(), self.uniqueName('vanishPoof'))
+        
+        if task:
+            return Task.done
 
     def poof(self):
         dronePos = self.getPos(render)
@@ -874,7 +879,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         elif droneType == CraneLeagueGlobals.DroneType.HEAL.value:
             self.performHealVisualEffect()
         elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE.value:
-            self.performExplosiveVisualEffect()
+            self.performExplodeVisualEffect()
     
     def disable(self):
         """Clean up when disabled."""
