@@ -264,11 +264,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if len(self.getParticipantsNotSpectating()) >= 2 and not self.defaultModifiersInitialized:
             invincibleBoss = CraneLeagueGlobals.ModifierInvincibleBoss()
             timerEnabler = CraneLeagueGlobals.ModifierTimerEnabler(3)
+            sideCranesEnabler = CraneLeagueGlobals.ModifierSideCranesEnabler()
             modifiers.append(invincibleBoss)
             modifiers.append(timerEnabler)
+            modifiers.append(sideCranesEnabler)
             # Also add them to desiredModifiers so they persist until explicitly removed
             self.desiredModifiers.append(invincibleBoss)
             self.desiredModifiers.append(timerEnabler)
+            self.desiredModifiers.append(sideCranesEnabler)
             self.defaultModifiersInitialized = True
 
         self.applyModifiers(modifiers, updateClient=True)
@@ -1708,6 +1711,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def requestDeployDrone(self, slotIndex=0):
         """Handle request to deploy a drone from client."""
+        # Check if drones are enabled
+        if not self.ruleset.WANT_DRONES:
+            avId = self.air.getAvatarIdFromSender()
+            self.notify.warning(f"Client {avId} attempted to deploy drone but drones are disabled")
+            return
         avId = self.air.getAvatarIdFromSender()
         if avId not in self.getParticipantIdsNotSpectating():
             return

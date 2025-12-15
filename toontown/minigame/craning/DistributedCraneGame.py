@@ -377,20 +377,58 @@ class DistributedCraneGame(DistributedMinigame):
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    return
+            
             cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask)  # TTCC No Back Wall
-        except:
-            print('[Crane League] Failed to disable back wall.')
+            self.notify.debug('[Crane League] Back wall disabled')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to disable back wall: {e}')
 
     def enableBackWall(self):
         if self.endVault is None:
+            self.notify.warning('[Crane League] Cannot enable back wall: endVault is None')
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
-            cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | BitMask32.lowerOn(3) << 21) #TTR Back Wall
-        except:
-            print('[Crane League] Failed to enable back wall.')
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                self.notify.warning('[Crane League] Cannot enable back wall: evWalls not found')
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node not found in evWalls')
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node is None')
+                    return
+            
+            backWallMask = BitMask32.lowerOn(3) << 21
+            newMask = OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | backWallMask
+            cn.setIntoCollideMask(newMask)
+            self.notify.debug(f'[Crane League] Back wall enabled with mask: {newMask}')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to enable back wall: {e}')
 
     def setToonsToBattleThreePos(self):
         """
@@ -1448,6 +1486,10 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __handleDroneSlotClick(self, slotIndex):
         """Handle clicking on a drone slot - behavior depends on game state."""
+        # Check if drones are enabled
+        if not self.__areDronesEnabled():
+            return
+        
         # Check if we're in rules phase (can change drone) or play phase (deploy drone)
         if hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
             currentState = self.frameworkFSM.getCurrentState().getName()
@@ -1544,6 +1586,45 @@ class DistributedCraneGame(DistributedMinigame):
         # The AI will handle the database save via b_setDroneSetup
         base.localAvatar.sendUpdate('setDroneSetup', [setup])
     
+    def __areDronesEnabled(self):
+        """Check if drones are enabled via the modifier system."""
+        if not hasattr(self, 'ruleset') or not self.ruleset:
+            return False
+        enabled = getattr(self.ruleset, 'WANT_DRONES', False)
+        self.notify.debug(f"__areDronesEnabled: {enabled}, ruleset.WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
+        return enabled
+    
+    def __updateDroneUIVisibility(self):
+        """Update drone UI visibility based on whether drones are enabled."""
+        # Create UI if it doesn't exist and drones are enabled
+        if (not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None) and self.__areDronesEnabled():
+            self.__loadDroneSetupFromToon()
+            self.__createDroneSelectionUI()
+        
+        if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
+            return
+        
+        if self.__areDronesEnabled():
+            # Show drone UI if we're in play state or rules state
+            if hasattr(self, 'gameFSM') and self.gameFSM.getCurrentState():
+                currentState = self.gameFSM.getCurrentState().getName()
+                if currentState == 'play':
+                    self.droneSelectionFrame.show()
+                elif currentState == 'frameworkRules':
+                    self.droneSelectionFrame.show()
+                else:
+                    self.droneSelectionFrame.hide()
+            elif hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
+                # Check framework FSM if game FSM doesn't exist yet
+                frameworkState = self.frameworkFSM.getCurrentState().getName()
+                if frameworkState == 'frameworkRules':
+                    self.droneSelectionFrame.show()
+                else:
+                    self.droneSelectionFrame.hide()
+        else:
+            # Hide drone UI if drones are disabled
+            self.droneSelectionFrame.hide()
+    
     def __updateDroneSlotUI(self, slotIndex):
         """Update the UI for a specific drone slot."""
         from toontown.coghq import CraneLeagueGlobals
@@ -1612,10 +1693,22 @@ class DistributedCraneGame(DistributedMinigame):
 
         if self.boss is not None:
             self.boss.setRuleset(self.ruleset)
+        
+        # Update back wall based on ruleset
+        if self.ruleset.WANT_BACKWALL:
+            self.enableBackWall()
+        else:
+            self.disableBackWall()
+        
+        # Update drone UI visibility when ruleset changes
+        self.__updateDroneUIVisibility()
 
     def setRawRuleset(self, attrs):
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset.fromStruct(attrs)
+        self.notify.debug(f"setRawRuleset: WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
         self.updateRulesetDependencies()
+        # Update drone UI visibility when ruleset changes
+        self.__updateDroneUIVisibility()
 
     def getRawRuleset(self):
         return self.ruleset.asStruct()
@@ -1722,42 +1815,48 @@ class DistributedCraneGame(DistributedMinigame):
         self.accept("LocalSetOuchMode", self.toOuchMode)
         self.accept("ChatMgr-enterMainMenu", self.chatClosed)
         
-        # Enable drone deployment keybinds for 3 slots from settings
-        slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
-        self.droneSlotKeybinds = []
-        for i, keyName in enumerate(slotKeyNames):
-            keybind = base.settings.getControl(keyName)
-            self.droneSlotKeybinds.append(keybind)
-            self.accept(keybind, self.__deployDrone, [i])
-        
-        # Move drone UI next to laff meter (right side) and show it
-        # If drone UI doesn't exist (shouldn't happen, but be safe), create it
-        if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
-            self.__createDroneSelectionUI()
-        
-        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
-            # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
-            # Position drone UI to the right of it with more spacing
-            self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
-            # Adjust position: laff meter width ~0.15, so start further right at ~0.5 to avoid overlap
-            self.droneSelectionFrame.setPos(0.4, 0.0, 0.13)
-            # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
-            slotSpacing = 0.25
-            if hasattr(self, 'droneSelectionSlots'):
-                for i, slot in enumerate(self.droneSelectionSlots):
-                    if slot.get('frame'):
-                        slot['frame'].setPos(i * slotSpacing, 0, 0)
-            # Show the UI
-            self.droneSelectionFrame.show()
-        
-        # Initialize cooldown displays for all slots
-        localAvId = base.localAvatar.doId
-        for i in range(3):
-            if localAvId in self.droneCooldowns and i in self.droneCooldowns[localAvId]:
-                startTime, duration = self.droneCooldowns[localAvId][i]
-                self.__updateDroneSlotCooldown(i, startTime, duration)
-            else:
-                self.__updateDroneSlotCooldown(i, None, None)
+        # Only enable drones if the modifier is active
+        if self.__areDronesEnabled():
+            # Enable drone deployment keybinds for 3 slots from settings
+            slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
+            self.droneSlotKeybinds = []
+            for i, keyName in enumerate(slotKeyNames):
+                keybind = base.settings.getControl(keyName)
+                self.droneSlotKeybinds.append(keybind)
+                self.accept(keybind, self.__deployDrone, [i])
+            
+            # Move drone UI next to laff meter (right side) and show it
+            # If drone UI doesn't exist (shouldn't happen, but be safe), create it
+            if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
+                self.__createDroneSelectionUI()
+            
+            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+                # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
+                # Position drone UI to the right of it with more spacing
+                self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
+                # Adjust position: laff meter width ~0.15, so start further right at ~0.5 to avoid overlap
+                self.droneSelectionFrame.setPos(0.4, 0.0, 0.13)
+                # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
+                slotSpacing = 0.25
+                if hasattr(self, 'droneSelectionSlots'):
+                    for i, slot in enumerate(self.droneSelectionSlots):
+                        if slot.get('frame'):
+                            slot['frame'].setPos(i * slotSpacing, 0, 0)
+                # Show the UI
+                self.droneSelectionFrame.show()
+            
+            # Initialize cooldown displays for all slots
+            localAvId = base.localAvatar.doId
+            for i in range(3):
+                if localAvId in self.droneCooldowns and i in self.droneCooldowns[localAvId]:
+                    startTime, duration = self.droneCooldowns[localAvId][i]
+                    self.__updateDroneSlotCooldown(i, startTime, duration)
+                else:
+                    self.__updateDroneSlotCooldown(i, None, None)
+        else:
+            # Drones disabled - hide UI if it exists
+            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+                self.droneSelectionFrame.hide()
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
@@ -2322,11 +2421,15 @@ class DistributedCraneGame(DistributedMinigame):
         # Clean up any existing drone UI first (in case of restart)
         self.__cleanupDroneSelectionUI()
         
-        # Load saved drone setup from toon
+        # Always load saved drone setup from toon (even if drones aren't enabled yet)
+        # This ensures the setup is ready when the modifier is added
         self.__loadDroneSetupFromToon()
         
-        # Create drone selection UI
+        # Always create drone selection UI (it will be hidden if drones aren't enabled)
         self.__createDroneSelectionUI()
+        
+        # Update visibility based on current modifier state
+        self.__updateDroneUIVisibility()
 
     def exitFrameworkRules(self):
         # Restore all toon shadows

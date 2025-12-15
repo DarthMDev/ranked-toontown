@@ -140,6 +140,9 @@ class CraneGameRuleset:
 
         # Elemental Mastery Mode Modifier
         self.WANT_ELEMENTAL_MASTERY_MODE = False
+        
+        # Drone mechanic
+        self.WANT_DRONES = False
 
         self.HEAVY_CRANE_DAMAGE_MULTIPLIER = 1.25
 
@@ -306,6 +309,7 @@ class CraneGameRuleset:
             self.CFO_FLINCHES_ON_HIT,
             self.SAFES_STUN_GOONS,
             self.GOONS_ALWAYS_WAKE_WHEN_GRABBED,
+            self.WANT_DRONES,
         ]
 
     @classmethod
@@ -339,6 +343,7 @@ class CraneGameRuleset:
         rulesetInstance.CFO_FLINCHES_ON_HIT = attrs[25]
         rulesetInstance.SAFES_STUN_GOONS = attrs[26]
         rulesetInstance.GOONS_ALWAYS_WAKE_WHEN_GRABBED = attrs[27]
+        rulesetInstance.WANT_DRONES = attrs[28]
         return rulesetInstance
 
     def __str__(self):
@@ -1469,6 +1474,90 @@ class ModifierElementalMasteryMode(CFORulesetModifierBase):
     
     def apply(self, cfoRuleset):
         cfoRuleset.WANT_ELEMENTAL_MASTERY_MODE = True
+
+
+class ModifierDroneEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 33
+    MODIFIER_TYPE = CFORulesetModifierBase.SPECIAL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_CYAN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.CYAN
+
+    def getName(self):
+        return 'Drone Support'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sdrone deployment%(color_end)s during the crane game!'
+    
+    def getHeat(self):
+        return 0  # Drones are neutral, they don't affect difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_DRONES = True
+
+
+class ModifierHeavyCranesEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 34
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Heavy Cranes'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sHeavy Cranes%(color_end)s with increased damage!'
+    
+    def getHeat(self):
+        return -2  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_HEAVY_CRANES = True
+
+
+class ModifierSideCranesEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 35
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Side Cranes'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sSide Cranes%(color_end)s for additional crane options!'
+    
+    def getHeat(self):
+        return -1  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_SIDECRANES = True
+
+
+class ModifierBackWallEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 36
+    MODIFIER_TYPE = CFORulesetModifierBase.HURTFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_RED
+    DESCRIPTION_COLOR = CFORulesetModifierBase.RED
+
+    def getName(self):
+        return 'Back Wall'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sBack Wall%(color_end)s, classic collision mode!'
+    
+    def getHeat(self):
+        return 2  # Hurtful modifier, increases difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_BACKWALL = True
 
 
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point
