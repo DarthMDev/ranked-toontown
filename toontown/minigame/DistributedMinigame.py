@@ -395,9 +395,9 @@ class DistributedMinigame(DistributedObject.DistributedObject):
 
     def _handleReadyTimeoutExpired(self):
         """Called when the ready timeout timer expires (though server handles the actual timeout)"""
-        # The server will handle the actual timeout and game abort
-        # This is just for visual feedback
-        pass
+        # Clean up the timer when it expires
+        self._destroyReadyTimeoutTimer()
+        # The server will handle forcing players ready and starting the game
 
     def _destroyReadyTimeoutTimer(self):
         """Clean up the ready timeout timer"""
@@ -489,7 +489,21 @@ class DistributedMinigame(DistributedObject.DistributedObject):
             return
         self.notify.debug('BASE: setGameStart: Starting game')
         self.gameStartTime = globalClockDelta.networkToLocalTime(timestamp)
+        # If we're still in frameworkRules (e.g., due to timeout), transition through frameworkWaitServerStart first
+        currentState = self.frameworkFSM.getCurrentState()
+        if currentState and currentState.getName() == 'frameworkRules':
+            self.notify.debug('BASE: setGameStart: Transitioning from frameworkRules, going through frameworkWaitServerStart first')
+            self.frameworkFSM.request('frameworkWaitServerStart')
+            # Use a task to transition to frameworkGame after the first transition completes
+            taskMgr.doMethodLater(0.1, self.__transitionToGame, self.uniqueName('timeout-game-transition'))
+        else:
+            # Normal case: we're already in frameworkWaitServerStart, transition directly
+            self.frameworkFSM.request('frameworkGame')
+    
+    def __transitionToGame(self, task):
+        """Helper to transition to frameworkGame after going through frameworkWaitServerStart"""
         self.frameworkFSM.request('frameworkGame')
+        return task.done
 
     def setGameAbort(self):
         if not self.hasLocalToon:
@@ -575,9 +589,15 @@ class DistributedMinigame(DistributedObject.DistributedObject):
 
     def exitFrameworkWaitServerStart(self):
         self.waitingStartLabel.hide()
+        # Ensure timer is cleaned up when transitioning out of wait state
+        self._destroyReadyTimeoutTimer()
+        # Clean up any pending timeout transition task
+        taskMgr.remove(self.uniqueName('timeout-game-transition'))
 
     def enterFrameworkGame(self):
         self.notify.debug('BASE: enterFrameworkGame')
+        # Ensure timer is cleaned up when game starts
+        self._destroyReadyTimeoutTimer()
 
     def exitFrameworkGame(self):
         pass
@@ -612,6 +632,8 @@ class DistributedMinigame(DistributedObject.DistributedObject):
         self.notify.debug('BASE: enterFrameworkCleanup')
         # Clean up the ready timeout timer
         self._destroyReadyTimeoutTimer()
+        # Clean up any pending timeout transition task
+        taskMgr.remove(self.uniqueName('timeout-game-transition'))
         for action in self.cleanupActions:
             action()
 

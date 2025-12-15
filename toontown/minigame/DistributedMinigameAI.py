@@ -364,7 +364,18 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
 
         def handleTimeout(avIds, self = self):
             self.notify.debug("BASE: timed out waiting for clients %s to report 'ready'" % avIds)
-            self.setGameAbort()
+            # Instead of aborting, force all remaining players to be ready and start the game
+            for avId in avIds:
+                if avId in self.stateDict and self.stateDict[avId] != READY:
+                    self.notify.debug(f"BASE: Forcing avatar {avId} to ready state due to timeout")
+                    self.stateDict[avId] = READY
+                    self.__barrier.clear(avId)
+            # Check if all avatars are now ready and manually trigger if needed
+            # (The barrier should auto-trigger, but this ensures it happens)
+            allReady = all(self.stateDict.get(avId, None) == READY for avId in self.avIdList)
+            if allReady:
+                self.notify.debug("BASE: All avatars are now ready after timeout, starting game")
+                allAvatarsReady()
 
         self.__barrier = ToonBarrier('waitClientsReady', self.uniqueName('waitClientsReady'), self.avIdList, READY_TIMEOUT, allAvatarsReady, handleTimeout)
         for avId in list(self.stateDict.keys()):

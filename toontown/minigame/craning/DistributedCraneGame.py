@@ -1230,17 +1230,30 @@ class DistributedCraneGame(DistributedMinigame):
             self.rulesPanel = None
 
     def updateRequiredElements(self):
-        self.bossSpeedrunTimer.cleanup()
+        # Clean up existing timer if it exists
+        if hasattr(self, 'bossSpeedrunTimer') and self.bossSpeedrunTimer is not None:
+            self.bossSpeedrunTimer.cleanup()
+        
+        # Recreate timer
         self.bossSpeedrunTimer = BossSpeedrunTimedTimer(
             time_limit=self.ruleset.TIMER_MODE_TIME_LIMIT) if self.ruleset.TIMER_MODE else BossSpeedrunTimer()
         self.bossSpeedrunTimer.hide()
         self.updateRulesetDependencies()
 
     def updateRulesetDependencies(self):
-        # If the scoreboard was made then update the ruleset
-        if self.scoreboard:
+        # Recreate scoreboard if it doesn't exist
+        if not hasattr(self, 'scoreboard') or self.scoreboard is None:
+            self.scoreboard = CashbotBossScoreboard(ruleset=self.ruleset)
+            self.scoreboard.hide()
+        else:
+            # If the scoreboard exists, update the ruleset
             self.scoreboard.set_ruleset(self.ruleset)
 
+        # Recreate heat display if it doesn't exist
+        if not hasattr(self, 'heatDisplay') or self.heatDisplay is None:
+            self.heatDisplay = CraneLeagueHeatDisplay()
+            self.heatDisplay.hide()
+        
         self.heatDisplay.update(self.modifiers)
 
         if self.boss is not None:
@@ -1296,6 +1309,11 @@ class DistributedCraneGame(DistributedMinigame):
 
         # Display Modifiers Heat
         self.updateRequiredElements()
+
+        # Ensure scoreboard exists (updateRequiredElements should have created it, but double-check)
+        if not hasattr(self, 'scoreboard') or self.scoreboard is None:
+            self.scoreboard = CashbotBossScoreboard(ruleset=self.ruleset)
+            self.scoreboard.hide()
 
         # Setup the scoreboard
         self.scoreboard.clearToons()
@@ -1544,12 +1562,18 @@ class DistributedCraneGame(DistributedMinigame):
             if roundWins >= winsNeeded:
                 # Match is over - use normal victory flow
                 taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+                # Safety timeout: force gameOver after 30 seconds if something goes wrong
+                taskMgr.doMethodLater(30, self.gameOver, self.uniqueName("craneGameVictorySafety"), extraArgs=[])
             else:
                 # Round is over, but match continues - shorter victory time
                 taskMgr.doMethodLater(5, self.__nextRound, self.uniqueName("craneGameNextRound"), extraArgs=[])
+                # Safety timeout: force next round after 15 seconds if something goes wrong
+                taskMgr.doMethodLater(15, self.__nextRound, self.uniqueName("craneGameNextRoundSafety"), extraArgs=[])
         else:
             # Single round match
             taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+            # Safety timeout: force gameOver after 30 seconds if something goes wrong
+            taskMgr.doMethodLater(30, self.gameOver, self.uniqueName("craneGameVictorySafety"), extraArgs=[])
         
         for crane in self.cranes.values():
             crane.stopFlicker()
@@ -1557,6 +1581,8 @@ class DistributedCraneGame(DistributedMinigame):
     def exitVictory(self):
         taskMgr.remove(self.uniqueName("craneGameVictory"))
         taskMgr.remove(self.uniqueName("craneGameNextRound"))
+        taskMgr.remove(self.uniqueName("craneGameVictorySafety"))
+        taskMgr.remove(self.uniqueName("craneGameNextRoundSafety"))
         camera.reparentTo(base.localAvatar)
 
     def enterCleanup(self):
@@ -1577,12 +1603,22 @@ class DistributedCraneGame(DistributedMinigame):
             toon.show()
             toon.setZ(0) # Reset Z position
         self.overlayText.removeNode()
-        self.bossSpeedrunTimer.cleanup()
-        del self.bossSpeedrunTimer
-        self.scoreboard.cleanup()
-        self.scoreboard = None
-        self.heatDisplay.cleanup()
-        self.heatDisplay = None
+        
+        # Clean up timer
+        if hasattr(self, 'bossSpeedrunTimer') and self.bossSpeedrunTimer is not None:
+            self.bossSpeedrunTimer.cleanup()
+            self.bossSpeedrunTimer = None
+        
+        # Clean up scoreboard
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            self.scoreboard.cleanup()
+            self.scoreboard = None
+        
+        # Clean up heat display
+        if hasattr(self, 'heatDisplay') and self.heatDisplay is not None:
+            self.heatDisplay.cleanup()
+            self.heatDisplay = None
+        
         self.boss = None
         
         # Cleanup status effect system
@@ -1794,13 +1830,13 @@ class DistributedCraneGame(DistributedMinigame):
 
 
 
-        # Only show the play and participants buttons for the leader
+        # Show the play button for all players (everyone needs to ready up)
+        self.playButton.show()
+        
+        # Only show the modifiers and best-of buttons for the leader
         if self.isLocalToonHost():
-            self.playButton.show()
             self.modifiersButton.show()
             self.bestOfButton.show()
-        else:
-            messenger.send(self.rulesDoneEvent)
 
         # Position toons in the rules formation
         self.setToonsToRulesPositions()
@@ -2045,10 +2081,8 @@ class DistributedCraneGame(DistributedMinigame):
 
     def enterFrameworkWaitServerStart(self):
         self.notify.debug('BASE: enterFrameworkWaitServerStart')
-        if self.numPlayers > 1 and self.hasHost():
-            msg = "Waiting for Group Leader to start..."
-        elif self.numPlayers > 1:
-            msg = "The game will start shortly..."
+        if self.numPlayers > 1:
+            msg = TTLocalizer.MinigameWaitingForOtherPlayers
         else:
             msg = TTLocalizer.MinigamePleaseWait
         self.waitingStartLabel['text'] = msg
