@@ -3,6 +3,7 @@ from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedObjectAI
 from toontown.suit import DistributedGoonAI
+from toontown.coghq import CraneLeagueGlobals
 import math
 
 class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
@@ -10,10 +11,11 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
     
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedGoonDroneAI')
     
-    def __init__(self, air, boss, ownerId):
+    def __init__(self, air, boss, ownerId, droneType=CraneLeagueGlobals.DroneType.LASER):
         DistributedGoonAI.DistributedGoonAI.__init__(self, air, 0)
         self.boss = boss
         self.ownerId = ownerId
+        self.droneType = droneType
         self.targetId = None
         self.deployTime = globalClock.getFrameTime()
         self.flyTask = None
@@ -43,10 +45,36 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
     def generate(self):
         DistributedGoonAI.DistributedGoonAI.generate(self)
         self.d_setOwnerId(self.ownerId)
+        self.d_setDroneType(self.droneType.value)
+        
+    def setDroneType(self, droneType):
+        """Set the drone type (received from AI)."""
+        if isinstance(droneType, int):
+            self.droneType = CraneLeagueGlobals.DroneType(droneType)
+        else:
+            self.droneType = droneType
+        self.d_setDroneType(self.droneType.value)
+    
+    def d_setDroneType(self, droneTypeValue):
+        """Send drone type to clients."""
+        self.sendUpdate('setDroneType', [droneTypeValue])
         
     def announceGenerate(self):
         DistributedGoonAI.DistributedGoonAI.announceGenerate(self)
         
+        # Handle different drone types
+        if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+            self._announceLaserDrone()
+        elif self.droneType == CraneLeagueGlobals.DroneType.HEAL:
+            self._announceHealDrone()
+        elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+            self._announceExplosiveDrone()
+        else:
+            # Unknown type, vanish
+            self.vanishWithPoof()
+    
+    def _announceLaserDrone(self):
+        """Initialize laser drone behavior."""
         # Determine target immediately when drone spawns (cannot be the owner)
         targetId = self.findNearestOpponent()
         if targetId:
@@ -60,6 +88,21 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
         # We just need to schedule the laser shots at the right time
         # Sequence: 1s hover + 2s lerp + 1s lock = 4 seconds before lasers
         taskMgr.doMethodLater(4.0, self.shootLasers, self.uniqueName('shootLasers'))
+    
+    def _announceHealDrone(self):
+        """Initialize heal drone behavior - heals deployer after a short delay."""
+        # Heal drone doesn't need a target, just heals the owner
+        # Wait 2 seconds then heal
+        taskMgr.doMethodLater(2.0, self.performHeal, self.uniqueName('performHeal'))
+    
+    def _announceExplosiveDrone(self):
+        """Initialize explosive drone behavior - flies to CFO and explodes."""
+        # Explosive drone targets the CFO
+        # Set target to CFO's doId (for client-side visual targeting)
+        if self.boss:
+            self.setTargetId(self.boss.doId)
+        # Wait 3 seconds for it to fly to CFO, then explode
+        taskMgr.doMethodLater(3.0, self.performExplosion, self.uniqueName('performExplosion'))
         
     def flyBehavior(self, task):
         """Fly around and gradually move toward target."""
@@ -161,6 +204,10 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
                     nearestId = toonId
                     
         return nearestId
+    
+    def findCFO(self):
+        """Find the CFO boss for explosive drone targeting."""
+        return self.boss if self.boss else None
         
     def shootLasers(self, task):
         """Shoot 3 lasers at the target over 1 second (1/3 second each)."""
@@ -261,6 +308,59 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
         self.sendUpdate('destroyDrone', [])
         self.requestDelete()
     
+    def performHeal(self, task):
+        """Heal the deployer to full laff."""
+        owner = self.air.doId2do.get(self.ownerId)
+        if not owner:
+            self.vanishWithPoof()
+            return Task.done
+        
+        # Send heal request to client for visual feedback
+        self.sendUpdate('requestHeal', [])
+        
+        # Heal to full on AI side
+        maxHp = owner.getMaxHp()
+        owner.b_setHp(maxHp)
+        
+        # Vanish after healing
+        taskMgr.doMethodLater(1.0, self.vanishWithPoof, self.uniqueName('vanishAfterHeal'))
+        return Task.done
+    
+    def performExplosion(self, task):
+        """Explode and deal damage to CFO."""
+        if not self.boss:
+            self.vanishWithPoof()
+            return Task.done
+        
+        # Send explosion request to client for visual feedback
+        self.sendUpdate('requestExplode', [])
+        
+        # Deal damage to CFO (50 damage)
+        explosionDamage = 50
+        if hasattr(self.boss, 'game') and self.boss.game:
+            # Use game's recordHit method
+            self.boss.game.recordHit(explosionDamage, impact=1.0, craneId=-1, objId=0, isGoon=False, isDOT=False)
+        
+        # Vanish after explosion
+        taskMgr.doMethodLater(0.5, self.vanishWithPoof, self.uniqueName('vanishAfterExplosion'))
+        return Task.done
+    
+    def requestHeal(self):
+        """Handle heal request from client (validation only, healing done on AI)."""
+        avId = self.air.getAvatarIdFromSender()
+        # Validate the request
+        if not self.validate(avId, avId in self.boss.game.getParticipants(), 'requestHeal from unknown avatar'):
+            return
+        # Healing is already done in performHeal, this is just for validation
+    
+    def requestExplode(self):
+        """Handle explosion request from client (validation only, damage done on AI)."""
+        avId = self.air.getAvatarIdFromSender()
+        # Validate the request
+        if not self.validate(avId, avId in self.boss.game.getParticipants(), 'requestExplode from unknown avatar'):
+            return
+        # Damage is already done in performExplosion, this is just for validation
+    
     def delete(self):
         """Clean up when deleted."""
         # Clean up tasks
@@ -268,6 +368,10 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
             taskMgr.remove(self.flyTask)
             self.flyTask = None
         taskMgr.remove(self.uniqueName('shootLasers'))
+        taskMgr.remove(self.uniqueName('performHeal'))
+        taskMgr.remove(self.uniqueName('performExplosion'))
+        taskMgr.remove(self.uniqueName('vanishAfterHeal'))
+        taskMgr.remove(self.uniqueName('vanishAfterExplosion'))
         # Remove all shootLaser tasks
         for i in range(3):
             taskMgr.remove(self.uniqueName('shootLaser-%d' % i))

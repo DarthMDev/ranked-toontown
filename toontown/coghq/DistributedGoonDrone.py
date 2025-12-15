@@ -6,7 +6,7 @@ from direct.distributed import DistributedObject
 from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import DistributedGoon
-from toontown.coghq import DistributedCrushableEntity
+from toontown.coghq import DistributedCrushableEntity, CraneLeagueGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
 from panda3d.core import Vec2, Vec3
@@ -23,6 +23,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         self.boss = None
         self.ownerId = 0  # Toon who deployed this drone
         self.targetId = None  # Target toon ID
+        self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default to laser
         self.deployTime = 0
         self.propeller = None
         self.propellerSpinTask = None
@@ -35,6 +36,42 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         """Set the owner ID (received from AI)."""
         self.ownerId = ownerId
         
+    def setDroneType(self, droneTypeValue):
+        """Set the drone type (received from AI)."""
+        self.droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        # Update hat color based on drone type
+        self.updateHatColor()
+    
+    def updateHatColor(self):
+        """Update the hat color based on drone type."""
+        hatColor = self.droneType.getHatColor()
+        
+        # Try multiple methods to find the hat
+        hat = None
+        
+        # Method 1: Try hat directly (if goon has created it)
+        if hasattr(self, 'hat') and self.hat and not self.hat.isEmpty():
+            hat = self.hat
+        
+        # Method 2: Try finding via head
+        if not hat and hasattr(self, 'head') and self.head and not self.head.isEmpty():
+            hat = self.head.find('**/hat')
+        
+        # Method 3: Try finding via joint8 (hat joint)
+        if hat.isEmpty() if hat else True:
+            hat = self.find('**/joint8')
+        
+        # Method 4: Try finding any hat in the model
+        if hat.isEmpty() if hat else True:
+            hat = self.find('**/hat')
+        
+        if hat and not hat.isEmpty():
+            hat.setColorScale(hatColor)
+        else:
+            # Hat not found yet, try again later (head might not be set up)
+            taskMgr.remove(self.uniqueName('updateHatColor'))
+            taskMgr.doMethodLater(0.2, self.updateHatColor, self.uniqueName('updateHatColor'))
+    
     def setTargetId(self, targetId):
         """Set the target ID (received from AI)."""
         if targetId == 0:
@@ -46,7 +83,10 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             # Check if behavior hasn't started yet
             if not hasattr(self, 'behaviorSequence') or self.behaviorSequence is None:
                 taskMgr.remove(self.uniqueName('startBehavior'))
-                self.startFlying()
+                if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+                    self.startFlying()
+                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+                    self.startFlyingToCFO()
         
     def generate(self):
         DistributedCrushableEntity.DistributedCrushableEntity.generate(self)
@@ -57,23 +97,38 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         DistributedGoon.DistributedGoon.announceGenerate(self)
         
         # Get boss reference from owner or find it
-        if hasattr(base, 'boss'):
-            self.boss = base.boss
-        elif hasattr(base, 'cr') and hasattr(base.cr, 'doId2do'):
-            # Try to find boss in scene
-            for obj in base.cr.doId2do.values():
-                if hasattr(obj, '__class__') and 'CashbotBoss' in obj.__class__.__name__:
-                    self.boss = obj
-                    break
+        # First try to get from game if owner is in a crane game
+        owner = base.cr.doId2do.get(self.ownerId)
+        if owner:
+            # Check if owner is in a minigame that has a boss
+            if hasattr(base, 'curMinigame') and base.curMinigame:
+                if hasattr(base.curMinigame, 'boss') and base.curMinigame.boss:
+                    self.boss = base.curMinigame.boss
         
-        # Check if there are any opponents
-        if not self.hasOpponents():
-            # No opponents, vanish immediately with poof
-            def vanishNoOpponents(task):
-                self.vanishWithPoof()
-                return Task.done
-            taskMgr.doMethodLater(0.1, vanishNoOpponents, self.uniqueName('vanishNoOpponents'))
-            return
+        # Fallback: try other methods
+        if not self.boss:
+            if hasattr(base, 'boss'):
+                self.boss = base.boss
+            elif hasattr(base, 'cr') and hasattr(base.cr, 'doId2do'):
+                # Try to find boss in scene
+                for obj in base.cr.doId2do.values():
+                    if hasattr(obj, '__class__') and 'CashbotBoss' in obj.__class__.__name__:
+                        self.boss = obj
+                        break
+        
+        # Check if there are any opponents (only for laser drones)
+        # Heal and explosive drones don't need opponents
+        if not hasattr(self, 'droneType'):
+            self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default
+        
+        if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+            if not self.hasOpponents():
+                # No opponents, vanish immediately with poof
+                def vanishNoOpponents(task):
+                    self.vanishWithPoof()
+                    return Task.done
+                taskMgr.doMethodLater(0.1, vanishNoOpponents, self.uniqueName('vanishNoOpponents'))
+                return
         
         # Make sure the drone is visible and in the right state
         # The parent announceGenerate might have put us in 'Off' state which hides us
@@ -108,15 +163,27 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
                 # Start propeller rotation
                 self.startPropellerSpin()
                 
-                # Wait for target to be set before starting behavior
-                # The target is set by the AI via setTargetId
-                # Use a small delay to ensure target is received
+                # Update hat color based on drone type (will be set via setDroneType)
+                # We'll update it when setDroneType is called
+                
+                # Wait for drone type and target to be set before starting behavior
+                # Use a small delay to ensure data is received
                 def startBehavior(task):
-                    if self.targetId:
-                        self.startFlying()
-                    else:
-                        # If still no target after delay, vanish
-                        self.vanishWithPoof()
+                    if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+                        if self.targetId:
+                            self.startFlying()
+                        else:
+                            # If still no target after delay, vanish
+                            self.vanishWithPoof()
+                    elif self.droneType == CraneLeagueGlobals.DroneType.HEAL:
+                        # Heal drone doesn't need target, just hover above owner
+                        self.startHovering()
+                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+                        # Explosive drone flies to CFO (targetId should be CFO's doId)
+                        if self.targetId or self.boss:
+                            self.startFlyingToCFO()
+                        else:
+                            self.vanishWithPoof()
                     return Task.done
                 taskMgr.doMethodLater(0.2, startBehavior, self.uniqueName('startBehavior'))
             return Task.done
@@ -691,6 +758,95 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         if toon == base.localAvatar:
             messenger.send('exitCrane')
         
+    def startHovering(self):
+        """Start hovering behavior for heal drone - just hovers above owner."""
+        owner = base.cr.doId2do.get(self.ownerId)
+        if not owner:
+            self.vanishWithPoof()
+            return
+        
+        ownerPos = owner.getPos(render)
+        hoverPos = Point3(ownerPos.getX(), ownerPos.getY(), ownerPos.getZ() + 15)
+        self.setPos(hoverPos)
+        # Heal drone just hovers - the AI will trigger the heal after 2 seconds
+    
+    def startFlyingToCFO(self):
+        """Start flying to CFO for explosive drone."""
+        # Find boss if not set - try multiple methods
+        if not self.boss:
+            # Method 1: Get from minigame
+            if hasattr(base, 'curMinigame') and base.curMinigame:
+                if hasattr(base.curMinigame, 'boss') and base.curMinigame.boss:
+                    self.boss = base.curMinigame.boss
+            
+            # Method 2: Try base.boss
+            if not self.boss and hasattr(base, 'boss'):
+                self.boss = base.boss
+            
+            # Method 3: Search in doId2do
+            if not self.boss and hasattr(base, 'cr') and hasattr(base.cr, 'doId2do'):
+                for obj in base.cr.doId2do.values():
+                    if hasattr(obj, '__class__') and 'CashbotBoss' in obj.__class__.__name__:
+                        self.boss = obj
+                        break
+        
+        if not self.boss:
+            self.notify.warning('Explosive drone could not find CFO boss')
+            self.vanishWithPoof()
+            return
+        
+        owner = base.cr.doId2do.get(self.ownerId)
+        if not owner:
+            self.vanishWithPoof()
+            return
+        
+        ownerPos = owner.getPos(render)
+        startPos = Point3(ownerPos.getX(), ownerPos.getY(), ownerPos.getZ() + 15)
+        self.setPos(startPos)
+        
+        # Get CFO position
+        bossPos = self.boss.getPos(render)
+        targetPos = Point3(bossPos.getX(), bossPos.getY(), bossPos.getZ() + 10)  # 10 units above CFO
+        
+        # Lerp to CFO position over 3 seconds
+        lerpDuration = 3.0
+        self.behaviorSequence = Sequence(
+            LerpPosInterval(self, lerpDuration, targetPos, startPos=startPos, blendType='easeInOut'),
+            Func(self.onReachedCFO)
+        )
+        self.behaviorSequence.start()
+    
+    def onReachedCFO(self):
+        """Called when explosive drone reaches CFO."""
+        # The AI will trigger the explosion, we just wait for the visual
+        pass
+    
+    def requestHeal(self):
+        """Handle heal request from AI - show heal effect."""
+        owner = base.cr.doId2do.get(self.ownerId)
+        if owner:
+            # Show heal effect (green particles or similar)
+            # For now, just play a sound if available
+            if hasattr(base, 'playSfx'):
+                # Could add heal sound here
+                pass
+            # Vanish after showing effect
+            taskMgr.doMethodLater(1.0, self.vanishWithPoof, self.uniqueName('vanishAfterHeal'))
+    
+    def requestExplode(self):
+        """Handle explosion request from AI - show explosion effect."""
+        # Create explosion effect
+        if hasattr(self, 'dustCloud'):
+            explosionPos = self.getPos(render)
+            explosion = DustCloud.DustCloud(render, wantSound=1)
+            explosion.setBillboardPointEye()
+            explosion.setPos(render, explosionPos)
+            explosion.setScale(2.0)  # Larger scale for explosion
+            explosion.play()
+        
+        # Vanish immediately after explosion
+        self.vanishWithPoof()
+    
     def disable(self):
         """Clean up when disabled."""
         if self.propellerSpinTask:
@@ -702,6 +858,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         if hasattr(self, 'behaviorSequence') and self.behaviorSequence:
             self.behaviorSequence.pause()
             self.behaviorSequence = None
+        taskMgr.remove(self.uniqueName('vanishAfterHeal'))
         taskMgr.remove(self.uniqueName('lookAtTarget'))
         if hasattr(self, 'dustCloud') and self.dustCloud:
             self.dustCloud.destroy()

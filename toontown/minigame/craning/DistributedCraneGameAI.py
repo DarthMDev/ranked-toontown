@@ -113,7 +113,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.practiceCheatHandler: CraneGamePracticeCheatAI = CraneGamePracticeCheatAI(self)
 
         self.statusEffectSystem: DistributedStatusEffectSystemAI | None = None
-        self.droneCooldowns = {}  # Track drone deployment cooldowns per player {avId: nextAvailableTime}
+        self.droneCooldowns = {}  # Track drone deployment cooldowns per player per slot {avId: {slotIndex: nextAvailableTime}}
+        self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
 
         # Memory leak prevention - track event listeners and task names
         self._deathListenerEvents = []
@@ -1705,32 +1706,92 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if self.getBoss() is not None:
             self.getBoss().setRuleset(self.ruleset)
     
-    def requestDeployDrone(self):
+    def requestDeployDrone(self, slotIndex=0):
         """Handle request to deploy a drone from client."""
         avId = self.air.getAvatarIdFromSender()
         if avId not in self.getParticipantIdsNotSpectating():
+            return
+        
+        # Validate slot index
+        if slotIndex < 0 or slotIndex > 2:
+            self.notify.warning(f'Invalid slot index {slotIndex} from {avId}')
             return
         
         # Check cooldown (90 seconds = 1.5 minutes)
         currentTime = globalClock.getFrameTime()
         DRONE_COOLDOWN = 90  # Integer seconds for DC compatibility
         
-        if avId in self.droneCooldowns:
-            nextAvailableTime = self.droneCooldowns[avId]
+        # Initialize per-slot cooldown dict if needed
+        if avId not in self.droneCooldowns:
+            self.droneCooldowns[avId] = {}
+        
+        # Check if this specific slot is on cooldown
+        if slotIndex in self.droneCooldowns[avId]:
+            nextAvailableTime = self.droneCooldowns[avId][slotIndex]
             if currentTime < nextAvailableTime:
                 # Still on cooldown
                 remainingTime = nextAvailableTime - currentTime
-                self.notify.debug(f'Drone deployment on cooldown for {avId}, {remainingTime:.1f}s remaining')
+                self.notify.debug(f'Drone slot {slotIndex} on cooldown for {avId}, {remainingTime:.1f}s remaining')
                 return
         
-        # Set cooldown
-        self.droneCooldowns[avId] = currentTime + DRONE_COOLDOWN
+        # Get selected drone type for this slot
+        from toontown.coghq import CraneLeagueGlobals
+        droneType = self.getDroneTypeForToon(avId, slotIndex)
+        if droneType is None:
+            # Default to laser if no type selected
+            droneType = CraneLeagueGlobals.DroneType.LASER
         
-        # Broadcast cooldown to all clients (duration as uint32)
-        self.sendUpdate('setDroneCooldown', [avId, int(DRONE_COOLDOWN)])
+        # Set cooldown for this specific slot
+        self.droneCooldowns[avId][slotIndex] = currentTime + DRONE_COOLDOWN
+        
+        # Broadcast cooldown to all clients (avId, slotIndex, duration)
+        self.sendUpdate('setDroneCooldown', [avId, slotIndex, int(DRONE_COOLDOWN)])
         
         if self.boss:
-            self.boss.deployDroneForToon(avId, None)
+            self.boss.deployDroneForToon(avId, None, droneType)
+    
+    def getDroneTypeForToon(self, avId, slotIndex=0):
+        """Get the selected drone type for a toon's slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        if avId not in self.selectedDroneTypes:
+            # Default: all slots are laser
+            return CraneLeagueGlobals.DroneType.LASER
+        slotTypes = self.selectedDroneTypes[avId]
+        if slotIndex >= len(slotTypes):
+            return CraneLeagueGlobals.DroneType.LASER
+        return slotTypes[slotIndex]
+    
+    def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
+        """Set the selected drone type for a toon's slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        if avId not in self.selectedDroneTypes:
+            # Initialize with default (Laser, Heal, Explosive)
+            self.selectedDroneTypes[avId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Convert value to enum if needed
+        if isinstance(droneTypeValue, int):
+            droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        else:
+            droneType = droneTypeValue
+        
+        # Update the slot
+        if slotIndex >= 0 and slotIndex < 3:
+            self.selectedDroneTypes[avId][slotIndex] = droneType
+            # Broadcast to all clients
+            self.sendUpdate('setDroneTypeForToon', [avId, slotIndex, droneType.value])
+            
+            # Save the updated setup to the toon's database
+            # Only save if all 3 slots have been set (to avoid partial saves)
+            if len(self.selectedDroneTypes[avId]) == 3:
+                toon = self.air.doId2do.get(avId)
+                if toon and hasattr(toon, 'b_setDroneSetup'):
+                    # Convert DroneType enums to uint8 values
+                    setup = [dt.value for dt in self.selectedDroneTypes[avId]]
+                    toon.b_setDroneSetup(setup)
     
     def requestCleanupDrones(self):
         """Handle request to clean up all drones."""

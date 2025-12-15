@@ -86,12 +86,17 @@ class DistributedCraneGame(DistributedMinigame):
         self.heatDisplay.hide()
         self.endVault = None
         self.statusIndicators = {}  # Dictionary to store status indicators for each toon
-        self.droneCooldowns = {}  # Track drone cooldowns {avId: (startTime, duration)}
+        self.droneCooldowns = {}  # Track drone cooldowns per slot {avId: {slotIndex: (startTime, duration)}}
+        self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
         
         # Drone cooldown UI elements (shown near leave button when on crane)
         self.droneCooldownIndicator = None
         self.droneCooldownText = None
         self.droneCooldownTask = None
+        
+        # Drone selection UI elements (shown during rules phase)
+        self.droneSelectionSlots = []  # List of 3 slot UI elements
+        self.droneSelectionDialog = None
         
         # Status effect system will be set via setStatusEffectSystemId
         self.statusEffectSystem : DistributedStatusEffectSystem | None = None
@@ -1228,6 +1233,355 @@ class DistributedCraneGame(DistributedMinigame):
         if self.rulesPanel is not None:
             self.rulesPanel.cleanup()
             self.rulesPanel = None
+    
+    def __createDroneSelectionUI(self):
+        """Create the drone selection UI with 3 slots at the bottom of the screen."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        # Initialize selected drone types for local toon (default: Laser, Heal, Explosive)
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[localAvId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Create container frame for all slots
+        self.droneSelectionFrame = DirectFrame(
+            relief=None,
+            parent=aspect2d,
+            pos=(0, 0, -0.85),  # Bottom of screen
+            sortOrder=DGG.NO_FADE_SORT_INDEX
+        )
+        
+        # Get keybinds from settings for the 3 slots
+        slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
+        slotKeys = [base.settings.getControl(keyName) for keyName in slotKeyNames]
+        slotSpacing = 0.25  # Space between slots
+        
+        # Helper function to format keybind for display
+        def formatKeybindDisplay(keybind):
+            """Format a keybind string for display in the UI."""
+            if len(keybind) == 1:
+                # Single character key -> uppercase
+                return keybind.upper()
+            elif keybind.startswith('arrow_'):
+                # Arrow keys -> show arrow symbol
+                direction = keybind.replace('arrow_', '')
+                arrowMap = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
+                return arrowMap.get(direction, keybind.upper())
+            elif keybind.startswith('page_'):
+                # Page keys
+                return keybind.replace('page_', 'Pg').upper()
+            elif keybind in ['control', 'shift', 'alt']:
+                # Modifier keys
+                return keybind.capitalize()
+            else:
+                # Other keys -> uppercase first letter of each word
+                return keybind.replace('_', ' ').title()
+        
+        self.droneSelectionSlots = []
+        self.droneSlotKeybinds = []  # Store keybinds for cleanup
+        for i in range(3):
+            slotType = self.selectedDroneTypes[localAvId][i]
+            slotKey = slotKeys[i]
+            self.droneSlotKeybinds.append(slotKey)
+            
+            # Create slot frame
+            slotFrame = DirectFrame(
+                relief=DGG.RAISED,
+                frameSize=(-0.12, 0.12, -0.08, 0.08),
+                frameColor=(0.2, 0.2, 0.2, 0.8),
+                borderWidth=(0.01, 0.01),
+                parent=self.droneSelectionFrame,
+                pos=(-0.25 + i * slotSpacing, 0, 0)
+            )
+            
+            # Keybind label (top right)
+            keybindText = OnscreenText(
+                text=formatKeybindDisplay(slotKey),
+                pos=(0.1, 0.06),
+                scale=0.04,
+                fg=(1, 1, 1, 0.7),
+                align=TextNode.ARight,
+                parent=slotFrame,
+                mayChange=True  # Allow changes if keybind updates
+            )
+            
+            # Drone icon/name (center)
+            droneName = OnscreenText(
+                text=slotType.getName(),
+                pos=(0, -0.02),
+                scale=0.03,
+                fg=slotType.getHatColor(),
+                align=TextNode.ACenter,
+                parent=slotFrame,
+                mayChange=True
+            )
+            
+            # Cooldown text (bottom of slot, shows remaining time or "Ready")
+            cooldownText = OnscreenText(
+                text='Ready',
+                pos=(0, -0.06),
+                scale=0.025,
+                fg=(0.3, 1.0, 0.3, 1),
+                align=TextNode.ACenter,
+                parent=slotFrame,
+                mayChange=True
+            )
+            
+            # Clickable button overlay - behavior depends on game state
+            slotButton = DirectButton(
+                parent=slotFrame,
+                relief=None,
+                frameSize=(-0.12, 0.12, -0.08, 0.08),
+                command=self.__handleDroneSlotClick,
+                extraArgs=[i]
+            )
+            
+            slotData = {
+                'frame': slotFrame,
+                'keybindText': keybindText,
+                'droneName': droneName,
+                'cooldownText': cooldownText,
+                'button': slotButton,
+                'slotIndex': i,
+                'cooldownTask': None
+            }
+            self.droneSelectionSlots.append(slotData)
+    
+    def __cleanupDroneSelectionUI(self):
+        """Clean up the drone selection UI."""
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('frame'):
+                    slot['frame'].destroy()
+            self.droneSelectionSlots = []
+        
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.destroy()
+            self.droneSelectionFrame = None
+        
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+            self.droneSelectionDialog = None
+    
+    def __openDroneSelectionDialog(self, slotIndex):
+        """Open dialog to select drone type for a slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        # Clean up existing dialog
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+        
+        # Create selection dialog
+        self.droneSelectionDialog = DirectFrame(
+            relief=None,
+            image=DGG.getDefaultDialogGeom(),
+            image_color=ToontownGlobals.GlobalDialogColor,
+            image_scale=(1.0, 1, 0.8),
+            pos=(0, 0, 0),
+            parent=aspect2d,
+            sortOrder=DGG.NO_FADE_SORT_INDEX + 2
+        )
+        
+        # Title
+        titleLabel = DirectLabel(
+            parent=self.droneSelectionDialog,
+            relief=None,
+            text=f"Select Drone Type (Slot {slotIndex + 1})",
+            text_scale=0.06,
+            text_pos=(0, 0.3),
+            text_fg=(0.1, 0.1, 0.4, 1),
+            text_font=ToontownGlobals.getInterfaceFont()
+        )
+        
+        # Load button assets
+        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
+        buttonImage = (buttons.find('**/ChtBx_OKBtn_UP'), 
+                      buttons.find('**/ChtBx_OKBtn_DN'), 
+                      buttons.find('**/ChtBx_OKBtn_Rllvr'))
+        closeButtonImage = (buttons.find('**/CloseBtn_UP'), 
+                          buttons.find('**/CloseBtn_DN'), 
+                          buttons.find('**/CloseBtn_Rllvr'))
+        
+        # Create buttons for each drone type
+        droneTypes = [
+            CraneLeagueGlobals.DroneType.LASER,
+            CraneLeagueGlobals.DroneType.HEAL,
+            CraneLeagueGlobals.DroneType.EXPLOSIVE
+        ]
+        
+        startY = 0.15
+        for i, droneType in enumerate(droneTypes):
+            currentY = startY - i * 0.12
+            
+            # Drone type button
+            typeButton = DirectButton(
+                parent=self.droneSelectionDialog,
+                relief=None,
+                image=buttonImage,
+                text=droneType.getName(),
+                text_scale=0.04,
+                text_pos=(0, -0.02),
+                text_fg=droneType.getHatColor(),
+                pos=(0, 0, currentY),
+                scale=(1.2, 1, 0.8),
+                command=self.__selectDroneType,
+                extraArgs=[slotIndex, droneType]
+            )
+        
+        # Close button
+        closeButton = DirectButton(
+            parent=self.droneSelectionDialog,
+            relief=None,
+            image=closeButtonImage,
+            text="Cancel",
+            text_scale=0.05,
+            text_pos=(0, -0.1),
+            pos=(0, 0, -0.3),
+            command=self.__closeDroneSelectionDialog
+        )
+        
+        buttons.removeNode()
+    
+    def __handleDroneSlotClick(self, slotIndex):
+        """Handle clicking on a drone slot - behavior depends on game state."""
+        # Check if we're in rules phase (can change drone) or play phase (deploy drone)
+        if hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
+            currentState = self.frameworkFSM.getCurrentState().getName()
+            if currentState == 'frameworkRules':
+                # During rules phase - open selection dialog
+                self.__openDroneSelectionDialog(slotIndex)
+            else:
+                # During play phase - deploy the drone
+                self.__deployDrone(slotIndex)
+        else:
+            # Fallback: if we can't determine state, try to deploy
+            self.__deployDrone(slotIndex)
+    
+    def __selectDroneType(self, slotIndex, droneType):
+        """Select a drone type for a slot. Prevents duplicates by swapping."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[localAvId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Check if this drone type is already in another slot
+        currentSlots = self.selectedDroneTypes[localAvId]
+        for otherSlotIndex, otherDroneType in enumerate(currentSlots):
+            if otherSlotIndex != slotIndex and otherDroneType == droneType:
+                # Swap: put the current slot's drone type into the other slot
+                oldDroneType = currentSlots[slotIndex]
+                currentSlots[otherSlotIndex] = oldDroneType
+                # Update UI for the swapped slot
+                self.__updateDroneSlotUI(otherSlotIndex)
+                # Send update for swapped slot
+                self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, otherSlotIndex, oldDroneType.value])
+                break
+        
+        # Update local selection
+        self.selectedDroneTypes[localAvId][slotIndex] = droneType
+        
+        # Update UI
+        self.__updateDroneSlotUI(slotIndex)
+        
+        # Send to server (avId, slotIndex, droneTypeValue)
+        self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, slotIndex, droneType.value])
+        
+        # Save the updated setup to the toon's database
+        self.__saveDroneSetupToToon()
+        
+        # Close dialog
+        self.__closeDroneSelectionDialog()
+    
+    def __closeDroneSelectionDialog(self):
+        """Close the drone selection dialog."""
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+            self.droneSelectionDialog = None
+    
+    def __loadDroneSetupFromToon(self):
+        """Load the saved drone setup from the local toon."""
+        if not hasattr(base, 'localAvatar') or not base.localAvatar:
+            return
+        
+        # Get saved setup from toon
+        if hasattr(base.localAvatar, 'droneSetup') and base.localAvatar.droneSetup:
+            savedSetup = base.localAvatar.droneSetup
+            if len(savedSetup) == 3:
+                from toontown.coghq import CraneLeagueGlobals
+                localAvId = base.localAvatar.doId
+                # Convert uint8 values to DroneType enums
+                self.selectedDroneTypes[localAvId] = [
+                    CraneLeagueGlobals.DroneType(savedSetup[0]),
+                    CraneLeagueGlobals.DroneType(savedSetup[1]),
+                    CraneLeagueGlobals.DroneType(savedSetup[2])
+                ]
+                # Send to server to sync with other clients
+                for i, droneType in enumerate(self.selectedDroneTypes[localAvId]):
+                    self.sendUpdate('setDroneTypeForToon', [localAvId, i, droneType.value])
+    
+    def __saveDroneSetupToToon(self):
+        """Save the current drone setup to the local toon's database."""
+        if not hasattr(base, 'localAvatar') or not base.localAvatar:
+            return
+        
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            return
+        
+        # Convert DroneType enums to uint8 values
+        setup = [droneType.value for droneType in self.selectedDroneTypes[localAvId]]
+        
+        # Save to toon (this will persist to database via sendUpdate)
+        # The AI will handle the database save via b_setDroneSetup
+        base.localAvatar.sendUpdate('setDroneSetup', [setup])
+    
+    def __updateDroneSlotUI(self, slotIndex):
+        """Update the UI for a specific drone slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        if slotIndex >= len(self.droneSelectionSlots):
+            return
+        
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            return
+        
+        slot = self.droneSelectionSlots[slotIndex]
+        droneType = self.selectedDroneTypes[localAvId][slotIndex]
+        
+        # Update drone name
+        if slot.get('droneName'):
+            slot['droneName']['text'] = droneType.getName()
+            slot['droneName']['fg'] = droneType.getHatColor()
+    
+    def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
+        """Receive drone type update from server."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        
+        if avId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[avId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        if slotIndex >= 0 and slotIndex < 3:
+            self.selectedDroneTypes[avId][slotIndex] = droneType
+            
+            # Update UI if it's the local toon
+            if avId == base.localAvatar.doId:
+                self.__updateDroneSlotUI(slotIndex)
 
     def updateRequiredElements(self):
         # Clean up existing timer if it exists
@@ -1291,6 +1645,8 @@ class DistributedCraneGame(DistributedMinigame):
         self.notify.debug("enterOff")
         self.__checkSpectatorState(spectate=False)
         self.__cleanupRulesPanel()
+        # Clean up drone UI
+        self.__cleanupDroneSelectionUI()
 
     def exitOff(self):
         pass
@@ -1366,33 +1722,65 @@ class DistributedCraneGame(DistributedMinigame):
         self.accept("LocalSetOuchMode", self.toOuchMode)
         self.accept("ChatMgr-enterMainMenu", self.chatClosed)
         
-        # Enable drone deployment keybind (works from anywhere)
-        self.accept(base.controls.DRONE_DEPLOY_KEY, self.__deployDrone)
+        # Enable drone deployment keybinds for 3 slots from settings
+        slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
+        self.droneSlotKeybinds = []
+        for i, keyName in enumerate(slotKeyNames):
+            keybind = base.settings.getControl(keyName)
+            self.droneSlotKeybinds.append(keybind)
+            self.accept(keybind, self.__deployDrone, [i])
         
-        # Show "Drone Ready!" at the start if not on cooldown
-        self.__initializeDroneIndicator()
+        # Move drone UI next to laff meter (right side) and show it
+        # If drone UI doesn't exist (shouldn't happen, but be safe), create it
+        if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
+            self.__createDroneSelectionUI()
+        
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
+            # Position drone UI to the right of it with more spacing
+            self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
+            # Adjust position: laff meter width ~0.15, so start further right at ~0.5 to avoid overlap
+            self.droneSelectionFrame.setPos(0.4, 0.0, 0.13)
+            # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
+            slotSpacing = 0.25
+            if hasattr(self, 'droneSelectionSlots'):
+                for i, slot in enumerate(self.droneSelectionSlots):
+                    if slot.get('frame'):
+                        slot['frame'].setPos(i * slotSpacing, 0, 0)
+            # Show the UI
+            self.droneSelectionFrame.show()
+        
+        # Initialize cooldown displays for all slots
+        localAvId = base.localAvatar.doId
+        for i in range(3):
+            if localAvId in self.droneCooldowns and i in self.droneCooldowns[localAvId]:
+                startTime, duration = self.droneCooldowns[localAvId][i]
+                self.__updateDroneSlotCooldown(i, startTime, duration)
+            else:
+                self.__updateDroneSlotCooldown(i, None, None)
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
 
         self.__checkSpectatorState()
     
-    def __deployDrone(self):
-        """Deploy a drone above the local toon."""
+    def __deployDrone(self, slotIndex=0):
+        """Deploy a drone above the local toon using the selected slot."""
         if not self.hasLocalToon:
             return
         
-        # Check if on cooldown
+        # Check if this specific slot is on cooldown
         currentTime = globalClock.getFrameTime()
-        if base.localAvatar.doId in self.droneCooldowns:
-            startTime, duration = self.droneCooldowns[base.localAvatar.doId]
+        localAvId = base.localAvatar.doId
+        if localAvId in self.droneCooldowns and slotIndex in self.droneCooldowns[localAvId]:
+            startTime, duration = self.droneCooldowns[localAvId][slotIndex]
             endTime = startTime + duration
             if currentTime < endTime:
                 # Still on cooldown, don't send request
                 return
         
-        # Request drone deployment from server
-        self.sendUpdate('requestDeployDrone', [])
+        # Request drone deployment from server with slot index
+        self.sendUpdate('requestDeployDrone', [slotIndex])
 
     def exitPlay(self):
 
@@ -1404,28 +1792,93 @@ class DistributedCraneGame(DistributedMinigame):
 
         self.walkStateData.exit()
         
-        # Clean up drone cooldown indicator
-        self.__cleanupDroneCooldownIndicator()
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
         
-        # Disable drone deployment keybind
-        self.ignore(base.controls.DRONE_DEPLOY_KEY)
+        # Hide drone UI when exiting play
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.hide()
+        
+        # Disable drone deployment keybinds
+        if hasattr(self, 'droneSlotKeybinds'):
+            for keybind in self.droneSlotKeybinds:
+                self.ignore(keybind)
+            self.droneSlotKeybinds = []
     
-    def setDroneCooldown(self, avId, duration):
+    def setDroneCooldown(self, avId, slotIndex, duration):
         """Receive drone cooldown from server and update UI."""
         startTime = globalClock.getFrameTime()
-        self.droneCooldowns[avId] = (startTime, duration)
+        if avId not in self.droneCooldowns:
+            self.droneCooldowns[avId] = {}
+        self.droneCooldowns[avId][slotIndex] = (startTime, duration)
         
-        # Only show cooldown indicator for local toon
+        # Only update UI for local toon
         if avId == base.localAvatar.doId:
-            self.__showDroneCooldownIndicator(startTime, duration)
+            self.__updateDroneSlotCooldown(slotIndex, startTime, duration)
     
     def clearAllDroneCooldowns(self):
         """Clear all drone cooldowns (called by server on round restart)."""
         self.droneCooldowns.clear()
-        # If the indicator is showing a cooldown, show "Drone Ready!" instead
-        if self.droneCooldownText:
-            self.__cleanupDroneCooldownIndicator()
-            self.__showDroneReadyIndicator()
+        # Update all slot cooldown displays
+        if hasattr(self, 'droneSelectionSlots'):
+            for i in range(3):
+                self.__updateDroneSlotCooldown(i, None, None)
+    
+    def __updateDroneSlotCooldown(self, slotIndex, startTime, duration):
+        """Update the cooldown display for a specific drone slot."""
+        if not hasattr(self, 'droneSelectionSlots') or slotIndex >= len(self.droneSelectionSlots):
+            return
+        
+        slot = self.droneSelectionSlots[slotIndex]
+        if not slot.get('cooldownText'):
+            return
+        
+        # Clean up existing task for this slot
+        if slot.get('cooldownTask'):
+            taskMgr.remove(slot['cooldownTask'])
+            slot['cooldownTask'] = None
+        
+        if startTime is None or duration is None:
+            # No cooldown - show "Ready"
+            slot['cooldownText']['text'] = 'Ready'
+            slot['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
+            return
+        
+        # Start update task for this slot
+        def updateTask(task, slotIdx=slotIndex, start=startTime, dur=duration):
+            if slotIdx >= len(self.droneSelectionSlots):
+                return task.done
+            slotData = self.droneSelectionSlots[slotIdx]
+            if not slotData.get('cooldownText'):
+                return task.done
+            
+            currentTime = globalClock.getFrameTime()
+            elapsed = currentTime - start
+            remaining = max(0, dur - elapsed)
+            
+            if remaining <= 0:
+                slotData['cooldownText']['text'] = 'Ready'
+                slotData['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
+                slotData['cooldownTask'] = None
+                return task.done
+            else:
+                # Show remaining time (MM:SS format)
+                minutes = int(remaining // 60)
+                seconds = int(remaining % 60)
+                slotData['cooldownText']['text'] = f'{minutes}:{seconds:02d}'
+                slotData['cooldownText']['fg'] = (1.0, 0.3, 0.3, 1)  # Red when on cooldown
+                return task.cont
+        
+        slot['cooldownTask'] = taskMgr.add(
+            updateTask,
+            f'droneSlotCooldown{slotIndex}',
+            extraArgs=[],
+            appendTask=True
+        )
     
     def __showDroneCooldownIndicator(self, startTime, duration):
         """Display the drone cooldown indicator near the leave button."""
@@ -1541,8 +1994,12 @@ class DistributedCraneGame(DistributedMinigame):
         # Clear local cooldown cache
         self.droneCooldowns.clear()
         
-        # Clean up drone cooldown indicator
-        self.__cleanupDroneCooldownIndicator()
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
 
         victor = base.cr.getDo(self.victor)
         if self.victor == self.localAvId:
@@ -1595,8 +2052,15 @@ class DistributedCraneGame(DistributedMinigame):
         # Clear local cooldown cache
         self.droneCooldowns.clear()
         
-        # Clean up drone cooldown indicator
-        self.__cleanupDroneCooldownIndicator()
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
+        
+        # Clean up drone selection UI
+        self.__cleanupDroneSelectionUI()
         
         for toon in self.getParticipants():
             toon.setGhostMode(False)
@@ -1854,6 +2318,15 @@ class DistributedCraneGame(DistributedMinigame):
 
         # Accept spot status change messages
         self.accept('spotStatusChanged', self.handleSpotStatusChanged)
+        
+        # Clean up any existing drone UI first (in case of restart)
+        self.__cleanupDroneSelectionUI()
+        
+        # Load saved drone setup from toon
+        self.__loadDroneSetupFromToon()
+        
+        # Create drone selection UI
+        self.__createDroneSelectionUI()
 
     def exitFrameworkRules(self):
         # Restore all toon shadows
@@ -1870,6 +2343,9 @@ class DistributedCraneGame(DistributedMinigame):
         # Make sure to clean up all indicators
         self.removeStatusIndicators()
         self.__cleanupRulesPanel()
+        # Don't destroy drone UI - just hide it, we'll show it again in enterPlay
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.hide()
 
     def handleMouseClick(self):
         """Handle mouse clicks during the rules state to detect clicks on spotlights."""

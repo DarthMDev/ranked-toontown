@@ -1036,20 +1036,31 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             for taskKey in explodeGroups[oldestCounter]:
                 self.cleanupExplodeTask(taskKey)
 
-    def deployDroneForToon(self, toonId, craneId):
+    def deployDroneForToon(self, toonId, craneId, droneType=None):
         """Deploy a drone for the specified toon."""
         if self.drones is None:
             self.drones = []
         
-        # Check if there are any opponents (toons other than the owner)
-        if not self.game:
-            return
-        involvedToons = self.game.getParticipantIdsNotSpectating()
-        opponents = [tid for tid in involvedToons if tid != toonId]
+        # Get drone type from game if not provided
+        if droneType is None and self.game:
+            droneType = self.game.getDroneTypeForToon(toonId)
         
-        # If no opponents, don't deploy (or deploy and immediately vanish)
-        if not opponents:
-            return
+        # Default to laser if no type specified
+        from toontown.coghq import CraneLeagueGlobals
+        if droneType is None:
+            droneType = CraneLeagueGlobals.DroneType.LASER
+        
+        # For heal and explosive drones, we don't need opponents check
+        if droneType == CraneLeagueGlobals.DroneType.LASER:
+            # Check if there are any opponents (toons other than the owner)
+            if not self.game:
+                return
+            involvedToons = self.game.getParticipantIdsNotSpectating()
+            opponents = [tid for tid in involvedToons if tid != toonId]
+            
+            # If no opponents, don't deploy (or deploy and immediately vanish)
+            if not opponents:
+                return
         
         # Get the toon's position
         toon = self.air.doId2do.get(toonId)
@@ -1060,9 +1071,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         toonPos = toon.getPos()
         dronePos = Point3(toonPos.getX(), toonPos.getY(), toonPos.getZ() + 15)  # 15 units above
         
-        # Create the drone
+        # Create the drone with specified type
         from toontown.coghq import DistributedGoonDroneAI
-        drone = DistributedGoonDroneAI.DistributedGoonDroneAI(self.air, self, toonId)
+        drone = DistributedGoonDroneAI.DistributedGoonDroneAI(self.air, self, toonId, droneType)
         drone.generateWithRequired(self.zoneId)
         # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI
         # b_setPosition expects a tuple/list of (x, y, z)

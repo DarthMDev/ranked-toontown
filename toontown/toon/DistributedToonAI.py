@@ -172,6 +172,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         if simbase.wantBingo:
             self.bingoCheat = False
         self.customMessages = []
+        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explosive
         self.catalogNotify = ToontownGlobals.NoItems
         self.mailboxNotify = ToontownGlobals.NoItems
         self.catalogScheduleCurrentWeek = 0
@@ -2053,6 +2054,23 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getCustomMessages(self):
         return self.customMessages
+
+    def b_setDroneSetup(self, droneSetup):
+        self.d_setDroneSetup(droneSetup)
+        self.setDroneSetup(droneSetup)
+
+    def d_setDroneSetup(self, droneSetup):
+        self.sendUpdate('setDroneSetup', [droneSetup])
+
+    def setDroneSetup(self, droneSetup):
+        # Ensure we have exactly 3 slots
+        if len(droneSetup) != 3:
+            self.notify.warning(f'Invalid droneSetup length {len(droneSetup)}, expected 3')
+            droneSetup = [0, 1, 2]  # Default fallback
+        self.droneSetup = droneSetup
+
+    def getDroneSetup(self):
+        return self.droneSetup
 
     def b_setResistanceMessages(self, resistanceMessages):
         self.d_setResistanceMessages(resistanceMessages)

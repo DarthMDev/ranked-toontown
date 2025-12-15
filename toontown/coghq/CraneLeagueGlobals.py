@@ -1502,6 +1502,33 @@ NON_SPECIAL_MODIFIER_CLASSES = HURTFUL_MODIFIER_CLASSES + HELPFUL_MODIFIER_CLASS
 #     print('(ID:%s) %s\n%s\n' % (e, i.getName(), d))
 
 
+class DroneType(Enum):
+    """Types of drones that can be deployed."""
+    LASER = 0  # Red hat - shoots lasers at opponents
+    HEAL = 1   # Green hat - heals deployer to full laff
+    EXPLOSIVE = 2  # Orange hat - flies to CFO, explodes, deals damage
+    
+    def getHatColor(self):
+        """Get the hat color for this drone type."""
+        if self == DroneType.LASER:
+            return (1.0, 0.2, 0.2, 1.0)  # Red
+        elif self == DroneType.HEAL:
+            return (0.2, 1.0, 0.2, 1.0)  # Green
+        elif self == DroneType.EXPLOSIVE:
+            return (1.0, 0.6, 0.2, 1.0)  # Orange
+        return (0.5, 0.5, 0.5, 1.0)  # Default gray
+    
+    def getName(self):
+        """Get the display name for this drone type."""
+        if self == DroneType.LASER:
+            return "Laser Drone"
+        elif self == DroneType.HEAL:
+            return "Heal Drone"
+        elif self == DroneType.EXPLOSIVE:
+            return "Explosive Drone"
+        return "Unknown Drone"
+
+
 class ScoreReason(Enum):
 
 

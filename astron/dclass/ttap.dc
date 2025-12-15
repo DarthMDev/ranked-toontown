@@ -1054,6 +1054,7 @@ dclass DistributedToon : DistributedPlayer {
   setEmoteAccess(uint8[] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1]) required ownrecv db;
   playEmote(int16, int16/1000, int16) broadcast ownrecv;
   setCustomMessages(uint16[] = []) required ownrecv db;
+  setDroneSetup(uint8[] = [0, 1, 2]) required ownrecv db clsend;
   setSleepAutoReply(uint32) broadcast clsend ownrecv;
   setResistanceMessages(pair16 [] = []) required ownrecv db;
   setPetTrickPhrases(uint8[] = [0]) required ownrecv db;
@@ -3115,8 +3116,11 @@ dclass DistributedGoon : DistributedCrushableEntity {
 dclass DistributedGoonDrone : DistributedGoon {
   setOwnerId(uint32) broadcast ram;
   setTargetId(uint32) broadcast ram;
+  setDroneType(uint8) broadcast ram;
   shootLaser(uint32) airecv clsend;
   requestLaserHit(uint32) airecv clsend;
+  requestHeal() airecv clsend;
+  requestExplode() airecv clsend;
   destroyDrone() broadcast clsend airecv;
   vanishWithPoof() broadcast clsend airecv;
 };
@@ -3976,9 +3980,10 @@ dclass DistributedCraneGame: DistributedMinigame {
   updateSpawnOrder(uint32[]) airecv clsend;
   setBestOf(uint8) airecv clsend broadcast ram;
   setRoundInfo(uint8, uint8[]) broadcast ram;
-  requestDeployDrone() airecv clsend;
-  setDroneCooldown(uint32, uint32) broadcast;
+  requestDeployDrone(uint8 slotIndex) airecv clsend;
+  setDroneCooldown(uint32 avId, uint8 slotIndex, uint32 duration) broadcast;
   clearAllDroneCooldowns() broadcast;
+  setDroneTypeForToon(uint32 avId, uint8 slotIndex, uint8 droneTypeValue) airecv clsend broadcast ram;
   requestCleanupDrones() airecv clsend;
   nextRound() airecv clsend;
   setCraneSpawn(bool, uint8, uint32) broadcast ram;
