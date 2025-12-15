@@ -377,20 +377,58 @@ class DistributedCraneGame(DistributedMinigame):
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    return
+            
             cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask)  # TTCC No Back Wall
-        except:
-            print('[Crane League] Failed to disable back wall.')
+            self.notify.debug('[Crane League] Back wall disabled')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to disable back wall: {e}')
 
     def enableBackWall(self):
         if self.endVault is None:
+            self.notify.warning('[Crane League] Cannot enable back wall: endVault is None')
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
-            cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | BitMask32.lowerOn(3) << 21) #TTR Back Wall
-        except:
-            print('[Crane League] Failed to enable back wall.')
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                self.notify.warning('[Crane League] Cannot enable back wall: evWalls not found')
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node not found in evWalls')
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node is None')
+                    return
+            
+            backWallMask = BitMask32.lowerOn(3) << 21
+            newMask = OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | backWallMask
+            cn.setIntoCollideMask(newMask)
+            self.notify.debug(f'[Crane League] Back wall enabled with mask: {newMask}')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to enable back wall: {e}')
 
     def setToonsToBattleThreePos(self):
         """
@@ -1655,6 +1693,12 @@ class DistributedCraneGame(DistributedMinigame):
 
         if self.boss is not None:
             self.boss.setRuleset(self.ruleset)
+        
+        # Update back wall based on ruleset
+        if self.ruleset.WANT_BACKWALL:
+            self.enableBackWall()
+        else:
+            self.disableBackWall()
         
         # Update drone UI visibility when ruleset changes
         self.__updateDroneUIVisibility()

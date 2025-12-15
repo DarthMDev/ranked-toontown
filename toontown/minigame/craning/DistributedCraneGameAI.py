@@ -264,11 +264,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if len(self.getParticipantsNotSpectating()) >= 2 and not self.defaultModifiersInitialized:
             invincibleBoss = CraneLeagueGlobals.ModifierInvincibleBoss()
             timerEnabler = CraneLeagueGlobals.ModifierTimerEnabler(3)
+            sideCranesEnabler = CraneLeagueGlobals.ModifierSideCranesEnabler()
             modifiers.append(invincibleBoss)
             modifiers.append(timerEnabler)
+            modifiers.append(sideCranesEnabler)
             # Also add them to desiredModifiers so they persist until explicitly removed
             self.desiredModifiers.append(invincibleBoss)
             self.desiredModifiers.append(timerEnabler)
+            self.desiredModifiers.append(sideCranesEnabler)
             self.defaultModifiersInitialized = True
 
         self.applyModifiers(modifiers, updateClient=True)

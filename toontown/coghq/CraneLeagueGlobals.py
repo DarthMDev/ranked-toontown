@@ -1497,6 +1497,69 @@ class ModifierDroneEnabler(CFORulesetModifierBase):
         cfoRuleset.WANT_DRONES = True
 
 
+class ModifierHeavyCranesEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 34
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Heavy Cranes'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sHeavy Cranes%(color_end)s with increased damage!'
+    
+    def getHeat(self):
+        return -2  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_HEAVY_CRANES = True
+
+
+class ModifierSideCranesEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 35
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Side Cranes'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sSide Cranes%(color_end)s for additional crane options!'
+    
+    def getHeat(self):
+        return -1  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_SIDECRANES = True
+
+
+class ModifierBackWallEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 36
+    MODIFIER_TYPE = CFORulesetModifierBase.HURTFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_RED
+    DESCRIPTION_COLOR = CFORulesetModifierBase.RED
+
+    def getName(self):
+        return 'Back Wall'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sBack Wall%(color_end)s, classic collision mode!'
+    
+    def getHeat(self):
+        return 2  # Hurtful modifier, increases difficulty
+    
+    def apply(self, cfoRuleset):
+        cfoRuleset.WANT_BACKWALL = True
+
+
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point
 # Loop through all the classes that extend the base modifier class and map an enum to the class for easier construction
 for subclass in CFORulesetModifierBase.__subclasses__():
