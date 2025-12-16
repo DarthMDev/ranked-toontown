@@ -1448,12 +1448,13 @@ class DistributedCraneGame(DistributedMinigame):
         droneTypes = [
             CraneLeagueGlobals.DroneType.LASER,
             CraneLeagueGlobals.DroneType.HEAL,
-            CraneLeagueGlobals.DroneType.EXPLOSIVE
+            CraneLeagueGlobals.DroneType.EXPLOSIVE,
+            CraneLeagueGlobals.DroneType.STUN
         ]
-        
-        startY = 0.15
+
         for i, droneType in enumerate(droneTypes):
-            currentY = startY - i * 0.12
+            currentY = i // 4 * -.15 + .1
+            currentX = i % 4 * .2 - .3
             
             # Drone type button
             typeButton = DirectButton(
@@ -1464,8 +1465,7 @@ class DistributedCraneGame(DistributedMinigame):
                 text_scale=0.04,
                 text_pos=(0, -0.02),
                 text_fg=droneType.getHatColor(),
-                pos=(0, 0, currentY),
-                scale=(1.2, 1, 0.8),
+                pos=(currentX, 0, currentY),
                 command=self.__selectDroneType,
                 extraArgs=[slotIndex, droneType]
             )

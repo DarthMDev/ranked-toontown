@@ -216,26 +216,34 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             self.sendUpdate('destroyDrone', [])
             self.destroyDrone()
             
-    def vanishWithPoof(self):
+    def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect (called from AI or locally)."""
         if self.isEmpty():
+            if task:
+                return Task.done
             return
         
         # Create poof effect using DustCloud (same as when appearing)
+        self.poof()
+        
+        # Disable the drone after a short delay to let the poof play
+        def disableAfterPoof():
+            self.disable()
+        taskMgr.doMethodLater(0.3, lambda task: disableAfterPoof(), self.uniqueName('vanishPoof'))
+        
+        if task:
+            return Task.done
+
+    def poof(self):
         dronePos = self.getPos(render)
         poofPos = Point3(dronePos.getX(), dronePos.getY(), dronePos.getZ())
-        
         # Create a new DustCloud for the vanish poof (same approach as spawn)
         vanishDustCloud = DustCloud.DustCloud(render, wantSound=1)
         vanishDustCloud.setBillboardPointEye()
         vanishDustCloud.setPos(render, poofPos)
         vanishDustCloud.setScale(0.5)
         vanishDustCloud.play()
-        
-        # Disable the drone after a short delay to let the poof play
-        def disableAfterPoof():
-            self.disable()
-        taskMgr.doMethodLater(0.3, lambda task: disableAfterPoof(), self.uniqueName('vanishPoof'))
+        self.hide()
     
     def destroyDrone(self):
         """Destroy the drone visually."""
@@ -821,7 +829,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         # The AI will trigger the explosion, we just wait for the visual
         pass
     
-    def requestHeal(self):
+    def performHealVisualEffect(self):
         """Handle heal request from AI - show heal effect."""
         owner = base.cr.doId2do.get(self.ownerId)
         if owner:
@@ -833,7 +841,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             # Vanish after showing effect
             taskMgr.doMethodLater(1.0, self.vanishWithPoof, self.uniqueName('vanishAfterHeal'))
     
-    def requestExplode(self):
+    def performExplodeVisualEffect(self):
         """Handle explosion request from AI - show explosion effect."""
         # Create explosion effect
         if hasattr(self, 'dustCloud'):
@@ -846,6 +854,32 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         
         # Vanish immediately after explosion
         self.vanishWithPoof()
+
+    def performStunVisualEffect(self):
+        """Handle stun request from AI - show stun effect."""
+        # Lerp to CFO position over 3 seconds
+        lerpDuration = 1.75
+        startPos = self.getPos()
+        targetPos = (self.getX(), self.getY(), self.getZ() - 16)
+        sfx = base.loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
+        self.behaviorSequence = Sequence(
+                Wait(lerpDuration * .2),
+                LerpScaleInterval(self, lerpDuration * .7, 3),
+                LerpPosInterval(self, lerpDuration * .1, targetPos, startPos=startPos, blendType='easeIn'),
+                Parallel(
+                Func(base.playSfx, sfx),
+                Func(self.poof)
+            )
+        )
+        self.behaviorSequence.start()
+
+    def performVisualEffect(self, droneType: int):
+        if droneType == CraneLeagueGlobals.DroneType.STUN.value:
+            self.performStunVisualEffect()
+        elif droneType == CraneLeagueGlobals.DroneType.HEAL.value:
+            self.performHealVisualEffect()
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE.value:
+            self.performExplodeVisualEffect()
     
     def disable(self):
         """Clean up when disabled."""

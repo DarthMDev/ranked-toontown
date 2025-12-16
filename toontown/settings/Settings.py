@@ -28,6 +28,8 @@ class ControlSettings:
     CRANE_EXIT_KEY: str = "escape"
     CRANE_EXTEND_KEY: str = "page_up"
     CRANE_RETRACT_KEY: str = "page_down"
+    CRANE_SPEED_INCREASE_KEY: str = "bracketright"
+    CRANE_SPEED_DECREASE_KEY: str = "bracketleft"
     DRONE_SLOT_0_KEY: str = "f"
     DRONE_SLOT_1_KEY: str = "g"
     DRONE_SLOT_2_KEY: str = "h"

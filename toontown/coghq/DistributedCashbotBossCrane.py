@@ -45,13 +45,6 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     emptySlideSpeed = 10    # feet per second
     emptyRotateSpeed = 20   # degrees per second
     
-    # Speed multipliers based on cable length (longer = slower due to increased moment of inertia)
-    # At min length (16.5): 1.15x speed
-    # At default length (20): 1.0x speed 
-    # At max length (23.5): 1.15x speed
-    cableLengthSpeedMin = 1.0  # Speed multiplier at minimum cable length
-    cableLengthSpeedMax = 1.2  # Speed multiplier at maximum cable length
-    
     # These points will be useful for sticking the control stick into
     # the toon's hands.
     lookAtPoint = Point3(0.3, 0, 0.1)
@@ -80,10 +73,20 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.slideSpeed = self.emptySlideSpeed
         self.rotateSpeed = self.emptyRotateSpeed
         
+        # Speed multiplier (independent of cable length)
+        self.speedMultiplier = 1.0
+        self.speedMultiplierMin = 1.0
+        self.speedMultiplierMax = 1.2
+        self.speedMultiplierChangeRate = 0.5  # multiplier change per second
+        
         # Cable length adjustment tracking
         self.cableExtendPressed = False
         self.cableRetractPressed = False
         self.cableSoundPlaying = None  # Track which cable sound is currently playing
+        
+        # Speed adjustment tracking
+        self.speedIncreasePressed = False
+        self.speedDecreasePressed = False
         
         # This number increments each time we change direction on the
         # crane controls.  It's used to update the animation
@@ -686,6 +689,33 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             # Keyboard keys use press/release pattern
             self.accept(retractKey, self.__cableRetractPressed)
             self.accept(retractKey + '-up', self.__cableRetractReleased)
+        
+        # Speed adjustment keybinds
+        # Handle mouse wheel events differently (they don't have -up events)
+        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
+        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        
+        if speedIncreaseKey == 'wheel_up':
+            # Mouse wheel up - direct action, no -up event
+            self.accept('wheel_up', self.__speedIncreaseDirect)
+        elif speedIncreaseKey == 'wheel_down':
+            # Mouse wheel down - direct action, no -up event
+            self.accept('wheel_down', self.__speedIncreaseDirect)
+        else:
+            # Keyboard keys use press/release pattern
+            self.accept(speedIncreaseKey, self.__speedIncreasePressed)
+            self.accept(speedIncreaseKey + '-up', self.__speedIncreaseReleased)
+        
+        if speedDecreaseKey == 'wheel_up':
+            # Mouse wheel up - direct action, no -up event
+            self.accept('wheel_up', self.__speedDecreaseDirect)
+        elif speedDecreaseKey == 'wheel_down':
+            # Mouse wheel down - direct action, no -up event
+            self.accept('wheel_down', self.__speedDecreaseDirect)
+        else:
+            # Keyboard keys use press/release pattern
+            self.accept(speedDecreaseKey, self.__speedDecreasePressed)
+            self.accept(speedDecreaseKey + '-up', self.__speedDecreaseReleased)
 
         base.localAvatar.enableCraneControls()
         self.accept('InputState-forward', self.__upArrow)
@@ -695,6 +725,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
 
         taskMgr.add(self.__watchControls, 'watchCraneControls')
         taskMgr.add(self.__watchCableLength, self.cableLengthTaskName)
+        taskMgr.add(self.__watchSpeedAdjustment, self.uniqueName('watchSpeedAdjustment'))
         
         # Up in the sky, it's hard to read what people are saying.
         NametagGlobals.setOnscreenChatForced(1)
@@ -727,6 +758,22 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         else:
             self.ignore(retractKey)
             self.ignore(retractKey + '-up')
+        
+        # Clean up speed adjustment keybinds
+        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
+        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        
+        if speedIncreaseKey in ('wheel_up', 'wheel_down'):
+            self.ignore(speedIncreaseKey)
+        else:
+            self.ignore(speedIncreaseKey)
+            self.ignore(speedIncreaseKey + '-up')
+        
+        if speedDecreaseKey in ('wheel_up', 'wheel_down'):
+            self.ignore(speedDecreaseKey)
+        else:
+            self.ignore(speedDecreaseKey)
+            self.ignore(speedDecreaseKey + '-up')
         self.ignore('InputState-forward')
         self.ignore('InputState-reverse')
         self.ignore('InputState-turnLeft')
@@ -737,6 +784,8 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.arrowHorz = 0
         self.cableExtendPressed = False
         self.cableRetractPressed = False
+        self.speedIncreasePressed = False
+        self.speedDecreasePressed = False
         
         # Stop cable sounds
         if self.cableSoundPlaying:
@@ -747,6 +796,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         
         taskMgr.remove('watchCraneControls')
         taskMgr.remove(self.cableLengthTaskName)
+        taskMgr.remove(self.uniqueName('watchSpeedAdjustment'))
         self.__setMoveSound(None)
         return
 
@@ -979,25 +1029,62 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         elif self.cableRetractPressed:
             self.cableSoundPlaying = self.cableRetractSfx
             base.playSfx(self.cableRetractSfx, looping=1, volume=0.4)
+    
+    def __speedIncreasePressed(self):
+        """Called when speed increase key is pressed."""
+        self.speedIncreasePressed = True
+    
+    def __speedIncreaseReleased(self):
+        """Called when speed increase key is released."""
+        self.speedIncreasePressed = False
+    
+    def __speedDecreasePressed(self):
+        """Called when speed decrease key is pressed."""
+        self.speedDecreasePressed = True
+    
+    def __speedDecreaseReleased(self):
+        """Called when speed decrease key is released."""
+        self.speedDecreasePressed = False
+    
+    def __speedIncreaseDirect(self):
+        """Direct action for mouse wheel events - increase speed by a step."""
+        step = 0.05
+        self.speedMultiplier = min(self.speedMultiplier + step, self.speedMultiplierMax)
+    
+    def __speedDecreaseDirect(self):
+        """Direct action for mouse wheel events - decrease speed by a step."""
+        step = 0.05
+        self.speedMultiplier = max(self.speedMultiplier - step, self.speedMultiplierMin)
+    
+    def __watchSpeedAdjustment(self, task):
+        """Task that continuously adjusts speed multiplier based on key presses."""
+        dt = globalClock.getDt()
+        changeAmount = self.speedMultiplierChangeRate * dt
+        
+        # Handle keyboard key presses (continuous adjustment)
+        if self.speedIncreasePressed:
+            # Check if already at maximum speed
+            if self.speedMultiplier >= self.speedMultiplierMax:
+                self.speedMultiplier = self.speedMultiplierMax
+                return Task.cont
+            # Increase speed while key is held
+            self.speedMultiplier = min(self.speedMultiplier + changeAmount, self.speedMultiplierMax)
+        elif self.speedDecreasePressed:
+            # Check if already at minimum speed
+            if self.speedMultiplier <= self.speedMultiplierMin:
+                self.speedMultiplier = self.speedMultiplierMin
+                return Task.cont
+            # Decrease speed while key is held
+            self.speedMultiplier = max(self.speedMultiplier - changeAmount, self.speedMultiplierMin)
+        
+        return Task.cont
 
     def __moveCraneArcHinge(self, xd, yd):
         dt = globalClock.getDt()
         
-        # Calculate speed multiplier based on cable length
-        # Longer cables = slower movement (more moment of inertia)
-        # Interpolate between min and max speed multipliers based on cable length
-        cableLengthRange = self.cableLengthMax - self.cableLengthMin
-        if cableLengthRange > 0:
-            # Normalize cable length to 0-1 range (0 = min, 1 = max)
-            normalizedLength = (self.cableLength - self.cableLengthMin) / cableLengthRange
-            # Interpolate speed multiplier (inverse: longer = slower)
-            speedMultiplier = self.cableLengthSpeedMin + (self.cableLengthSpeedMax - self.cableLengthSpeedMin) * normalizedLength
-        else:
-            speedMultiplier = 1.0
-        
-        # Apply speed multiplier to both rotation and sliding
-        effectiveRotateSpeed = self.rotateSpeed * speedMultiplier
-        effectiveSlideSpeed = self.slideSpeed * speedMultiplier
+        # Apply speed multiplier to both rotation and sliding (independent of cable length)
+        effectiveRotateSpeed = self.rotateSpeed * self.speedMultiplier
+        effectiveSlideSpeed = self.slideSpeed * self.speedMultiplier
         
         h = self.arm.getH() + xd * effectiveRotateSpeed * dt
         limitH = max(min(h, self.armMaxH), self.armMinH)
@@ -1482,6 +1569,9 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # Reset cable length to default when entering crane
         self.cableLengthTarget = self.cableLengthDefault
         self.setCableLength(self.cableLengthDefault)
+        
+        # Reset speed multiplier to default when entering crane
+        self.speedMultiplier = 1.0
             
         self.grabTrack = self.makeToonGrabInterval(toon)
         
@@ -1557,6 +1647,9 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # Reset cable length to default when entering crane
         self.cableLengthTarget = self.cableLengthDefault
         self.setCableLength(self.cableLengthDefault)
+        
+        # Reset speed multiplier to default when entering crane
+        self.speedMultiplier = 1.0
         if avId != localAvatar.doId:
             if self.oldState == 'LocalControlled':
                 # The local toon is no longer in control of the crane.
@@ -1637,6 +1730,11 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.cableExtendPressed = False
         self.cableRetractPressed = False
         
+        # Reset speed multiplier to default when exiting crane
+        self.speedMultiplier = 1.0
+        self.speedIncreasePressed = False
+        self.speedDecreasePressed = False
+        
         if self.fadeTrack:
             self.fadeTrack.finish()
             self.fadeTrack = None
@@ -1685,6 +1783,9 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # Reset cable length to default when exiting crane
         self.cableLengthTarget = self.cableLengthDefault
         self.setCableLength(self.cableLengthDefault)
+        
+        # Reset speed multiplier to default when exiting crane
+        self.speedMultiplier = 1.0
         if self.avId != localAvatar.doId:
             if self.fadeTrack:
                 self.fadeTrack.finish()

@@ -3118,10 +3118,12 @@ dclass DistributedGoonDrone : DistributedGoon {
   setOwnerId(uint32) broadcast ram;
   setTargetId(uint32) broadcast ram;
   setDroneType(uint8) broadcast ram;
+  performVisualEffect(uint8) broadcast;
   shootLaser(uint32) airecv clsend;
   requestLaserHit(uint32) airecv clsend;
   requestHeal() airecv clsend;
   requestExplode() airecv clsend;
+  requestStun() airecv clsend;
   destroyDrone() broadcast clsend airecv;
   vanishWithPoof() broadcast clsend airecv;
 };
