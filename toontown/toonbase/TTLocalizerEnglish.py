@@ -10032,6 +10032,8 @@ OptionNames = {
     "CRANE_EXIT_KEY": "Crane Exit Key",
     "CRANE_EXTEND_KEY": "Crane Extend Cable",
     "CRANE_RETRACT_KEY": "Crane Retract Cable",
+    "CRANE_SPEED_INCREASE_KEY": "Crane Increase Speed",
+    "CRANE_SPEED_DECREASE_KEY": "Crane Decrease Speed",
     "DRONE_SLOT_0_KEY": "Drone Slot 1",
     "DRONE_SLOT_1_KEY": "Drone Slot 2",
     "DRONE_SLOT_2_KEY": "Drone Slot 3",
