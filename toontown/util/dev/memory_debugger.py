@@ -13,11 +13,14 @@ class MemoryDebugger:
     """
     
     notify = DirectNotifyGlobal.directNotify.newCategory("MemoryDebugger")
+
+    TRACK_WEAK_WARNING_FREQUENCY = 60 * 60  # How many seconds to wait in between warnings for track_weak() calls
     
     def __init__(self):
         self.snapshots = {}
         self.weak_refs = {}
         self.tracking_enabled = False
+        self.last_warning = 0  # Last time we warned to the console about track_weak() calls w/o being enabled
 
     def start(self):
         self.notify.warning("Starting tracemalloc and enabling GC debug.")
@@ -62,8 +65,9 @@ class MemoryDebugger:
         return list(self.weak_refs.keys())
 
     def track_weak(self, obj, label=None):
-        if not self.tracking_enabled:
+        if not self.tracking_enabled and time.time() - self.last_warning > self.TRACK_WEAK_WARNING_FREQUENCY:
             self.notify.warning("Tracking not enabled; call start() first.")
+            self.last_warning = time.time()
             return
 
         label = label or type(obj).__name__
