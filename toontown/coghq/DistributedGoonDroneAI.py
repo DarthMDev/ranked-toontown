@@ -347,7 +347,7 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
         explosionDamage = 50
         if hasattr(self.boss, 'game') and self.boss.game:
             # Use game's recordHit method
-            self.boss.game.recordHit(explosionDamage, impact=1.0, craneId=-1, objId=0, isGoon=False, isDOT=False)
+            self.boss.game.recordHit(explosionDamage, impact=0.99, craneId=-1, objId=0, isGoon=False, isDOT=False, avIdOverride=self.ownerId, forceStun=True)
         
         # Vanish after explosion
         taskMgr.doMethodLater(0.5, self.vanishWithPoof, self.uniqueName('vanishAfterExplosion'))
@@ -366,6 +366,9 @@ class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):
         if hasattr(self.boss, 'game') and self.boss.game:
             for goon in self.boss.game.goons:
                 taskMgr.doMethodLater(2 + random.random() / 4, goon.stun, goon.uniqueName('droneStun'), extraArgs=[self.ownerId, 10])
+        def stunBoss(_=None):
+            self.boss.game.recordHit(0, forceStun=True, avIdOverride=self.ownerId)
+        taskMgr.doMethodLater(2.25, stunBoss, self.boss.game.uniqueName('droneStun'))
 
         # Vanish after explosion
         taskMgr.doMethodLater(3.5, self.vanishWithPoof, self.uniqueName('vanishAfterStun'))

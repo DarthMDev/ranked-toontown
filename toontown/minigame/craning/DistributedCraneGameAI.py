@@ -1033,13 +1033,16 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def getToonOutgoingMultiplier(self, avId):
         return 100
 
-    def recordHit(self, damage, impact=0, craneId=-1, objId=0, isGoon=False, isDOT=False):
+    def recordHit(self, damage, impact=0, craneId=-1, objId=0, isGoon=False, isDOT=False, avIdOverride=None, forceStun=False):
 
         # Don't process a hit if we aren't in the play state.
         if self.gameFSM.getCurrentState().getName() != 'play':
             return
 
         avId = self.air.getAvatarIdFromSender()
+        # Sometimes we want to force damage from other sources and not an update.
+        if avIdOverride is not None:
+            avId = avIdOverride
         crane = simbase.air.doId2do.get(craneId)
         if not self.validate(avId, avId in self.getParticipants(), 'recordHit from unknown avatar'):
             return
@@ -1073,13 +1076,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
 
         # The CFO is already dizzy, OR the crane is None, so get outta here
-        if self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane:
+        if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         self.boss.stopHelmets()
 
         # Is the damage high enough to stun? or did a side crane hit a high impact hit?
-        hitMeetsStunRequirements = self.boss.considerStun(crane, damage, impact)
+        hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
         if hitMeetsStunRequirements:
             # A particularly good hit (when he's not already
             # dizzy) will make the boss dizzy for a little while.
@@ -1087,7 +1090,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             self.boss.b_setAttackCode(ToontownGlobals.BossCogDizzy, delayTime=delayTime)
             isSideCrane = isinstance(crane, DistributedCashbotBossSideCraneAI)
             reason = CraneLeagueGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneLeagueGlobals.ScoreReason.STUN
-            self.addScore(avId, crane.getPointsForStun(), reason=reason)
+            points = crane.getPointsForStun() if crane is not None else self.ruleset.POINTS_STUN // 2
+            self.addScore(avId, points, reason=reason)
         else:
 
             if self.ruleset.CFO_FLINCHES_ON_HIT:
@@ -1488,6 +1492,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         taskMgr.remove(self.uniqueName('times-up-task'))
         taskName = self.uniqueName('NextGoon')
         taskMgr.remove(taskName)
+        taskMgr.remove(self.uniqueName('droneStun'))
 
         self.stopDrainingLaff()
         self.currentlyInOvertime = False
