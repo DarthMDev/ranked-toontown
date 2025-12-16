@@ -354,6 +354,8 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
             # stun again.
             return
 
+        taskMgr.remove(self.uniqueName('droneStun'))
+
         if self.boss.ruleset.GOONS_DIE_ON_STOMP:
             self.b_destroyGoon()
             self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE,
@@ -612,49 +614,27 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
     def cleanup(self):
         """Clean up collision system and node paths to prevent memory leaks"""
         # Clean up collision system
-        if hasattr(self, 'cTrav') and self.cTrav:
+        if hasattr(self, 'cTrav') and self.cTrav is not None:
             self.cTrav.clearColliders()
             del self.cTrav
-        if hasattr(self, 'cQueue') and self.cQueue:
+        if hasattr(self, 'cQueue') and self.cQueue is not None:
             del self.cQueue
-        
         # Clear feelers list
-        if hasattr(self, 'feelers') and self.feelers:
+        if hasattr(self, 'feelers') and self.feelers is not None:
             self.feelers.clear()
-        
         # Clean up collision nodes
-        if hasattr(self, 'tubeNode'):
+        if hasattr(self, 'tubeNode') and self.tubeNode is not None:
             self.tubeNode = None
         
-        # Remove all tasks - use try/except to handle already removed tasks
-        try:
-            taskMgr.remove(self.uniqueName('reachedTarget'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('turnedToTarget'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('startingWalk'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('syncEmergePosition'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('recoverWalk'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('checkSafeCollisions'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('recoverFromFall'))
-        except:
-            pass
+        # Remove all tasks
+        taskMgr.remove(self.uniqueName('droneStun'))
+        taskMgr.remove(self.uniqueName('reachedTarget'))
+        taskMgr.remove(self.uniqueName('turnedToTarget'))
+        taskMgr.remove(self.uniqueName('startingWalk'))
+        taskMgr.remove(self.uniqueName('syncEmergePosition'))
+        taskMgr.remove(self.uniqueName('recoverWalk'))
+        taskMgr.remove(self.uniqueName('checkSafeCollisions'))
+        taskMgr.remove(self.uniqueName('recoverFromFall'))
 
     def cleanupNodePaths(self):
         """Clean up node paths - called only when safe to do so (after FSM is done)"""
