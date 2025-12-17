@@ -280,6 +280,8 @@ class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCas
         self.loop('walk', 0)
 
     def exitEmergeA(self):
+        if self.boss.getBoss() is None:
+            return
         if self.boss.getBoss().doorA:
             self.boss.getBoss().doorA.request('close')
         self.__stopWalk()
@@ -294,6 +296,8 @@ class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCas
         self.loop('walk', 0)
 
     def exitEmergeB(self):
+        if self.boss.getBoss() is None:
+            return
         if self.boss.getBoss().doorB:
             self.boss.getBoss().doorB.request('close')
         self.radar.show()

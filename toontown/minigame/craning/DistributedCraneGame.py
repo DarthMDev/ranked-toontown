@@ -2216,11 +2216,14 @@ class DistributedCraneGame(DistributedMinigame):
         self.scoreboard.addScore(avId, score, convertedReason)
 
     def updateCombo(self, avId, comboLength):
+        if self.scoreboard is None:
+            return
         self.scoreboard.setCombo(avId, comboLength)
 
     def updateTimer(self, secs):
-        self.bossSpeedrunTimer.override_time(secs)
-        self.bossSpeedrunTimer.update_time()
+        if self.bossSpeedrunTimer:
+            self.bossSpeedrunTimer.override_time(secs)
+            self.bossSpeedrunTimer.update_time()
 
     def declareVictor(self, avId: int) -> None:
         self.victor = avId
@@ -2231,10 +2234,12 @@ class DistributedCraneGame(DistributedMinigame):
             self.overtimeActive = True
             self.ruleset.REVIVE_TOONS_UPON_DEATH = False
         elif flag == CraneLeagueGlobals.OVERTIME_FLAG_ENABLE:
-            self.bossSpeedrunTimer.show_overtime()
+            if self.bossSpeedrunTimer:
+                self.bossSpeedrunTimer.show_overtime()
         else:
             self.overtimeActive = False
-            self.bossSpeedrunTimer.hide_overtime()
+            if self.bossSpeedrunTimer:
+                self.bossSpeedrunTimer.hide_overtime()
 
     def setModifiers(self, mods):
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances

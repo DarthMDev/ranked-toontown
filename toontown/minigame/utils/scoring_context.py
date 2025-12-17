@@ -130,7 +130,8 @@ class ScoringContext:
         # Loop through every round.
         for _round in self._round_to_context.values():
 
-            highest_score = max(_round.get_all_scores().values())
+            all_scores = _round.get_all_scores()
+            highest_score = max(all_scores.values()) if len(all_scores) > 0 else 0
 
             # The winners get max point weight.
             for winner in _round.get_winners():
