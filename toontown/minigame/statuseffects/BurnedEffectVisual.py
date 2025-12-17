@@ -4,9 +4,9 @@ Visual effect for the BURNED status effect.
 Creates animated fire/flame particles around the object.
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, NodePath
 from panda3d.physics import LinearVectorForce
-from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
+from direct.interval.IntervalGlobal import Sequence, Parallel, LerpColorScaleInterval, Wait, Func
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 
@@ -19,7 +19,18 @@ class BurnedEffectVisual(StatusEffectVisualBase):
     - Orange/red flame particles rising from the object
     - Scaled appropriately to object size
     - Additive blending for glow effect
+    - Orange/red glow on the object itself
     """
+    
+    def __init__(self, obj: NodePath, cr):
+        """Initialize the burned effect visual."""
+        super().__init__(obj, cr)
+        self.particleEffect = None
+        self.particles = None
+        self.particlePos = None
+        self.originalColorScales = {}  # Store original color scales for all parts
+        self.glowInterval = None
+        self.glowParts = []  # List of all parts that have glow applied
     
     def create(self):
         """Create the fire particle effect."""
@@ -201,10 +212,245 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         
         self.active = True
         
+    def _getAllParts(self):
+        """Get all parts of the object that should have glow applied."""
+        # Apply glow to the object as a whole - color scales are inherited by child nodes
+        # This ensures consistent tinting across all parts (including CFO's legs, torso, head, treads)
+        return [self.obj]
+    
+    def _isFlashRedActive(self):
+        """Check if flashRed() is currently active on the object."""
+        try:
+            # Check if the object has a flashInterval that's active
+            if hasattr(self.obj, 'flashInterval') and self.obj.flashInterval:
+                # Check if the interval is still playing
+                if hasattr(self.obj.flashInterval, 'isPlaying'):
+                    return self.obj.flashInterval.isPlaying()
+                # If we can't check, assume it might be active if it exists
+                return True
+        except:
+            pass
+        return False
+    
+    def _applyGlow(self):
+        """Apply orange/red glow effect to the object using multiplicative color scale."""
+        if not self.obj or self.obj.isEmpty():
+            return
+        
+        try:
+            # Get all parts that need glow
+            parts = self._getAllParts()
+            self.glowParts = []
+            
+            # Store original color scales and apply glow to each part
+            for part in parts:
+                if part and not part.isEmpty():
+                    # Store original color scale (only if not already stored)
+                    partId = id(part)
+                    if partId not in self.originalColorScales:
+                        currentColor = part.getColorScale()
+                        # Validate the color is reasonable before storing
+                        # Check for corrupted colors (extremely high values, negative, etc.)
+                        if (0.0 <= currentColor.getX() <= 2.0 and 
+                            0.0 <= currentColor.getY() <= 2.0 and 
+                            0.0 <= currentColor.getZ() <= 2.0 and 
+                            0.0 <= currentColor.getW() <= 2.0):
+                            # Check if color looks like it's from flashRed (red or white)
+                            isRed = (currentColor.getX() > 0.8 and 
+                                    currentColor.getY() < 0.3 and 
+                                    currentColor.getZ() < 0.3)
+                            isWhite = (abs(currentColor.getX() - 1.0) < 0.1 and 
+                                      abs(currentColor.getY() - 1.0) < 0.1 and 
+                                      abs(currentColor.getZ() - 1.0) < 0.1)
+                            
+                            # If color is from flashRed, wait a moment for it to finish
+                            if isRed or (isWhite and self._isFlashRedActive()):
+                                # flashRed is active, use white as base (flashRed ends at white)
+                                self.originalColorScales[partId] = Vec4(1.0, 1.0, 1.0, 1.0)
+                            else:
+                                # Store the actual current color
+                                self.originalColorScales[partId] = currentColor
+                        else:
+                            # Color is corrupted, use default white
+                            self.notify.warning(f"Detected corrupted color when applying glow: {currentColor}, using default")
+                            self.originalColorScales[partId] = Vec4(1.0, 1.0, 1.0, 1.0)
+                    
+                    # Get original color scale
+                    originalColor = self.originalColorScales[partId]
+                    
+                    # Apply multiplicative glow - multiply existing color by orange tint
+                    # This preserves the original color while adding orange glow
+                    glowMultiplier = Vec4(1.0, 0.75, 0.4, 1.0)  # Orange tint
+                    newColor = Vec4(
+                        originalColor.getX() * glowMultiplier.getX(),
+                        originalColor.getY() * glowMultiplier.getY(),
+                        originalColor.getZ() * glowMultiplier.getZ(),
+                        originalColor.getW() * glowMultiplier.getW()  # Preserve alpha
+                    )
+                    part.setColorScale(newColor)
+                    self.glowParts.append(part)
+            
+            # Create pulsing glow effect for all parts
+            # Pulse between orange and slightly dark orange
+            brightMultiplier = Vec4(1.05, 0.8, 0.45, 1.0)  # Orange
+            dimMultiplier = Vec4(0.95, 0.65, 0.3, 1.0)  # Slightly dark orange
+            
+            # Create pulsing intervals - all parts pulse together
+            # Phase 1: All parts brighten together
+            brightIntervals = []
+            dimIntervals = []
+            returnIntervals = []
+            
+            for part in self.glowParts:
+                if part and not part.isEmpty():
+                    partId = id(part)
+                    originalColor = self.originalColorScales[partId]
+                    currentColor = part.getColorScale()
+                    
+                    brightColor = Vec4(
+                        originalColor.getX() * brightMultiplier.getX(),
+                        originalColor.getY() * brightMultiplier.getY(),
+                        originalColor.getZ() * brightMultiplier.getZ(),
+                        originalColor.getW() * brightMultiplier.getW()
+                    )
+                    dimColor = Vec4(
+                        originalColor.getX() * dimMultiplier.getX(),
+                        originalColor.getY() * dimMultiplier.getY(),
+                        originalColor.getZ() * dimMultiplier.getZ(),
+                        originalColor.getW() * dimMultiplier.getW()
+                    )
+                    
+                    brightIntervals.append(LerpColorScaleInterval(part, 0.5, brightColor, currentColor))
+                    dimIntervals.append(LerpColorScaleInterval(part, 0.5, dimColor, brightColor))
+                    returnIntervals.append(LerpColorScaleInterval(part, 0.5, currentColor, dimColor))
+            
+            # Create sequence: all brighten -> all dim -> all return to base
+            if brightIntervals and dimIntervals and returnIntervals:
+                self.glowInterval = Sequence(
+                    Parallel(*brightIntervals),
+                    Parallel(*dimIntervals),
+                    Parallel(*returnIntervals)
+                )
+                self.glowInterval.loop()
+            
+        except Exception as e:
+            self.notify.warning(f"Error applying glow effect: {e}")
+    
+    def _fadeOutGlow(self):
+        """Fade out the glow effect gradually."""
+        if not self.obj or self.obj.isEmpty():
+            return
+        
+        try:
+            # Stop the pulsing interval
+            if self.glowInterval:
+                self.glowInterval.finish()
+                self.glowInterval = None
+            
+            # Check if flashRed is active - if so, wait for it to finish
+            if self._isFlashRedActive():
+                # flashRed takes 0.4 seconds total (0.1 red + 0.3 fade to white)
+                # Wait a bit longer to be safe, then restore our original color
+                taskMgr.doMethodLater(0.5, self._removeGlow, self.uniqueName('fadeOutGlow'))
+                return
+            
+            # Fade all parts back to original color scales
+            intervals = []
+            for part in self.glowParts:
+                if part and not part.isEmpty():
+                    partId = id(part)
+                    if partId in self.originalColorScales:
+                        currentColor = part.getColorScale()
+                        targetColor = self.originalColorScales[partId]
+                        intervals.append(LerpColorScaleInterval(part, 0.5, targetColor, currentColor))
+            
+            if intervals:
+                fadeInterval = Parallel(*intervals)
+                fadeInterval.start()
+            
+            # Schedule removal after fade completes
+            taskMgr.doMethodLater(0.5, self._removeGlow, self.uniqueName('fadeOutGlow'))
+            
+        except Exception as e:
+            self.notify.warning(f"Error fading out glow effect: {e}")
+            # Fallback to immediate removal
+            self._removeGlow()
+    
+    def _removeGlow(self, task=None):
+        """Remove the glow effect from all parts."""
+        if not self.obj or self.obj.isEmpty():
+            return task.done if task else None
+        
+        try:
+            # Stop the pulsing interval if still running
+            if self.glowInterval:
+                self.glowInterval.finish()
+                self.glowInterval = None
+            
+            # Check if flashRed is still active - if so, wait a bit more
+            if self._isFlashRedActive():
+                # flashRed might still be running, wait a bit more
+                taskMgr.doMethodLater(0.2, self._removeGlow, self.uniqueName('fadeOutGlow'))
+                return task.done if task else None
+            
+            # Restore original color scales for all parts
+            # But first, check current color to avoid conflicts
+            for part in self.glowParts:
+                if part and not part.isEmpty():
+                    partId = id(part)
+                    if partId in self.originalColorScales:
+                        try:
+                            currentColor = part.getColorScale()
+                            originalColor = self.originalColorScales[partId]
+                            
+                            # If current color looks like it's from flashRed (red tint or white),
+                            # we should restore to original after a brief delay to let flashRed finish
+                            # Check if color is close to white (1,1,1) or red (high red, low green/blue)
+                            isWhite = (abs(currentColor.getX() - 1.0) < 0.1 and 
+                                      abs(currentColor.getY() - 1.0) < 0.1 and 
+                                      abs(currentColor.getZ() - 1.0) < 0.1)
+                            isRed = (currentColor.getX() > 0.8 and 
+                                    currentColor.getY() < 0.3 and 
+                                    currentColor.getZ() < 0.3)
+                            
+                            # If color looks like it's from flashRed, restore immediately
+                            # (flashRed should have finished by now if we waited)
+                            if isWhite or isRed:
+                                # Restore to original - flashRed should be done
+                                part.setColorScale(originalColor)
+                            else:
+                                # Color might be from our glow or something else, restore normally
+                                part.setColorScale(originalColor)
+                        except Exception as e:
+                            self.notify.warning(f"Error restoring color scale for part: {e}")
+                            # Fallback: set to white to avoid stuck colors
+                            try:
+                                part.setColorScale(Vec4(1.0, 1.0, 1.0, 1.0))
+                            except:
+                                pass
+            
+            # Clear stored data
+            self.originalColorScales.clear()
+            self.glowParts = []
+            
+        except Exception as e:
+            self.notify.warning(f"Error removing glow effect: {e}")
+            # Last resort: try to set to white to avoid stuck colors
+            try:
+                if self.obj and not self.obj.isEmpty():
+                    self.obj.setColorScale(Vec4(1.0, 1.0, 1.0, 1.0))
+            except:
+                pass
+        
+        return task.done if task else None
+        
     def start(self):
         """Start the particle effect."""
         if not self.active:
             self.create()
+        
+        # Apply glow to the object
+        self._applyGlow()
         
         if self.particleEffect:
             # Start the particle effect with proper parent and render nodes
@@ -256,6 +502,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         # Mark as inactive but don't remove nodes yet
         self.active = False
         
+        # Fade out the glow gradually
+        self._fadeOutGlow()
+        
         # Schedule actual cleanup after particles have time to fade out
         # Use the longest particle lifespan to ensure all particles fade
         maxLifespan = 1.0  # Maximum expected particle lifespan
@@ -277,6 +526,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         # Check if cleanup was already called (nodes might already be removed)
         if not hasattr(self, 'particleEffect') or self.particleEffect is None:
             return task.done
+        
+        # Ensure glow is removed
+        self._removeGlow()
         
         if self.particleEffect:
             try:
@@ -314,6 +566,10 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         """
         # Cancel any pending graceful cleanup
         taskMgr.remove(self.uniqueName('gracefulCleanup'))
+        taskMgr.remove(self.uniqueName('fadeOutGlow'))
+        
+        # Remove glow immediately
+        self._removeGlow()
         
         # Stop first to prevent new particles from spawning
         self.stop()
