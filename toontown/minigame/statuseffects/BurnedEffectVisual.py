@@ -18,7 +18,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
     Creates a particle effect with:
     - Orange/red flame particles rising from the object
     - Scaled appropriately to object size
-    - Additive blending for glow effect
     """
     
     def create(self):
@@ -64,6 +63,15 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             baseScale = max(0.5, min(height / 3.0, 2.0))
         
         self.notify.info(f"Burned effect baseScale: {baseScale} (isCFO={isCFOBoss})")
+        
+        # Create a renderParent node for particle physics with proper depth settings
+        # This ensures particles don't occlude other objects
+        self.particleRenderParent = render.attachNewNode('burnedParticleRenderParent')
+        self.particleRenderParent.setBin('fixed', -50)  # Lower priority than damage numbers
+        self.particleRenderParent.setDepthWrite(False)  # Don't write to depth (won't occlude things behind)
+        # Keep depthTest enabled (default) so particles respect depth for proper rendering
+        self.particleRenderParent.setLightOff()
+        self.particleRenderParent.setFogOff()
         
         # Create the particle effect (don't parent it yet - start() will handle that)
         self.particleEffect = ParticleEffect.ParticleEffect('BurnedFlames')
@@ -374,150 +382,15 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         # Store particles reference for cleanup
         self.particles = self.mainFlames  # Keep for compatibility with existing code
         
-        # Create glow aura particle effect for ambient glow around the object
-        self.glowParticleEffect = ParticleEffect.ParticleEffect('BurnedGlowAura')
-        
-        # Position glow a little bit above base
-        glowCenterOffset = height * 0.5
-        self.glowParticlePos = Point3(0, 0, glowCenterOffset)
-        
-        self.glowParticles = Particles.Particles('glowAura')
-        self.glowParticles.setFactory('PointParticleFactory')
-        self.glowParticles.setRenderer('SpriteParticleRenderer')
-        self.glowParticles.setEmitter('SphereVolumeEmitter')
-        self.glowParticleEffect.addParticles(self.glowParticles)
-        
-        # Calculate object dimensions for glow sizing
-        widthX = maxPt.getX() - minPt.getX()
-        widthY = maxPt.getY() - minPt.getY()
-        avgWidth = (widthX + widthY) / 2.0
-        
-        # Configure glow particles - slower, longer-lived particles for persistent aura
-        if isCFOBoss:
-            glowPoolSize = int(40 * baseScale)  # Reduced from 80 for less intensity
-            glowBirthRate = 0.15  # Slower spawn rate for more subtle glow
-            glowLitterSize = 2  # Reduced from 3
-        else:
-            glowPoolSize = int(50 * baseScale)
-            glowBirthRate = 0.1
-            glowLitterSize = 2
-        
-        self.glowParticles.setPoolSize(glowPoolSize)
-        self.glowParticles.setBirthRate(glowBirthRate)
-        self.glowParticles.setLitterSize(glowLitterSize)
-        self.glowParticles.setLitterSpread(1)
-        # Use local velocity so particles move relative to parent (object)
-        self.glowParticles.setLocalVelocityFlag(1)
-        
-        # Longer lifespan for persistent glow effect
-        if isCFOBoss:
-            glowLifespanBase = 1.5 * baseScale
-        else:
-            glowLifespanBase = 1.0 * baseScale
-        
-        self.glowParticles.factory.setLifespanBase(glowLifespanBase)
-        self.glowParticles.factory.setLifespanSpread(0.3)
-        self.glowParticles.factory.setMassBase(1.0)
-        self.glowParticles.factory.setMassSpread(0.1)
-        # Slower movement for subtle, ambient glow
-        self.glowParticles.factory.setTerminalVelocityBase(50.0)
-        self.glowParticles.factory.setTerminalVelocitySpread(20.0)
-        
-        # Configure glow renderer - use white glow texture with orange/red tint
-        self.glowParticles.renderer.setAlphaMode(3)  # PRALPHANONE - use texture alpha
-        self.glowParticles.renderer.setUserAlpha(1.0)
-        self.glowParticles.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
-        self.glowParticles.renderer.setAlphaDisable(0)
-        # Make particles always face camera (billboard)
-        self.glowParticles.renderer.setAnimAngleFlag(1)  # Animate angle
-        self.glowParticles.renderer.setNonanimatedTheta(0.0)  # Face camera
-        
-        # Load white glow texture - use the same method as GlowTrail
-        # loader is available as a global in Panda3D (from ShowBase)
-        try:
-            # Try to access loader - it's typically available as a global
-            try:
-                # First try: use loader directly (global in Panda3D)
-                glowModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            except NameError:
-                # Fallback: access via base
-                from direct.showbase.ShowBase import ShowBase
-                glowModel = base.loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            
-            if not glowModel.isEmpty():
-                glowTemplate = glowModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-                if not glowTemplate.isEmpty():
-                    self.glowParticles.renderer.setFromNode(glowTemplate)
-                    self.notify.info("Loaded white glow texture for aura effect")
-                else:
-                    self.notify.warning("Could not find white glow texture in model")
-            else:
-                self.notify.warning("Could not load glow model")
-        except Exception as e:
-            import traceback
-            self.notify.warning(f"Could not load glow texture: {e}")
-            self.notify.warning(traceback.format_exc())
-        
-        # Set orange/red glow color - bright but not overpowering
-        # CFO gets less intense glow (lower alpha)
-        if isCFOBoss:
-            glowColor = Vec4(1.0, 0.6, 0.2, 0.02)  # Lower alpha for CFO (0.4 vs 0.7)
-        else:
-            glowColor = Vec4(1.0, 0.6, 0.2, 0.02)  # Normal intensity for safes
-        self.glowParticles.renderer.setColor(glowColor)
-        
-        # Calculate glow size to surround the object
-        if isCFOBoss:
-            # CFO is wide and tall, use the larger dimension
-            # Reduced scale for less intense glow
-            glowSize = max(avgWidth, height)
-            glowBaseScale = max(0.5, glowSize * 0.2)  # Reduced from 0.3 for less intensity
-        else:
-            # For safes, use the larger dimension
-            glowSize = max(avgWidth, height)
-            glowBaseScale = max(0.4, glowSize * 0.25)  # Scale to object size
-        
-        # Particles start smaller and grow slightly, then fade
-        self.glowParticles.renderer.setInitialXScale(glowBaseScale * 2.0)
-        self.glowParticles.renderer.setFinalXScale(glowBaseScale * 2.0)
-        self.glowParticles.renderer.setInitialYScale(glowBaseScale * 4.0)
-        self.glowParticles.renderer.setFinalYScale(glowBaseScale * 4.0)
-        self.glowParticles.renderer.setXScaleFlag(True)  # Enable scaling
-        self.glowParticles.renderer.setYScaleFlag(True)
-        self.glowParticles.renderer.setIgnoreScale(False)
-        
-        # Configure glow emitter - sphere around object center
-        # Glow should stick to object, so minimal movement
-        self.glowParticles.emitter.setEmissionType(1)  # ETRADIATE - radiate outward
-        # Emit from a sphere around the object center
-        if isCFOBoss:
-            # Larger radius for CFO to surround the whole body
-            glowEmitterRadius = max(3.0, avgWidth / 2.0 * 0.6)
-        else:
-            # Smaller radius for safes
-            glowEmitterRadius = max(1.0, avgWidth / 2.0 * 0.5)
-        
-        self.glowParticles.emitter.setRadius(glowEmitterRadius)
-        # Minimal amplitude so particles stay close to object
-        self.glowParticles.emitter.setAmplitude(0.1)  # Very small movement
-        self.glowParticles.emitter.setAmplitudeSpread(0.05)  # Tight spread
-        # No offset force - particles should stay in place
-        self.glowParticles.emitter.setOffsetForce(Vec3(0.0, 0.0, 0.0))
-        
-        # Reduce terminal velocity so particles don't drift
-        self.glowParticles.factory.setTerminalVelocityBase(10.0)  # Very slow
-        self.glowParticles.factory.setTerminalVelocitySpread(5.0)
-        
-        # No upward force - glow should stick to object
-        # (Removed glowForceGroup to prevent drifting)
-        
-        self.notify.info(f"Created glow aura: size={glowBaseScale}, radius={glowEmitterRadius}, isCFO={isCFOBoss}")
-        
-        # Set rendering properties for fire glow
+        # Set rendering properties for fire particles
         self.effectNode.setLightOff()
         self.effectNode.setFogOff()
-        self.effectNode.setDepthWrite(False)
-        self.effectNode.setBin('fixed', 0)
+        self.effectNode.setDepthWrite(False)  # Don't write to depth buffer (so particles won't occlude things behind them)
+        # Keep depthTest enabled (default) so particles still respect depth for proper rendering
+        # Fire particles render at lower priority than damage numbers
+        # Fire at -50 (low), damage numbers at 100 (highest)
+        # Use negative priority to ensure fire renders before damage numbers
+        self.effectNode.setBin('fixed', -50)
         self.effectNode.setTransparency(1)  # Enable transparency on the effect node
         # Additive blending for fire glow
         self.effectNode.setAttrib(ColorBlendAttrib.make(
@@ -536,22 +409,53 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         if self.particleEffect:
             # Start the particle effect with proper parent and render nodes
             # parent is where the effect is positioned (effectNode)
-            # renderParent is the coordinate system for physics (render)
-            self.particleEffect.start(parent=self.effectNode, renderParent=render)
+            # renderParent is the coordinate system for physics (particleRenderParent with depth settings)
+            self.particleEffect.start(parent=self.effectNode, renderParent=self.particleRenderParent)
             
             # Set the stored position
             if hasattr(self, 'particlePos'):
                 self.particleEffect.setPos(self.particlePos)
-        
-        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
-            # Start the glow particle effect at object center
-            # Use render as renderParent (world space) but parent to effectNode
-            # This way the glow rotates with the object but particles use world space physics
-            self.glowParticleEffect.start(parent=self.effectNode, renderParent=render)
             
-            # Set the glow position at object center (in local space relative to effectNode)
-            if hasattr(self, 'glowParticlePos'):
-                self.glowParticleEffect.setPos(self.glowParticlePos)
+            # Ensure particle effect doesn't occlude damage numbers
+            # Apply depth settings to the particle effect node and all its children recursively
+            # Do this after a short delay to ensure all particle system nodes are created
+            if not self.particleEffect.isEmpty():
+                self._applyDepthSettingsRecursive(self.particleEffect)
+                # Also apply to effectNode to ensure inheritance
+                self._applyDepthSettingsRecursive(self.effectNode)
+                # Use a task to reapply settings after particles are fully initialized
+                taskMgr.doMethodLater(0.1, self._ensureDepthSettings, self.uniqueName('ensureDepthSettings'))
+    
+    def _applyDepthSettingsRecursive(self, node):
+        """Recursively apply depth settings to node and all its children."""
+        if node.isEmpty():
+            return
+        
+        # Only disable depth write (so particles don't occlude things behind them)
+        # Keep depth test enabled (default) so particles still respect depth for proper rendering
+        node.setDepthWrite(False)
+        
+        # Recursively apply to all children
+        for child in node.getChildren():
+            self._applyDepthSettingsRecursive(child)
+    
+    def _ensureDepthSettings(self, task):
+        """Task to ensure depth settings are applied to all particle nodes."""
+        if not self.active:
+            return task.done
+        
+        # Reapply depth settings to ensure they stick
+        if hasattr(self, 'particleEffect') and self.particleEffect and not self.particleEffect.isEmpty():
+            self._applyDepthSettingsRecursive(self.particleEffect)
+        
+        if hasattr(self, 'effectNode') and self.effectNode and not self.effectNode.isEmpty():
+            self._applyDepthSettingsRecursive(self.effectNode)
+        
+        if hasattr(self, 'particleRenderParent') and self.particleRenderParent and not self.particleRenderParent.isEmpty():
+            self.particleRenderParent.setDepthWrite(False)
+            # Keep depthTest enabled (default) - don't disable it
+        
+        return task.done
     
     def stop(self):
         """Stop the particle effect without destroying it."""
@@ -562,13 +466,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.particleEffect.softStop()
             except Exception as e:
                 self.notify.warning(f"Error stopping particle effect: {e}")
-        
-        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
-            try:
-                # Soft stop the glow effect
-                self.glowParticleEffect.softStop()
-            except Exception as e:
-                self.notify.warning(f"Error stopping glow particle effect: {e}")
     
     def gracefulCleanup(self):
         """
@@ -583,36 +480,23 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             return
         
         # Stop spawning new particles but let existing ones fade out
-        # Disable all fire and smoke layers
+        # Set birth rate to very high value to effectively stop spawning
         for particleLayer in ['coreFlames', 'mainFlames', 'embers', 'smoke', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
                     try:
-                        particles.disableParticles()
+                        # Set very high birth rate to stop spawning (particles will fade out naturally)
+                        particles.setBirthRate(100.0)
                     except Exception as e:
-                        self.notify.warning(f"Error disabling {particleLayer}: {e}")
+                        self.notify.warning(f"Error stopping {particleLayer}: {e}")
         
-        # Stop spawning glow particles
-        if hasattr(self, 'glowParticles') and self.glowParticles:
-            try:
-                # Stop spawning new glow particles
-                self.glowParticles.disableParticles()
-            except Exception as e:
-                self.notify.warning(f"Error disabling glow particles: {e}")
-        
-        # Soft stop both effects to let particles fade out
+        # Soft stop the effect to let particles fade out
         if self.particleEffect:
             try:
                 self.particleEffect.softStop()
             except Exception as e:
                 self.notify.warning(f"Error soft stopping particle effect: {e}")
-        
-        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
-            try:
-                self.glowParticleEffect.softStop()
-            except Exception as e:
-                self.notify.warning(f"Error soft stopping glow particle effect: {e}")
         
         # Mark as inactive but don't remove nodes yet
         self.active = False
@@ -632,15 +516,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                         maxLifespan = max(maxLifespan, lifespanBase + lifespanSpread)
                     except:
                         pass
-        
-        # Also check glow particles lifespan
-        if hasattr(self, 'glowParticles') and self.glowParticles:
-            try:
-                glowLifespanBase = self.glowParticles.factory.getLifespanBase()
-                glowLifespanSpread = self.glowParticles.factory.getLifespanSpread()
-                maxLifespan = max(maxLifespan, glowLifespanBase + glowLifespanSpread)
-            except:
-                pass
         
         # Clean up after particles have faded (add small buffer)
         cleanupDelay = maxLifespan + 0.5
@@ -662,23 +537,17 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.notify.warning(f"Error during delayed cleanup: {e}")
             self.particleEffect = None
         
-        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
-            try:
-                self.glowParticleEffect.cleanup()
-                if not self.glowParticleEffect.isEmpty():
-                    self.glowParticleEffect.detachNode()
-                    self.glowParticleEffect.removeNode()
-            except Exception as e:
-                self.notify.warning(f"Error during delayed glow cleanup: {e}")
-            self.glowParticleEffect = None
-        
         # Clean up all particle layer references
         for particleLayer in ['coreFlames', 'mainFlames', 'embers', 'smoke', 'particles']:
             if hasattr(self, particleLayer):
                 setattr(self, particleLayer, None)
         
-        if hasattr(self, 'glowParticles'):
-            self.glowParticles = None
+        if hasattr(self, 'particleRenderParent') and self.particleRenderParent and not self.particleRenderParent.isEmpty():
+            try:
+                self.particleRenderParent.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error removing particle render parent in delayed cleanup: {e}")
+            self.particleRenderParent = None
         
         if self.effectNode and not self.effectNode.isEmpty():
             try:
@@ -701,30 +570,24 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         Completely clean up the effect immediately.
         Use force=True for game end/restart scenarios.
         """
-        # Cancel any pending graceful cleanup
+        # Cancel any pending graceful cleanup and depth settings tasks
         taskMgr.remove(self.uniqueName('gracefulCleanup'))
+        taskMgr.remove(self.uniqueName('ensureDepthSettings'))
         
         # Stop first to prevent new particles from spawning
         self.stop()
         
-        # Disable all fire and smoke particle layers
+        # Stop all fire and smoke particle layers from spawning
         for particleLayer in ['coreFlames', 'mainFlames', 'embers', 'smoke', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
                     try:
-                        particles.disableParticles()
+                        # Set very high birth rate to stop spawning
+                        particles.setBirthRate(100.0)
                         setattr(self, particleLayer, None)
                     except Exception as e:
-                        self.notify.warning(f"Error disabling {particleLayer}: {e}")
-        
-        if hasattr(self, 'glowParticles') and self.glowParticles:
-            try:
-                # Explicitly disable glow particles
-                self.glowParticles.disableParticles()
-                self.glowParticles = None
-            except Exception as e:
-                self.notify.warning(f"Error disabling glow particles: {e}")
+                        self.notify.warning(f"Error stopping {particleLayer}: {e}")
         
         if hasattr(self, 'particleEffect') and self.particleEffect:
             try:
@@ -740,20 +603,13 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.notify.warning(f"Error during particle effect cleanup: {e}")
             self.particleEffect = None
         
-        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+        if hasattr(self, 'particleRenderParent') and self.particleRenderParent and not self.particleRenderParent.isEmpty():
             try:
-                # Force disable the glow particle effect
-                self.glowParticleEffect.disable()
-                # Cleanup the glow particle effect completely
-                self.glowParticleEffect.cleanup()
-                # Remove from scene graph
-                if not self.glowParticleEffect.isEmpty():
-                    self.glowParticleEffect.detachNode()
-                    self.glowParticleEffect.removeNode()
+                self.particleRenderParent.removeNode()
             except Exception as e:
-                self.notify.warning(f"Error during glow particle effect cleanup: {e}")
-            self.glowParticleEffect = None
-            
+                self.notify.warning(f"Error removing particle render parent: {e}")
+            self.particleRenderParent = None
+        
         if self.effectNode and not self.effectNode.isEmpty():
             try:
                 # Detach from parent first, then remove
