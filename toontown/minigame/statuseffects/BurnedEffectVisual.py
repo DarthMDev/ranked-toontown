@@ -4,9 +4,9 @@ Visual effect for the BURNED status effect.
 Creates animated fire/flame particles around the object.
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, NodePath
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib
 from panda3d.physics import LinearVectorForce
-from direct.interval.IntervalGlobal import Sequence, Parallel, LerpColorScaleInterval, Wait, Func
+from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 
@@ -17,7 +17,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
     
     Creates a particle effect with:
     - Orange/red flame particles rising from the object
-    - Pulsing orange/red aura glow around the object
     - Scaled appropriately to object size
     - Additive blending for glow effect
     """
@@ -187,6 +186,143 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         forceGroup.addForce(upwardForce)
         self.particleEffect.addForceGroup(forceGroup)
         
+        # Create glow aura particle effect for ambient glow around the object
+        self.glowParticleEffect = ParticleEffect.ParticleEffect('BurnedGlowAura')
+        
+        # Position glow at object center (height/2) instead of base
+        glowCenterOffset = height / 2.5
+        self.glowParticlePos = Point3(0, 0, glowCenterOffset)
+        
+        self.glowParticles = Particles.Particles('glowAura')
+        self.glowParticles.setFactory('PointParticleFactory')
+        self.glowParticles.setRenderer('SpriteParticleRenderer')
+        self.glowParticles.setEmitter('SphereVolumeEmitter')
+        self.glowParticleEffect.addParticles(self.glowParticles)
+        
+        # Calculate object dimensions for glow sizing
+        widthX = maxPt.getX() - minPt.getX()
+        widthY = maxPt.getY() - minPt.getY()
+        avgWidth = (widthX + widthY) / 2.0
+        
+        # Configure glow particles - slower, longer-lived particles for persistent aura
+        if isCFOBoss:
+            glowPoolSize = int(40 * baseScale)  # Reduced from 80 for less intensity
+            glowBirthRate = 0.15  # Slower spawn rate for more subtle glow
+            glowLitterSize = 2  # Reduced from 3
+        else:
+            glowPoolSize = int(50 * baseScale)
+            glowBirthRate = 0.1
+            glowLitterSize = 2
+        
+        self.glowParticles.setPoolSize(glowPoolSize)
+        self.glowParticles.setBirthRate(glowBirthRate)
+        self.glowParticles.setLitterSize(glowLitterSize)
+        self.glowParticles.setLitterSpread(1)
+        
+        # Longer lifespan for persistent glow effect
+        if isCFOBoss:
+            glowLifespanBase = 1.5 * baseScale
+        else:
+            glowLifespanBase = 1.0 * baseScale
+        
+        self.glowParticles.factory.setLifespanBase(glowLifespanBase)
+        self.glowParticles.factory.setLifespanSpread(0.3)
+        self.glowParticles.factory.setMassBase(1.0)
+        self.glowParticles.factory.setMassSpread(0.1)
+        # Slower movement for subtle, ambient glow
+        self.glowParticles.factory.setTerminalVelocityBase(50.0)
+        self.glowParticles.factory.setTerminalVelocitySpread(20.0)
+        
+        # Configure glow renderer - use white glow texture with orange/red tint
+        self.glowParticles.renderer.setAlphaMode(3)  # PRALPHANONE - use texture alpha
+        self.glowParticles.renderer.setUserAlpha(1.0)
+        self.glowParticles.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
+        self.glowParticles.renderer.setAlphaDisable(0)
+        # Make particles always face camera (billboard)
+        self.glowParticles.renderer.setAnimAngleFlag(1)  # Animate angle
+        self.glowParticles.renderer.setNonanimatedTheta(0.0)  # Face camera
+        
+        # Load white glow texture - use the same method as GlowTrail
+        # loader is available as a global in Panda3D (from ShowBase)
+        try:
+            # Try to access loader - it's typically available as a global
+            try:
+                # First try: use loader directly (global in Panda3D)
+                glowModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
+            except NameError:
+                # Fallback: access via base
+                from direct.showbase.ShowBase import ShowBase
+                glowModel = base.loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
+            
+            if not glowModel.isEmpty():
+                glowTemplate = glowModel.find('**/tt_t_efx_ext_particleWhiteGlow')
+                if not glowTemplate.isEmpty():
+                    self.glowParticles.renderer.setFromNode(glowTemplate)
+                    self.notify.info("Loaded white glow texture for aura effect")
+                else:
+                    self.notify.warning("Could not find white glow texture in model")
+            else:
+                self.notify.warning("Could not load glow model")
+        except Exception as e:
+            import traceback
+            self.notify.warning(f"Could not load glow texture: {e}")
+            self.notify.warning(traceback.format_exc())
+        
+        # Set orange/red glow color - bright but not overpowering
+        # CFO gets less intense glow (lower alpha)
+        if isCFOBoss:
+            glowColor = Vec4(1.0, 0.6, 0.2, 0.4)  # Lower alpha for CFO (0.4 vs 0.7)
+        else:
+            glowColor = Vec4(1.0, 0.6, 0.2, 0.7)  # Normal intensity for safes
+        self.glowParticles.renderer.setColor(glowColor)
+        
+        # Calculate glow size to surround the object
+        if isCFOBoss:
+            # CFO is wide and tall, use the larger dimension
+            # Reduced scale for less intense glow
+            glowSize = max(avgWidth, height)
+            glowBaseScale = max(0.5, glowSize * 0.2)  # Reduced from 0.3 for less intensity
+        else:
+            # For safes, use the larger dimension
+            glowSize = max(avgWidth, height)
+            glowBaseScale = max(0.4, glowSize * 0.25)  # Scale to object size
+        
+        # Particles start smaller and grow slightly, then fade
+        self.glowParticles.renderer.setInitialXScale(glowBaseScale * 0.8)
+        self.glowParticles.renderer.setFinalXScale(glowBaseScale * 1.5)
+        self.glowParticles.renderer.setInitialYScale(glowBaseScale * 0.8)
+        self.glowParticles.renderer.setFinalYScale(glowBaseScale * 1.5)
+        self.glowParticles.renderer.setXScaleFlag(True)  # Enable scaling
+        self.glowParticles.renderer.setYScaleFlag(True)
+        self.glowParticles.renderer.setIgnoreScale(False)
+        
+        # Configure glow emitter - sphere around object center
+        self.glowParticles.emitter.setEmissionType(1)  # ETRADIATE - radiate outward
+        # Emit from a sphere around the object center
+        if isCFOBoss:
+            # Larger radius for CFO to surround the whole body
+            glowEmitterRadius = max(3.0, avgWidth / 2.0 * 0.6)
+            glowAmplitude = 0.5 * baseScale  # Gentle movement
+        else:
+            # Smaller radius for safes
+            glowEmitterRadius = max(1.0, avgWidth / 2.0 * 0.5)
+            glowAmplitude = 0.3 * baseScale
+        
+        self.glowParticles.emitter.setRadius(glowEmitterRadius)
+        self.glowParticles.emitter.setAmplitude(glowAmplitude)
+        self.glowParticles.emitter.setAmplitudeSpread(0.2)
+        # Very gentle upward drift
+        self.glowParticles.emitter.setOffsetForce(Vec3(0.0, 0.0, 0.5 * baseScale))
+        
+        # Add gentle upward force for slow drift
+        glowForceGroup = ForceGroup.ForceGroup('glowRise')
+        glowUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, 1.0 * baseScale), 0.5, 0)
+        glowUpwardForce.setActive(True)
+        glowForceGroup.addForce(glowUpwardForce)
+        self.glowParticleEffect.addForceGroup(glowForceGroup)
+        
+        self.notify.info(f"Created glow aura: size={glowBaseScale}, radius={glowEmitterRadius}, isCFO={isCFOBoss}")
+        
         # Set rendering properties for fire glow
         self.effectNode.setLightOff()
         self.effectNode.setFogOff()
@@ -200,94 +336,7 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             ColorBlendAttrib.OOne
         ))
         
-        # Create aura glow effect
-        self._createAuraGlow(minPt, maxPt, center, height, avgWidth, isCFOBoss, baseScale)
-        
         self.active = True
-    
-    def _createAuraGlow(self, minPt, maxPt, center, height, avgWidth, isCFOBoss, baseScale):
-        """Create a pulsing orange/red aura glow around the object."""
-        try:
-            # Load the glow texture from particle cards
-            glowModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            if glowModel.isEmpty():
-                self.notify.warning("Could not load glow model for aura effect")
-                return
-            
-            # Get the white glow texture
-            self.glowCard = glowModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-            if self.glowCard.isEmpty():
-                self.notify.warning("Could not find glow texture in model")
-                return
-            
-            # Create a node for the glow effect
-            self.glowNode = self.effectNode.attachNewNode('auraGlow')
-            
-            # Reparent the glow card to our glow node
-            self.glowCard.reparentTo(self.glowNode)
-            self.glowCard.setBillboardAxis(0)  # Billboard always faces camera
-            
-            # Calculate glow size based on object dimensions
-            # Make it slightly larger than the object to create an aura effect
-            if isCFOBoss:
-                # CFO is wide, so use average width and height
-                glowSize = max(avgWidth, height) * 1.8  # 30% larger than object
-            else:
-                # For safes, use the larger dimension
-                glowSize = max(avgWidth, height) * 1.6  # 40% larger than object
-            
-            # Scale the glow card
-            self.glowCard.setScale(glowSize)
-            
-            # Position at object center (in local space, center is relative to effectNode)
-            # effectNode is attached to obj, so center is already at origin
-            self.glowNode.setPos(0, 0, height / 2.2)  # Center vertically
-            
-            # Set up rendering properties for additive glow
-            self.glowNode.setAttrib(ColorBlendAttrib.make(
-                ColorBlendAttrib.MAdd,
-                ColorBlendAttrib.OIncomingAlpha,
-                ColorBlendAttrib.OOne
-            ))
-            self.glowNode.setBillboardPointWorld()  # Always face camera
-            self.glowNode.setDepthWrite(False)
-            self.glowNode.setLightOff()
-            self.glowNode.setFogOff()
-            self.glowNode.setTransparency(True)
-            self.glowNode.setBin('fixed', 0)
-            
-            # Set initial orange/red color
-            # Orange-red: high red, medium orange, low blue
-            self.glowBaseColor = Vec4(1.0, 0.5, 0.1, 0.6)  # Base orange-red with moderate alpha
-            self.glowBrightColor = Vec4(1.0, 0.6, 0.15, 0.8)  # Brighter orange-red
-            self.glowDimColor = Vec4(0.9, 0.4, 0.05, 0.5)  # Dimmer orange-red
-            
-            # Start at transparent - will fade in when effect starts
-            self.glowCard.setColorScale(Vec4(1.0, 0.5, 0.1, 0.0))  # Transparent initially
-            
-            # Create pulsing animation (will start after fade-in)
-            # Pulse between bright and dim orange-red
-            self.glowPulseInterval = Sequence(
-                LerpColorScaleInterval(self.glowCard, 0.6, self.glowBrightColor, self.glowBaseColor),
-                LerpColorScaleInterval(self.glowCard, 0.6, self.glowDimColor, self.glowBrightColor),
-                LerpColorScaleInterval(self.glowCard, 0.6, self.glowBaseColor, self.glowDimColor)
-            )
-            # Don't start pulsing yet - wait for fade-in
-            self.glowPulseInterval.pause()
-            
-            self.notify.info(f"Created aura glow effect: size={glowSize}, isCFO={isCFOBoss}")
-            
-        except Exception as e:
-            import traceback
-            self.notify.warning(f"Error creating aura glow: {e}")
-            self.notify.warning(traceback.format_exc())
-            # Set to None so cleanup doesn't fail
-            if not hasattr(self, 'glowNode'):
-                self.glowNode = None
-            if not hasattr(self, 'glowCard'):
-                self.glowCard = None
-            if not hasattr(self, 'glowPulseInterval'):
-                self.glowPulseInterval = None
         
     def start(self):
         """Start the particle effect."""
@@ -304,8 +353,13 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             if hasattr(self, 'particlePos'):
                 self.particleEffect.setPos(self.particlePos)
         
-        # Fade in the aura glow
-        self._fadeInAuraGlow()
+        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+            # Start the glow particle effect at object center
+            self.glowParticleEffect.start(parent=self.effectNode, renderParent=render)
+            
+            # Set the glow position at object center
+            if hasattr(self, 'glowParticlePos'):
+                self.glowParticleEffect.setPos(self.glowParticlePos)
     
     def stop(self):
         """Stop the particle effect without destroying it."""
@@ -316,6 +370,13 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.particleEffect.softStop()
             except Exception as e:
                 self.notify.warning(f"Error stopping particle effect: {e}")
+        
+        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+            try:
+                # Soft stop the glow effect
+                self.glowParticleEffect.softStop()
+            except Exception as e:
+                self.notify.warning(f"Error stopping glow particle effect: {e}")
     
     def gracefulCleanup(self):
         """
@@ -329,9 +390,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         if not hasattr(self, 'particleEffect') or self.particleEffect is None:
             return
         
-        # Fade out the aura glow first
-        self._fadeOutAuraGlow()
-        
         # Stop spawning new particles but let existing ones fade out
         if hasattr(self, 'particles') and self.particles:
             try:
@@ -340,12 +398,26 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             except Exception as e:
                 self.notify.warning(f"Error disabling particles: {e}")
         
-        # Soft stop the effect to let particles fade out
+        # Stop spawning glow particles
+        if hasattr(self, 'glowParticles') and self.glowParticles:
+            try:
+                # Stop spawning new glow particles
+                self.glowParticles.disableParticles()
+            except Exception as e:
+                self.notify.warning(f"Error disabling glow particles: {e}")
+        
+        # Soft stop both effects to let particles fade out
         if self.particleEffect:
             try:
                 self.particleEffect.softStop()
             except Exception as e:
                 self.notify.warning(f"Error soft stopping particle effect: {e}")
+        
+        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+            try:
+                self.glowParticleEffect.softStop()
+            except Exception as e:
+                self.notify.warning(f"Error soft stopping glow particle effect: {e}")
         
         # Mark as inactive but don't remove nodes yet
         self.active = False
@@ -358,7 +430,16 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 # Get the actual lifespan from the factory
                 lifespanBase = self.particles.factory.getLifespanBase()
                 lifespanSpread = self.particles.factory.getLifespanSpread()
-                maxLifespan = lifespanBase + lifespanSpread
+                maxLifespan = max(maxLifespan, lifespanBase + lifespanSpread)
+            except:
+                pass
+        
+        # Also check glow particles lifespan
+        if hasattr(self, 'glowParticles') and self.glowParticles:
+            try:
+                glowLifespanBase = self.glowParticles.factory.getLifespanBase()
+                glowLifespanSpread = self.glowParticles.factory.getLifespanSpread()
+                maxLifespan = max(maxLifespan, glowLifespanBase + glowLifespanSpread)
             except:
                 pass
         
@@ -366,105 +447,11 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         cleanupDelay = maxLifespan + 0.5
         taskMgr.doMethodLater(cleanupDelay, self._delayedCleanup, self.uniqueName('gracefulCleanup'))
     
-    def _fadeInAuraGlow(self):
-        """Fade in the aura glow gradually."""
-        if not hasattr(self, 'glowCard') or self.glowCard is None or self.glowCard.isEmpty():
-            return
-        
-        try:
-            # Get current color
-            currentColor = self.glowCard.getColorScale()
-            currentAlpha = currentColor.getW()
-            
-            # If already visible (alpha > 0.1), don't fade in again
-            if currentAlpha > 0.1:
-                # Just make sure pulsing is running
-                if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-                    if not self.glowPulseInterval.isPlaying():
-                        self.glowPulseInterval.loop()
-                return
-            
-            # Fade in from transparent to base color
-            fadeIn = LerpColorScaleInterval(
-                self.glowCard,
-                0.5,  # Fade in over 0.5 seconds
-                self.glowBaseColor,  # Fade to base color
-                currentColor  # Start from current (transparent)
-            )
-            
-            # After fade-in completes, start the pulsing animation
-            def startPulsing():
-                if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-                    try:
-                        self.glowPulseInterval.loop()
-                    except:
-                        pass
-            
-            # Create sequence: fade in, then start pulsing
-            fadeInSequence = Sequence(
-                fadeIn,
-                Func(startPulsing)
-            )
-            fadeInSequence.start()
-            
-        except Exception as e:
-            self.notify.warning(f"Error fading in aura glow: {e}")
-            # Fallback: just start pulsing if fade-in fails
-            if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-                try:
-                    self.glowCard.setColorScale(self.glowBaseColor)
-                    self.glowPulseInterval.loop()
-                except:
-                    pass
-    
-    def _fadeOutAuraGlow(self):
-        """Fade out the aura glow gradually."""
-        if not hasattr(self, 'glowPulseInterval') or self.glowPulseInterval is None:
-            return
-        
-        try:
-            # Stop the pulsing animation
-            if self.glowPulseInterval:
-                self.glowPulseInterval.finish()
-                self.glowPulseInterval = None
-            
-            # Fade out the glow to transparent
-            if hasattr(self, 'glowCard') and self.glowCard and not self.glowCard.isEmpty():
-                currentColor = self.glowCard.getColorScale()
-                fadeOut = LerpColorScaleInterval(
-                    self.glowCard,
-                    0.5,  # Fade out over 0.5 seconds
-                    Vec4(currentColor.getX(), currentColor.getY(), currentColor.getZ(), 0.0),  # Fade to transparent
-                    currentColor
-                )
-                fadeOut.start()
-        except Exception as e:
-            self.notify.warning(f"Error fading out aura glow: {e}")
-    
     def _delayedCleanup(self, task):
         """Actually remove the nodes after particles have faded out."""
         # Check if cleanup was already called (nodes might already be removed)
         if not hasattr(self, 'particleEffect') or self.particleEffect is None:
             return task.done
-        
-        # Clean up aura glow
-        if hasattr(self, 'glowNode') and self.glowNode and not self.glowNode.isEmpty():
-            try:
-                self.glowNode.detachNode()
-                self.glowNode.removeNode()
-            except Exception as e:
-                self.notify.warning(f"Error removing glow node in delayed cleanup: {e}")
-            self.glowNode = None
-        
-        if hasattr(self, 'glowCard'):
-            self.glowCard = None
-        
-        if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-            try:
-                self.glowPulseInterval.finish()
-            except:
-                pass
-            self.glowPulseInterval = None
         
         if self.particleEffect:
             try:
@@ -476,8 +463,21 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.notify.warning(f"Error during delayed cleanup: {e}")
             self.particleEffect = None
         
+        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+            try:
+                self.glowParticleEffect.cleanup()
+                if not self.glowParticleEffect.isEmpty():
+                    self.glowParticleEffect.detachNode()
+                    self.glowParticleEffect.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error during delayed glow cleanup: {e}")
+            self.glowParticleEffect = None
+        
         if hasattr(self, 'particles'):
             self.particles = None
+        
+        if hasattr(self, 'glowParticles'):
+            self.glowParticles = None
         
         if self.effectNode and not self.effectNode.isEmpty():
             try:
@@ -506,25 +506,6 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         # Stop first to prevent new particles from spawning
         self.stop()
         
-        # Immediately remove aura glow
-        if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-            try:
-                self.glowPulseInterval.finish()
-            except:
-                pass
-            self.glowPulseInterval = None
-        
-        if hasattr(self, 'glowNode') and self.glowNode and not self.glowNode.isEmpty():
-            try:
-                self.glowNode.detachNode()
-                self.glowNode.removeNode()
-            except Exception as e:
-                self.notify.warning(f"Error removing glow node: {e}")
-            self.glowNode = None
-        
-        if hasattr(self, 'glowCard'):
-            self.glowCard = None
-        
         if hasattr(self, 'particles') and self.particles:
             try:
                 # Explicitly disable particles first to stop spawning
@@ -533,6 +514,14 @@ class BurnedEffectVisual(StatusEffectVisualBase):
                 self.particles = None
             except Exception as e:
                 self.notify.warning(f"Error disabling particles: {e}")
+        
+        if hasattr(self, 'glowParticles') and self.glowParticles:
+            try:
+                # Explicitly disable glow particles
+                self.glowParticles.disableParticles()
+                self.glowParticles = None
+            except Exception as e:
+                self.notify.warning(f"Error disabling glow particles: {e}")
         
         if hasattr(self, 'particleEffect') and self.particleEffect:
             try:
@@ -547,6 +536,20 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             except Exception as e:
                 self.notify.warning(f"Error during particle effect cleanup: {e}")
             self.particleEffect = None
+        
+        if hasattr(self, 'glowParticleEffect') and self.glowParticleEffect:
+            try:
+                # Force disable the glow particle effect
+                self.glowParticleEffect.disable()
+                # Cleanup the glow particle effect completely
+                self.glowParticleEffect.cleanup()
+                # Remove from scene graph
+                if not self.glowParticleEffect.isEmpty():
+                    self.glowParticleEffect.detachNode()
+                    self.glowParticleEffect.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error during glow particle effect cleanup: {e}")
+            self.glowParticleEffect = None
             
         if self.effectNode and not self.effectNode.isEmpty():
             try:
@@ -560,7 +563,7 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         self.active = False
     
     def updateStack(self, stackCount: int):
-        """Update flame intensity and glow based on stack count."""
+        """Update flame intensity based on stack count."""
         super().updateStack(stackCount)
         
         if not self.active or not self.particles:
@@ -575,30 +578,4 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             # More stacks = redder/hotter flames
             redIntensity = min(1.0, 0.8 + (stackCount * 0.1))
             self.particles.renderer.setColor(Vec4(redIntensity, 0.6, 0.2, 1.0))
-        
-        # Increase aura glow intensity with stack count
-        if hasattr(self, 'glowCard') and self.glowCard and not self.glowCard.isEmpty():
-            try:
-                # More stacks = brighter, more intense glow
-                alphaMultiplier = min(1.0, 0.6 + (stackCount * 0.15))  # Increase alpha with stacks
-                redMultiplier = min(1.0, 1.0 + (stackCount * 0.05))  # Slightly redder with more stacks
-                
-                # Update glow colors based on stack count
-                self.glowBaseColor = Vec4(redMultiplier, 0.5, 0.1, 0.6 * alphaMultiplier)
-                self.glowBrightColor = Vec4(redMultiplier, 0.6, 0.15, 0.8 * alphaMultiplier)
-                self.glowDimColor = Vec4(0.9 * redMultiplier, 0.4, 0.05, 0.5 * alphaMultiplier)
-                
-                # Update current color if pulse interval is running
-                if hasattr(self, 'glowPulseInterval') and self.glowPulseInterval:
-                    # Restart pulse with new colors
-                    if self.glowPulseInterval.isPlaying():
-                        self.glowPulseInterval.finish()
-                    self.glowPulseInterval = Sequence(
-                        LerpColorScaleInterval(self.glowCard, 0.6, self.glowBrightColor, self.glowBaseColor),
-                        LerpColorScaleInterval(self.glowCard, 0.6, self.glowDimColor, self.glowBrightColor),
-                        LerpColorScaleInterval(self.glowCard, 0.6, self.glowBaseColor, self.glowDimColor)
-                    )
-                    self.glowPulseInterval.loop()
-            except Exception as e:
-                self.notify.warning(f"Error updating glow intensity: {e}")
 
