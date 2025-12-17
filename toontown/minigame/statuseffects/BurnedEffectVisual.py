@@ -4,7 +4,7 @@ Visual effect for the BURNED status effect.
 Creates animated fire/flame particles around the object.
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
 from panda3d.physics import LinearVectorForce
 from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
 from direct.task.TaskManagerGlobal import taskMgr
@@ -41,11 +41,18 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         
         # Check if this is the CFO boss (pyramid-shaped, wide at bottom)
         isCFOBoss = False
+        isSafe = False
         try:
             from toontown.suit import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
                 self.notify.info("Detected CFO boss - applying larger, wider fire effect")
+            else:
+                # Check if this is a safe (not CFO)
+                from toontown.coghq import DistributedCashbotBossSafe
+                if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
+                    isSafe = True
+                    self.notify.info("Detected safe - will apply orange/red glow color")
         except:
             pass
         
@@ -382,6 +389,42 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         # Store particles reference for cleanup
         self.particles = self.mainFlames  # Keep for compatibility with existing code
         
+        # Apply orange/red glow color to safe (not CFO) - will fade in when effect starts
+        if isSafe and not isCFOBoss:
+            try:
+                # Store original color scale if not already stored
+                if not hasattr(self.obj, '_originalBurnedColorScale'):
+                    originalColor = self.obj.getColorScale()
+                    # Validate the color is reasonable
+                    if (0.0 <= originalColor.getX() <= 2.0 and 
+                        0.0 <= originalColor.getY() <= 2.0 and 
+                        0.0 <= originalColor.getZ() <= 2.0 and 
+                        0.0 <= originalColor.getW() <= 2.0):
+                        self.obj._originalBurnedColorScale = originalColor
+                    else:
+                        # Color is corrupted, use default white
+                        self.obj._originalBurnedColorScale = VBase4(1, 1, 1, 1)
+                
+                # Calculate lighter orange/red tint (less intense)
+                # Blend between original and orange-red: 70% original, 30% orange-red
+                # This creates a subtle glow effect
+                originalColor = self.obj._originalBurnedColorScale
+                orangeRedTint = VBase4(1.0, 0.6, 0.2, 1.0)  # Pure orange-red tint
+                blendFactor = 0.8  # Only 50% of the tint (lighter effect)
+                
+                glowColor = VBase4(
+                    originalColor.getX() * (1.0 - blendFactor) + orangeRedTint.getX() * blendFactor,
+                    originalColor.getY() * (1.0 - blendFactor) + orangeRedTint.getY() * blendFactor,
+                    originalColor.getZ() * (1.0 - blendFactor) + orangeRedTint.getZ() * blendFactor,
+                    originalColor.getW()  # Alpha - preserve original
+                )
+                
+                # Store the glow color for fade in/out
+                self.obj._burnedGlowColor = glowColor
+                self.notify.info("Prepared orange/red glow color for safe (will fade in)")
+            except Exception as e:
+                self.notify.warning(f"Error preparing glow color for safe: {e}")
+        
         # Set rendering properties for fire particles
         self.effectNode.setLightOff()
         self.effectNode.setFogOff()
@@ -405,6 +448,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         """Start the particle effect."""
         if not self.active:
             self.create()
+        
+        # Fade in the glow color for safe
+        self._fadeInSafeColor()
         
         if self.particleEffect:
             # Start the particle effect with proper parent and render nodes
@@ -479,6 +525,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         if not hasattr(self, 'particleEffect') or self.particleEffect is None:
             return
         
+        # Fade out the glow color immediately (don't wait for particles to fade)
+        self._fadeOutSafeColor()
+        
         # Stop spawning new particles but let existing ones fade out
         # Set birth rate to very high value to effectively stop spawning
         for particleLayer in ['coreFlames', 'mainFlames', 'embers', 'smoke', 'particles']:
@@ -523,6 +572,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
     
     def _delayedCleanup(self, task):
         """Actually remove the nodes after particles have faded out."""
+        # Color should already be restored by fade out in gracefulCleanup()
+        # But ensure it's restored here too in case cleanup was called directly
+        
         # Check if cleanup was already called (nodes might already be removed)
         if not hasattr(self, 'particleEffect') or self.particleEffect is None:
             return task.done
@@ -565,6 +617,88 @@ class BurnedEffectVisual(StatusEffectVisualBase):
             return f'burnedEffect-{self.obj.getDoId()}-{name}'
         return f'burnedEffect-{name}'
     
+    def _fadeInSafeColor(self):
+        """Fade in the orange/red glow color on the safe."""
+        if not hasattr(self, 'obj') or not self.obj:
+            return
+        
+        try:
+            # Check if this is a safe (not CFO)
+            from toontown.coghq import DistributedCashbotBossSafe
+            from toontown.suit import BossCog
+            
+            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+                if hasattr(self.obj, '_burnedGlowColor') and hasattr(self.obj, '_originalBurnedColorScale'):
+                    # Cancel any existing color interval
+                    if hasattr(self.obj, '_burnedColorInterval'):
+                        if self.obj._burnedColorInterval:
+                            self.obj._burnedColorInterval.finish()
+                    
+                    # Fade in to glow color over 0.4 seconds
+                    self.obj._burnedColorInterval = LerpColorScaleInterval(
+                        self.obj,
+                        duration=0.4,
+                        colorScale=self.obj._burnedGlowColor,
+                        blendType='easeInOut'
+                    )
+                    self.obj._burnedColorInterval.start()
+                    self.notify.info("Fading in orange/red glow color on safe")
+        except Exception as e:
+            self.notify.warning(f"Error fading in safe color: {e}")
+    
+    def _fadeOutSafeColor(self):
+        """Fade out the orange/red glow color on the safe back to original."""
+        if not hasattr(self, 'obj') or not self.obj:
+            return
+        
+        try:
+            # Check if this is a safe (not CFO)
+            from toontown.coghq import DistributedCashbotBossSafe
+            from toontown.suit import BossCog
+            
+            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+                if hasattr(self.obj, '_originalBurnedColorScale'):
+                    # Cancel any existing color interval
+                    if hasattr(self.obj, '_burnedColorInterval'):
+                        if self.obj._burnedColorInterval:
+                            self.obj._burnedColorInterval.finish()
+                    
+                    # Fade out to original color over 0.4 seconds
+                    self.obj._burnedColorInterval = LerpColorScaleInterval(
+                        self.obj,
+                        duration=0.4,
+                        colorScale=self.obj._originalBurnedColorScale,
+                        blendType='easeInOut'
+                    )
+                    self.obj._burnedColorInterval.start()
+                    self.notify.info("Fading out orange/red glow color on safe")
+        except Exception as e:
+            self.notify.warning(f"Error fading out safe color: {e}")
+    
+    def _restoreSafeColor(self):
+        """Immediately restore the original color of the safe if it was changed (no fade)."""
+        if not hasattr(self, 'obj') or not self.obj:
+            return
+        
+        try:
+            # Check if this is a safe (not CFO)
+            from toontown.coghq import DistributedCashbotBossSafe
+            from toontown.suit import BossCog
+            
+            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+                # Cancel any existing color interval
+                if hasattr(self.obj, '_burnedColorInterval'):
+                    if self.obj._burnedColorInterval:
+                        self.obj._burnedColorInterval.finish()
+                    self.obj._burnedColorInterval = None
+                
+                # Restore original color immediately
+                if hasattr(self.obj, '_originalBurnedColorScale'):
+                    self.obj.setColorScale(self.obj._originalBurnedColorScale)
+                    self.notify.info("Restored original color to safe")
+        except Exception as e:
+            self.notify.warning(f"Error restoring safe color: {e}")
+    
     def cleanup(self, force=False):
         """
         Completely clean up the effect immediately.
@@ -576,6 +710,9 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         
         # Stop first to prevent new particles from spawning
         self.stop()
+        
+        # Restore original color to safe
+        self._restoreSafeColor()
         
         # Stop all fire and smoke particle layers from spawning
         for particleLayer in ['coreFlames', 'mainFlames', 'embers', 'smoke', 'particles']:
