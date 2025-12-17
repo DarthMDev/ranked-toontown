@@ -578,6 +578,26 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
     def cleanupAttacks(self):
         pass
 
+    def _getOriginalColorScale(self):
+        """Get the original color scale, storing it if not already stored."""
+        if not hasattr(self, '_originalColorScale'):
+            # Store the original color scale when first accessed
+            currentColor = self.getColorScale()
+            # Validate the color is reasonable
+            if (0.0 <= currentColor.getX() <= 2.0 and 
+                0.0 <= currentColor.getY() <= 2.0 and 
+                0.0 <= currentColor.getZ() <= 2.0 and 
+                0.0 <= currentColor.getW() <= 2.0):
+                self._originalColorScale = currentColor
+            else:
+                # Color is corrupted, use default white
+                self._originalColorScale = VBase4(1, 1, 1, 1)
+        return self._originalColorScale
+    
+    def _setOriginalColorScale(self, color):
+        """Set the original color scale (used by effects to store the base color)."""
+        self._originalColorScale = color
+    
     def cleanupFlash(self):
         if self.flashInterval:
             self.flashInterval.finish()
@@ -586,9 +606,15 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
 
     def flashRed(self):
         self.cleanupFlash()
-        self.setColorScale(1, 1, 1, 1)
-        i = Sequence(self.colorScaleInterval(0.1, colorScale=VBase4(1, 0, 0, 1)),
-                     self.colorScaleInterval(0.3, colorScale=VBase4(1, 1, 1, 1)))
+        # Capture the current color before flashing (this might be from burned glow or other effects)
+        currentColor = self.getColorScale()
+        
+        # Calculate red flash color (pure red)
+        redFlashColor = VBase4(1.0, 0.0, 0.0, currentColor.getW())
+        
+        # Flash red, then return to whatever color was there before (preserves other effects)
+        i = Sequence(self.colorScaleInterval(0.1, colorScale=redFlashColor),
+                     self.colorScaleInterval(0.3, colorScale=currentColor))
         self.flashInterval = i
         i.start()
 
