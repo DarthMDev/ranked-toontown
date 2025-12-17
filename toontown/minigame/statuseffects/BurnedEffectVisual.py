@@ -7,6 +7,7 @@ from direct.particles import ParticleEffect, Particles, ForceGroup
 from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib
 from panda3d.physics import LinearVectorForce
 from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
+from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 
 
@@ -220,28 +221,133 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         if self.particleEffect:
             try:
                 # Soft stop allows the particles to fade out naturally
+                # Don't disable particles immediately - let them fade out
                 self.particleEffect.softStop()
             except Exception as e:
                 self.notify.warning(f"Error stopping particle effect: {e}")
     
-    def cleanup(self):
-        """Completely clean up the effect."""
+    def gracefulCleanup(self):
+        """
+        Gracefully clean up the effect by stopping new particles but allowing
+        existing particles to fade out naturally. Use this for natural effect removal.
+        """
+        if not self.active:
+            return
+        
+        # Check if already cleaned up
+        if not hasattr(self, 'particleEffect') or self.particleEffect is None:
+            return
+        
+        # Stop spawning new particles but let existing ones fade out
+        if hasattr(self, 'particles') and self.particles:
+            try:
+                # Stop spawning new particles
+                self.particles.disableParticles()
+            except Exception as e:
+                self.notify.warning(f"Error disabling particles: {e}")
+        
+        # Soft stop the effect to let particles fade out
+        if self.particleEffect:
+            try:
+                self.particleEffect.softStop()
+            except Exception as e:
+                self.notify.warning(f"Error soft stopping particle effect: {e}")
+        
+        # Mark as inactive but don't remove nodes yet
+        self.active = False
+        
+        # Schedule actual cleanup after particles have time to fade out
+        # Use the longest particle lifespan to ensure all particles fade
+        maxLifespan = 1.0  # Maximum expected particle lifespan
+        if hasattr(self, 'particles') and self.particles:
+            try:
+                # Get the actual lifespan from the factory
+                lifespanBase = self.particles.factory.getLifespanBase()
+                lifespanSpread = self.particles.factory.getLifespanSpread()
+                maxLifespan = lifespanBase + lifespanSpread
+            except:
+                pass
+        
+        # Clean up after particles have faded (add small buffer)
+        cleanupDelay = maxLifespan + 0.5
+        taskMgr.doMethodLater(cleanupDelay, self._delayedCleanup, self.uniqueName('gracefulCleanup'))
+    
+    def _delayedCleanup(self, task):
+        """Actually remove the nodes after particles have faded out."""
+        # Check if cleanup was already called (nodes might already be removed)
+        if not hasattr(self, 'particleEffect') or self.particleEffect is None:
+            return task.done
+        
+        if self.particleEffect:
+            try:
+                self.particleEffect.cleanup()
+                if not self.particleEffect.isEmpty():
+                    self.particleEffect.detachNode()
+                    self.particleEffect.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error during delayed cleanup: {e}")
+            self.particleEffect = None
+        
+        if hasattr(self, 'particles'):
+            self.particles = None
+        
+        if self.effectNode and not self.effectNode.isEmpty():
+            try:
+                self.effectNode.detachNode()
+                self.effectNode.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error removing effect node in delayed cleanup: {e}")
+            self.effectNode = None
+        
+        return task.done
+    
+    def uniqueName(self, name):
+        """Generate a unique task name for this effect."""
+        if hasattr(self, 'obj') and self.obj:
+            return f'burnedEffect-{self.obj.getDoId()}-{name}'
+        return f'burnedEffect-{name}'
+    
+    def cleanup(self, force=False):
+        """
+        Completely clean up the effect immediately.
+        Use force=True for game end/restart scenarios.
+        """
+        # Cancel any pending graceful cleanup
+        taskMgr.remove(self.uniqueName('gracefulCleanup'))
+        
+        # Stop first to prevent new particles from spawning
         self.stop()
+        
+        if hasattr(self, 'particles') and self.particles:
+            try:
+                # Explicitly disable particles first to stop spawning
+                self.particles.disableParticles()
+                # Clear the particles
+                self.particles = None
+            except Exception as e:
+                self.notify.warning(f"Error disabling particles: {e}")
         
         if hasattr(self, 'particleEffect') and self.particleEffect:
             try:
+                # Force disable the particle effect
+                self.particleEffect.disable()
                 # Cleanup the particle effect completely
                 self.particleEffect.cleanup()
-                self.particleEffect.removeNode()
+                # Remove from scene graph - detach from parent first
+                if not self.particleEffect.isEmpty():
+                    self.particleEffect.detachNode()
+                    self.particleEffect.removeNode()
             except Exception as e:
                 self.notify.warning(f"Error during particle effect cleanup: {e}")
             self.particleEffect = None
             
-        if hasattr(self, 'particles'):
-            self.particles = None
-            
         if self.effectNode and not self.effectNode.isEmpty():
-            self.effectNode.removeNode()
+            try:
+                # Detach from parent first, then remove
+                self.effectNode.detachNode()
+                self.effectNode.removeNode()
+            except Exception as e:
+                self.notify.warning(f"Error removing effect node: {e}")
             self.effectNode = None
             
         self.active = False

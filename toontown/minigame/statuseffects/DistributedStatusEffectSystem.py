@@ -159,11 +159,16 @@ class DistributedStatusEffectSystem(DistributedObject):
         if stackCount == 0:
             # Remove effect completely
             
-            # Clean up visual effect if it exists
+            # Gracefully clean up visual effect if it exists (let particles fade out)
             if objectId in self.activeEffectVisuals and effect in self.activeEffectVisuals[objectId]:
                 visual = self.activeEffectVisuals[objectId][effect]
                 try:
-                    visual.cleanup()
+                    # Use graceful cleanup to let particles fade out naturally
+                    if hasattr(visual, 'gracefulCleanup'):
+                        visual.gracefulCleanup()
+                    else:
+                        # Fallback to regular cleanup if graceful cleanup not available
+                        visual.cleanup()
                 except Exception as e:
                     self.notify.warning(f"Error cleaning up visual for {effect.name}: {e}")
                 del self.activeEffectVisuals[objectId][effect]

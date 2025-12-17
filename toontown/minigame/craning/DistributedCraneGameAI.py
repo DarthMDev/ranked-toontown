@@ -1246,6 +1246,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
+        
+        # Clear all status effects from any existing objects before recreating them
+        if self.statusEffectSystem:
+            # Clear from boss if it exists
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all existing safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+        
         if not self.__bossExists():
             self.__makeBoss()
         self.boss.b_setAttackCode(ToontownGlobals.BossCogNoAttack)
@@ -1529,6 +1540,16 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.overtimeWillHappen = False
         self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
 
+        # Clear all status effects from boss and safes when exiting play
+        if self.statusEffectSystem:
+            # Clear from boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+
         # Ignore death messages.
         self.ignoreToonDeaths()
         self.__cancelReviveTasks()
@@ -1628,6 +1649,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
+        
+        # Clean up all status effects from boss and safes before cleanup
+        if self.statusEffectSystem:
+            # Clear all status effects from the boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            
+            # Clear all status effects from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
         
         # Clean up all drones before cleaning up other objects
         if self.boss and hasattr(self.boss, 'drones'):
