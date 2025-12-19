@@ -240,6 +240,11 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Adjust extra stats position to make room for Wins column
         self.extra_stats_text = DirectLabel(parent=self.frame , relief=None, text='', text_shadow=(0, 0, 0, 1), text_fg=WHITE, text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X+.62, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
 
+        # Indicator for if this toon is being spectated. Currently, this is using a placeholder texture.
+        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui')
+        notReadyStatusTexture = boarding_model.find('**/status-notready')
+        self.spectating_indicator = DirectLabel(parent=self.frame, pos=(self.FIRST_PLACE_HEAD_X - .1, 0, .015), relief=None, text='', image=notReadyStatusTexture, scale=.03)
+        self.spectating_indicator.hide()
 
         self.combo_text.hide()
         self.sad_text.hide()
@@ -296,6 +301,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Spectate them
         self.__change_camera_angle(t)
         self.isBeingSpectated = True
+        self.spectating_indicator.show()
 
         # Listen for any events where we should change the camera angle based on what the toon is doing that we are
         # spectating.
@@ -309,6 +315,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         if not self.isBeingSpectated:
             return
 
+        self.spectating_indicator.hide()
         localAvatar.attachCamera()
         localAvatar.orbitalCamera.start()
         localAvatar.setCameraFov(ToontownGlobals.BossBattleCameraFov)
