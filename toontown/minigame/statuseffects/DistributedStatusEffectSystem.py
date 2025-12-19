@@ -8,6 +8,7 @@ from direct.directnotify import DirectNotifyGlobal
 
 # Import visual effect classes
 from toontown.minigame.statuseffects.BurnedEffectVisual import BurnedEffectVisual
+from toontown.minigame.statuseffects.DrenchedEffectVisual import DrenchedEffectVisual
 
 class DistributedStatusEffectSystem(DistributedObject):
     notify = DirectNotifyGlobal.directNotify.newCategory('StatusEffectSystem')
@@ -27,9 +28,9 @@ class DistributedStatusEffectSystem(DistributedObject):
         """
         visualMap = {
             StatusEffect.BURNED: BurnedEffectVisual,
+            StatusEffect.DRENCHED: DrenchedEffectVisual,
             # Add more as they're implemented:
             # StatusEffect.FROZEN: FrozenEffectVisual,
-            # StatusEffect.DRENCHED: DrenchedEffectVisual,
             # etc.
         }
         return visualMap.get(effect)
