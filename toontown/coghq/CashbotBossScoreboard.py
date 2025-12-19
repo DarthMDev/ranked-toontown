@@ -5,6 +5,7 @@ from panda3d.core import *
 
 from direct.showbase.DirectObject import DirectObject
 from toontown.coghq import CraneLeagueGlobals
+from toontown.coghq.DistributedCashbotBossCrane import DistributedCashbotBossCrane
 from toontown.suit.Suit import *
 from direct.task.Task import Task
 from direct.interval.IntervalGlobal import *
@@ -313,6 +314,27 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Not spectating anymore, no need to watch for crane events any more
         self.ignore('crane-enter-exit-%s' % self.avId)
 
+    def __isOnCrane(self, toon):
+        """
+        Check if a toon is currently on a crane.
+        Returns the crane object if found, None otherwise.
+        """
+        if not toon:
+            return None
+        
+        avId = toon.getDoId()
+        for obj in base.cr.doId2do.values():
+            if isinstance(obj, DistributedCashbotBossCrane):
+                # Check if this crane is controlled by the toon we're checking
+                if hasattr(obj, 'avId') and obj.avId == avId:
+                    # Check if the crane is in the controlled state
+                    # FSM objects have a 'state' attribute that contains the current state name
+                    if hasattr(obj, 'state'):
+                        stateName = obj.state
+                        if stateName == 'LocalControlled' or stateName == 'Controlled':
+                            return obj
+        return None
+
     def __change_camera_angle(self, toon, crane=None, _=None):
 
         base.localAvatar.stopUpdateSmartCamera()
@@ -325,10 +347,20 @@ class CashbotBossScoreboardToonRow(DirectObject):
                 self.stopSpectating()
                 return
 
-            base.camera.reparentTo(toon)
-            base.camera.setY(-12)
-            base.camera.setZ(5)
-            base.camera.setP(-5)
+            # Check if the toon is already on a crane
+            # This handles the case where we switch to a player who is already on a crane
+            foundCrane = self.__isOnCrane(toon)
+
+            if foundCrane is not None:
+                # Toon is on a crane, attach camera to the crane
+                base.camera.reparentTo(foundCrane.hinge)
+                camera.setPosHpr(0, -20, -5, 0, -20, 0)
+            else:
+                # Toon is not on a crane, attach camera to the toon
+                base.camera.reparentTo(toon)
+                base.camera.setY(-12)
+                base.camera.setZ(5)
+                base.camera.setP(-5)
         else:
             base.camera.reparentTo(crane.hinge)
             camera.setPosHpr(0, -20, -5, 0, -20, 0)
