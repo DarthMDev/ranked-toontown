@@ -10,6 +10,7 @@ from toontown.suit.Suit import *
 from direct.task.Task import Task
 from direct.interval.IntervalGlobal import *
 
+from toontown.toon.LaffMeter import LaffMeter
 from toontown.toon.ToonHead import ToonHead
 
 import random
@@ -245,6 +246,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         notReadyStatusTexture = boarding_model.find('**/status-notready')
         self.spectating_indicator = DirectLabel(parent=self.frame, pos=(self.FIRST_PLACE_HEAD_X - .1, 0, .015), relief=None, text='', image=notReadyStatusTexture, scale=.03)
         self.spectating_indicator.hide()
+        self.spectator_laff_meter = None
 
         self.combo_text.hide()
         self.sad_text.hide()
@@ -303,6 +305,20 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.isBeingSpectated = True
         self.spectating_indicator.show()
 
+        # Laff meter override.
+        base.localAvatar.laffMeter.hide()
+        if self.spectator_laff_meter is not None:
+            self.spectator_laff_meter.destroy()
+        self.spectator_laff_meter = LaffMeter(t.style, t.hp, t.maxHp)
+        self.spectator_laff_meter.setAvatar(t)
+        self.spectator_laff_meter.setScale(0.075)
+        self.spectator_laff_meter.reparentTo(base.a2dBottomLeft)
+        if t.style.getAnimal() == 'monkey':
+            self.spectator_laff_meter.setPos(0.153, 0.0, 0.13)
+        else:
+            self.spectator_laff_meter.setPos(0.133, 0.0, 0.13)
+        self.spectator_laff_meter.start()
+
         # Listen for any events where we should change the camera angle based on what the toon is doing that we are
         # spectating.
         self.accept('crane-enter-exit-%s' % self.avId, self.__change_camera_angle)
@@ -315,6 +331,10 @@ class CashbotBossScoreboardToonRow(DirectObject):
         if not self.isBeingSpectated:
             return
 
+        # Restore our laff meter.
+        if self.spectator_laff_meter is not None:
+            self.spectator_laff_meter.destroy()
+        base.localAvatar.laffMeter.show()
         self.spectating_indicator.hide()
         localAvatar.attachCamera()
         localAvatar.orbitalCamera.start()
