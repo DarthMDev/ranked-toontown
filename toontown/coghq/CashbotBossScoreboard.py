@@ -300,6 +300,9 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Listen for any events where we should change the camera angle based on what the toon is doing that we are
         # spectating.
         self.accept('crane-enter-exit-%s' % self.avId, self.__change_camera_angle)
+        
+        # Notify the crane game that we're now spectating this player (for drone UI updates)
+        messenger.send('spectatedPlayerChanged', [self.avId])
 
     def stopSpectating(self):
 
@@ -313,6 +316,9 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.isBeingSpectated = False
         # Not spectating anymore, no need to watch for crane events any more
         self.ignore('crane-enter-exit-%s' % self.avId)
+        
+        # Notify the crane game that we stopped spectating (for drone UI updates)
+        messenger.send('spectatedPlayerChanged', [None])
 
     def __isOnCrane(self, toon):
         """
@@ -811,6 +817,15 @@ class CashbotBossScoreboard(DirectObject):
         """
         for row in self.rows.values():
             row.disableSpectating()
+
+    def getSpectatedAvId(self):
+        """
+        Returns the avId of the currently spectated player, or None if not spectating.
+        """
+        for row in self.rows.values():
+            if row.isBeingSpectated:
+                return row.avId
+        return None
 
     def finish(self):
         for row in self.rows.values():

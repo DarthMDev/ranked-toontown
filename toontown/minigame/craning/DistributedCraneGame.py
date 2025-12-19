@@ -1632,12 +1632,19 @@ class DistributedCraneGame(DistributedMinigame):
         if slotIndex >= len(self.droneSelectionSlots):
             return
         
+        # Use spectated player's data if spectating, otherwise use local toon's data
         localAvId = base.localAvatar.doId
-        if localAvId not in self.selectedDroneTypes:
+        targetAvId = localAvId
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            spectatedAvId = self.scoreboard.getSpectatedAvId()
+            if spectatedAvId is not None:
+                targetAvId = spectatedAvId
+        
+        if targetAvId not in self.selectedDroneTypes:
             return
         
         slot = self.droneSelectionSlots[slotIndex]
-        droneType = self.selectedDroneTypes[localAvId][slotIndex]
+        droneType = self.selectedDroneTypes[targetAvId][slotIndex]
         
         # Update drone name
         if slot.get('droneName'):
@@ -1660,8 +1667,13 @@ class DistributedCraneGame(DistributedMinigame):
         if slotIndex >= 0 and slotIndex < 3:
             self.selectedDroneTypes[avId][slotIndex] = droneType
             
-            # Update UI if it's the local toon
-            if avId == base.localAvatar.doId:
+            # Update UI if it's the local toon or the spectated player
+            localAvId = base.localAvatar.doId
+            spectatedAvId = None
+            if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+                spectatedAvId = self.scoreboard.getSpectatedAvId()
+            
+            if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
                 self.__updateDroneSlotUI(slotIndex)
 
     def updateRequiredElements(self):
@@ -1814,6 +1826,7 @@ class DistributedCraneGame(DistributedMinigame):
         self.accept("LocalSetFinalBattleMode", self.toFinalBattleMode)
         self.accept("LocalSetOuchMode", self.toOuchMode)
         self.accept("ChatMgr-enterMainMenu", self.chatClosed)
+        self.accept("spectatedPlayerChanged", self.__onSpectatedPlayerChanged)
         
         # Only enable drones if the modifier is active
         if self.__areDronesEnabled():
@@ -1846,10 +1859,17 @@ class DistributedCraneGame(DistributedMinigame):
                 self.droneSelectionFrame.show()
             
             # Initialize cooldown displays for all slots
+            # Use spectated player's data if spectating, otherwise use local toon's data
             localAvId = base.localAvatar.doId
+            targetAvId = localAvId
+            if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+                spectatedAvId = self.scoreboard.getSpectatedAvId()
+                if spectatedAvId is not None:
+                    targetAvId = spectatedAvId
+            
             for i in range(3):
-                if localAvId in self.droneCooldowns and i in self.droneCooldowns[localAvId]:
-                    startTime, duration = self.droneCooldowns[localAvId][i]
+                if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
+                    startTime, duration = self.droneCooldowns[targetAvId][i]
                     self.__updateDroneSlotCooldown(i, startTime, duration)
                 else:
                     self.__updateDroneSlotCooldown(i, None, None)
@@ -1907,6 +1927,9 @@ class DistributedCraneGame(DistributedMinigame):
             for keybind in self.droneSlotKeybinds:
                 self.ignore(keybind)
             self.droneSlotKeybinds = []
+        
+        # Stop listening for spectated player changes
+        self.ignore("spectatedPlayerChanged")
     
     def setDroneCooldown(self, avId, slotIndex, duration):
         """Receive drone cooldown from server and update UI."""
@@ -1915,8 +1938,13 @@ class DistributedCraneGame(DistributedMinigame):
             self.droneCooldowns[avId] = {}
         self.droneCooldowns[avId][slotIndex] = (startTime, duration)
         
-        # Only update UI for local toon
-        if avId == base.localAvatar.doId:
+        # Update UI for local toon or spectated player
+        localAvId = base.localAvatar.doId
+        spectatedAvId = None
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            spectatedAvId = self.scoreboard.getSpectatedAvId()
+        
+        if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
             self.__updateDroneSlotCooldown(slotIndex, startTime, duration)
     
     def clearAllDroneCooldowns(self):
@@ -1927,6 +1955,28 @@ class DistributedCraneGame(DistributedMinigame):
             for i in range(3):
                 self.__updateDroneSlotCooldown(i, None, None)
     
+    def __onSpectatedPlayerChanged(self, avId):
+        """Called when the spectator switches to a different player."""
+        # Update all drone slot UIs and cooldowns for the new spectated player
+        if not self.__areDronesEnabled():
+            return
+        
+        # Get target avId (spectated player or local toon)
+        localAvId = base.localAvatar.doId
+        targetAvId = avId if avId is not None else localAvId
+        
+        # Update all slots
+        for i in range(3):
+            # Update drone type display
+            self.__updateDroneSlotUI(i)
+            
+            # Update cooldown display
+            if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
+                startTime, duration = self.droneCooldowns[targetAvId][i]
+                self.__updateDroneSlotCooldown(i, startTime, duration)
+            else:
+                self.__updateDroneSlotCooldown(i, None, None)
+
     def __updateDroneSlotCooldown(self, slotIndex, startTime, duration):
         """Update the cooldown display for a specific drone slot."""
         if not hasattr(self, 'droneSelectionSlots') or slotIndex >= len(self.droneSelectionSlots):
