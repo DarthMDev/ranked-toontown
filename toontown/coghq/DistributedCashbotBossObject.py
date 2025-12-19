@@ -1,3 +1,4 @@
+import time
 from enum import IntEnum
 from panda3d.core import *
 from panda3d.physics import *
@@ -62,8 +63,10 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         
         # A solid sound for when we get a good hit on the boss.
         self.hitBossSfx = loader.loadSfx('phase_5/audio/sfx/AA_drop_safe_miss.ogg')
+        self.hitBossRapidlySfx = loader.loadSfx('phase_4/audio/sfx/Golf_Hit_Barrier_2.ogg')
         self.hitBossSoundInterval = SoundInterval(self.hitBossSfx)
-        
+        self.hitBossRapidlyInterval = SoundInterval(self.hitBossRapidlySfx)
+
         # A squishy sound for when we hit the boss, but not hard enough.
         self.touchedBossSfx = loader.loadSfx('phase_5/audio/sfx/AA_drop_sandbag.ogg')
         self.touchedBossSoundInterval = SoundInterval(self.touchedBossSfx, duration=0.8)
@@ -95,10 +98,12 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.toMagnetSoundInterval.finish()
         self.hitFloorSoundInterval.finish()
         self.hitBossSoundInterval.finish()
+        self.hitBossRapidlyInterval.finish()
         self.touchedBossSoundInterval.finish()
         del self.toMagnetSoundInterval
         del self.hitFloorSoundInterval
         del self.hitBossSoundInterval
+        del self.hitBossRapidlyInterval
         del self.touchedBossSoundInterval
         
         self.boss = None
@@ -244,6 +249,13 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
 
         if self.boss.getBoss().heldObject or self.boss.getBoss().attackCode != ToontownGlobals.BossCogDizzy:
             return
+
+        # Check if we performed a pretty quick hit.
+        now = time.time()
+        isRapidHit = now - self.boss.getBoss().lastLocalHit < 1
+        self.boss.getBoss().lastLocalHit = time.time()
+        if isRapidHit:
+            self.hitBossRapidlyInterval.start()
         
         timeUntilStunEnd = self.boss.getBoss().stunEndTime - globalClock.getFrameTime()
         if self.boss.getBoss().stunEndTime == 0 or timeUntilStunEnd < 1.5:
