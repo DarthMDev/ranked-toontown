@@ -310,6 +310,16 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
 
     def handleExitedAvatar(self, avId):
         self.notify.warning('BASE: handleExitedAvatar: avatar id exited: ' + str(avId))
+        # If the exiting avatar is a spectator, just clean them up but don't abort the game
+        if self.isSpectating(avId):
+            self.notify.debug('BASE: handleExitedAvatar: avatar %s is a spectator, cleaning up without aborting game' % avId)
+            self.stateDict[avId] = EXITED
+            # Remove them from spectators list if they're still in it
+            if avId in self._spectators:
+                spectators = list(self._spectators)
+                spectators.remove(avId)
+                self.b_setSpectators(spectators)
+            return
         self.stateDict[avId] = EXITED
         self.setGameAbort()
 

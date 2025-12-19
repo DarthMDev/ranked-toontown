@@ -541,6 +541,10 @@ class DistributedMinigame(DistributedObject.DistributedObject):
 
     def handleDisabledAvatar(self, avId):
         self.notify.warning('BASE: handleDisabledAvatar: disabled avId: ' + str(avId))
+        # If the disabled avatar is a spectator, don't exit the game
+        if self.isSpectating(avId):
+            self.notify.debug('BASE: handleDisabledAvatar: avatar %s is a spectator, ignoring exit' % avId)
+            return
         self.frameworkFSM.request('frameworkAvatarExited')
 
     def d_requestExit(self):
