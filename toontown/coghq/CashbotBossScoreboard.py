@@ -231,7 +231,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         
         # Add round wins text (positioned between Pts and expandable stats)
         self.round_wins_text = DirectLabel(parent=self.frame, relief=None, text=str(self.roundWins), text_shadow=(0, 0, 0, 1), text_fg=WHITE,
-                                           text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X + .15, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
+                                           text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X + .2, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
         
         self.combo_text = DirectLabel(parent=self.frame, relief=None, text='x' + '0', text_shadow=(0, 0, 0, 1), text_fg=CYAN, text_align=TextNode.ACenter,
                                        text_scale=.055, pos=(self.FIRST_PLACE_HEAD_X + .1, 0, +.055), text_font=ToontownGlobals.getCompetitionFont())
