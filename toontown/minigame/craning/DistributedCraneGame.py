@@ -1785,6 +1785,10 @@ class DistributedCraneGame(DistributedMinigame):
         self.introductionMovie.start()
         self.boss.prepareBossForBattle()
 
+        # Clean up all status effects when starting a new round
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
+
         # Make absolutely sure all indicators are cleaned up
         self.removeStatusIndicators()
 
@@ -1928,8 +1932,10 @@ class DistributedCraneGame(DistributedMinigame):
                 self.ignore(keybind)
             self.droneSlotKeybinds = []
         
-        # Stop listening for spectated player changes
-        self.ignore("spectatedPlayerChanged")
+
+        # Clean up all status effects when exiting play state
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
     
     def setDroneCooldown(self, avId, slotIndex, duration):
         """Receive drone cooldown from server and update UI."""
@@ -2149,6 +2155,10 @@ class DistributedCraneGame(DistributedMinigame):
                 if slot.get('cooldownTask'):
                     taskMgr.remove(slot['cooldownTask'])
                     slot['cooldownTask'] = None
+        
+        # Clean up all status effects when round ends
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
 
         victor = base.cr.getDo(self.victor)
         if self.victor == self.localAvId:

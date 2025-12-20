@@ -1250,6 +1250,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
+        
+        # Clear all status effects from any existing objects before recreating them
+        if self.statusEffectSystem:
+            # Clear from boss if it exists
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all existing safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+        
         if not self.__bossExists():
             self.__makeBoss()
         self.boss.b_setAttackCode(ToontownGlobals.BossCogNoAttack)
@@ -1342,13 +1353,34 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def __applyRandomSafeEffects(self, task=None):
         """Apply random status effects to safes periodically"""
-        if random.random() < 0.9:  # 90% chance
-            for safe in self.safes:
-                if safe and not self.statusEffectSystem.isObjectStatusEffected(safe.getDoId()):
+        for safe in self.safes:
+            if not safe:
+                continue
+            
+            # Skip the special helmet safe (index 0) - it should not receive elemental effects
+            if safe.index == 0:
+                continue
+                
+            safeDoId = safe.getDoId()
+            hasEffect = self.statusEffectSystem.isObjectStatusEffected(safeDoId)
+            
+            # Debug logging
+            if hasEffect:
+                currentEffects = self.statusEffectSystem.getStatusEffects(safeDoId)
+                self.notify.debug(f"Safe {safeDoId} already has effects: {currentEffects}, skipping")
+            else:
+                # 90% chance per safe to get an elemental effect
+                if random.random() < 0.9:  # Always true for debugging
+                    # Cancel any existing removal task for this safe first
+                    existingTaskName = self.uniqueName(f'remove-effect-{safeDoId}')
+                    taskMgr.remove(existingTaskName)
+                    if existingTaskName in self.safeEffectTasks:
+                        self.safeEffectTasks.remove(existingTaskName)
+                    
                     statusEffect = random.choice(list(SAFE_ALLOWED_EFFECTS))
-                    self.statusEffectSystem.b_applyStatusEffect(safe.getDoId(), statusEffect)
+                    self.notify.debug(f"Applying {statusEffect} to safe {safeDoId}")
+                    self.statusEffectSystem.b_applyStatusEffect(safeDoId, statusEffect)
                     # Store the safe's doId before creating the task
-                    safeDoId = safe.getDoId()
                     # Create task name
                     taskName = self.uniqueName(f'remove-effect-{safeDoId}')
                     # Remove the effect after 10 seconds
@@ -1357,6 +1389,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                     self.safeEffectTasks.add(taskName)
         return task.again
 
+    def cancelSafeEffectRemovalTask(self, safeDoId):
+        """Cancel the scheduled removal task for a safe's effect (called when effect is removed early, e.g., when safe hits boss)"""
+        taskName = self.uniqueName(f'remove-effect-{safeDoId}')
+        taskMgr.remove(taskName)
+        if taskName in self.safeEffectTasks:
+            self.safeEffectTasks.remove(taskName)
+    
     def __removeSafeEffect(self, doId, effect):
         """Safely remove a status effect from a safe, handling the case where the safe no longer exists"""
         if not hasattr(self, 'statusEffectSystem') or not self.statusEffectSystem:
@@ -1366,8 +1405,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         safe = self.air.doId2do.get(doId)
         if not safe:
             return True
+        
+        # Check if the effect still exists before trying to remove it
+        if not self.statusEffectSystem.hasStatusEffect(doId, effect):
+            self.notify.debug(f"Safe {doId} effect {effect} already removed, skipping")
+            return True
             
         # Remove the effect
+        self.notify.debug(f"Removing effect {effect} from safe {doId}")
         self.statusEffectSystem.b_removeStatusEffect(doId, effect)
         return True
 
@@ -1375,7 +1420,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         """Start the task that periodically applies effects to safes"""
         taskName = self.uniqueName('safe-effects')
         taskMgr.remove(taskName)
-        taskMgr.doMethodLater(10.0, self.__applyRandomSafeEffects, taskName)
+        self._allTaskNames.add(taskName)
+        taskMgr.add(self.__applyRandomSafeEffects, taskName, delay=10.0)
 
     # Called when we actually run out of time, simply tell the clients we ran out of time then handle it later
     def __timesUp(self, task=None):
@@ -1499,6 +1545,16 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.overtimeWillHappen = False
         self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
 
+        # Clear all status effects from boss and safes when exiting play
+        if self.statusEffectSystem:
+            # Clear from boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+
         # Ignore death messages.
         self.ignoreToonDeaths()
         self.__cancelReviveTasks()
@@ -1598,6 +1654,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
+        
+        # Clean up all status effects from boss and safes before cleanup
+        if self.statusEffectSystem:
+            # Clear all status effects from the boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            
+            # Clear all status effects from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
         
         # Clean up all drones before cleaning up other objects
         if self.boss and hasattr(self.boss, 'drones'):
