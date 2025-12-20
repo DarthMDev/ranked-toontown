@@ -1,15 +1,14 @@
 """
 Visual effect for the GROUNDED status effect.
 
-Creates animated earth/dirt particles orbiting around the object in 3D.
+Creates animated earth/dirt particles and dust clouds around the object.
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4, Filename, DSearchPath
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
 from panda3d.physics import LinearVectorForce
 from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
-import math
 
 
 class GroundedEffectVisual(StatusEffectVisualBase):
@@ -17,13 +16,13 @@ class GroundedEffectVisual(StatusEffectVisualBase):
     Visual for the GROUNDED status effect.
     
     Creates a particle effect with:
-    - Brown earth/dirt particles rising from the base
-    - Dust particles floating around the object
+    - Brown/tan dust clouds around the object
+    - Earthy particles settling downward
     - Scaled appropriately to object size
     """
     
     def create(self):
-        """Create the earth particle effect."""
+        """Create the earth/dirt particle effect."""
         if self.active:
             return
             
@@ -48,13 +47,13 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
-                self.notify.info("Detected CFO boss - applying larger earth effect")
+                self.notify.info("Detected CFO boss - applying larger, wider earth effect")
             else:
                 # Check if this is a safe (not CFO)
                 from toontown.coghq import DistributedCashbotBossSafe
                 if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
                     isSafe = True
-                    self.notify.info("Detected safe - will apply brown glow color")
+                    self.notify.info("Detected safe - will apply brown/tan glow color")
         except:
             pass
         
@@ -82,245 +81,200 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         self.particleRenderParent.setLightOff()
         self.particleRenderParent.setFogOff()
         
-        # Try to load PTF file first, fallback to manual creation
-        self.particleEffect = None
-        particleSearchPath = DSearchPath()
-        particleSearchPath.appendDirectory(Filename('/phase_5/etc'))
-        particleSearchPath.appendDirectory(Filename('/phase_4/etc'))
-        particleSearchPath.appendDirectory(Filename('/phase_3.5/etc'))
+        # Create the particle effect (don't parent it yet - start() will handle that)
+        self.particleEffect = ParticleEffect.ParticleEffect('GroundedEarth')
         
-        pfile = Filename('groundedEarth.ptf')
-        found = vfs.resolveFilename(pfile, particleSearchPath)
-        
-        if found:
-            try:
-                self.particleEffect = ParticleEffect.ParticleEffect('GroundedEarth')
-                self.particleEffect.loadConfig(pfile)
-                self.notify.info("Loaded groundedEarth.ptf particle file")
-                # Scale the effect based on object size
-                if isCFOBoss:
-                    self.particleEffect.setScale(baseScale)
-                else:
-                    self.particleEffect.setScale(baseScale)
-            except Exception as e:
-                self.notify.warning(f"Failed to load PTF file, using manual particles: {e}")
-                self.particleEffect = None
-        
-        # Fallback to manual particle creation if PTF failed
-        if not self.particleEffect:
-            self.particleEffect = ParticleEffect.ParticleEffect('GroundedEarth')
-            # Create particles manually (fallback)
-            self.earthParticles = Particles.Particles('earthParticles')
-            self.earthParticles.setFactory('PointParticleFactory')
-            self.earthParticles.setRenderer('SpriteParticleRenderer')
-            self.earthParticles.setEmitter('SphereVolumeEmitter')
-            self.particleEffect.addParticles(self.earthParticles)
-        
-        # Store the desired position for later - position at object center in local space
+        # Store the desired position for later - position at object base in local space
         # Since effectNode is attached to obj, we use local coordinates
-        # Position at the center height of the object (particles will orbit around)
-        centerZ = center.getZ()
-        self.particlePos = Point3(0, 0, centerZ)
+        # Position slightly above the base (minPt.getZ() in world becomes ~0 in local, so use small offset)
+        baseOffset = 0.1  # Small offset above base
+        self.particlePos = Point3(0, 0, baseOffset)
         
-        # Store orbit parameters for random 3D orbiting
+        # ===== LAYER 1: DUST CLOUDS (Floating brown dust) =====
+        self.dustClouds = Particles.Particles('dustClouds')
+        self.dustClouds.setFactory('PointParticleFactory')
+        self.dustClouds.setRenderer('SpriteParticleRenderer')
+        self.dustClouds.setEmitter('SphereVolumeEmitter')
+        self.particleEffect.addParticles(self.dustClouds)
+        
+        # ===== LAYER 2: EARTH PARTICLES (Small settling particles) =====
+        self.earthParticles = Particles.Particles('earthParticles')
+        self.earthParticles.setFactory('PointParticleFactory')
+        self.earthParticles.setRenderer('SpriteParticleRenderer')
+        self.earthParticles.setEmitter('SphereVolumeEmitter')
+        self.particleEffect.addParticles(self.earthParticles)
+        
+        # Calculate emitter settings
         if isCFOBoss:
-            self.orbitRadius = max(2.5, avgWidth / 2.0 + 1.0)
-            self.orbitSpeed = 1.0 * baseScale  # Slower for CFO
+            emitterRadius = max(2.0, avgWidth / 2.0 * 0.8)
+            amplitude = 1.5 * baseScale
+            downwardForceZ = -3.0 * baseScale  # Downward force for falling particles
+            dustRiseZ = 0.5 * baseScale  # Dust rises slightly
         else:
-            self.orbitRadius = max(1.2, (maxPt.getX() - minPt.getX()) / 2.0 + 0.5)
-            self.orbitSpeed = 1.5 * baseScale  # Faster for safes
+            # Wider spread for safes - use larger multiplier for radius to ensure particles spawn around the safe
+            emitterRadius = max(0.8, (maxPt.getX() - minPt.getX()) / 2.0) * 1.5  # Increased from 0.8 to 1.5 for wider spread
+            amplitude = 1.0 * baseScale
+            downwardForceZ = -2.0 * baseScale
+            dustRiseZ = 0.3 * baseScale
         
-        # If PTF was loaded, get the particles from it and configure
-        ptfLoaded = False
-        if self.particleEffect:
-            try:
-                # Try to get particles - PTF might use different naming
-                # Try common names first
-                for name in ['particles-1', 'particles-0', 'Particles']:
-                    try:
-                        self.earthParticles = self.particleEffect.getParticlesNamed(name)
-                        if self.earthParticles:
-                            ptfLoaded = True
-                            break
-                    except:
-                        continue
-                
-                # If no named particles found, try to get the first particle system
-                if not ptfLoaded:
-                    try:
-                        particlesList = self.particleEffect.getParticlesList()
-                        if particlesList and len(particlesList) > 0:
-                            self.earthParticles = particlesList[0]
-                            ptfLoaded = True
-                    except:
-                        pass
-                
-                if ptfLoaded and self.earthParticles:
-                    # Scale particles based on object size
-                    if isCFOBoss:
-                        self.earthParticles.setPoolSize(int(80 * baseScale))
-                        self.earthParticles.setBirthRate(0.03)
-                    else:
-                        self.earthParticles.setPoolSize(int(40 * baseScale))
-                        self.earthParticles.setBirthRate(0.05)
-            except Exception as e:
-                self.notify.warning(f"Error getting particles from PTF: {e}")
-                self.earthParticles = None
-        
-        # If PTF didn't load or doesn't have particles, create fallback
-        if not ptfLoaded or not hasattr(self, 'earthParticles') or self.earthParticles is None:
-            # Fallback: create particles manually
-            self.earthParticles = Particles.Particles('earthParticles')
-            self.earthParticles.setFactory('PointParticleFactory')
-            self.earthParticles.setRenderer('SpriteParticleRenderer')
-            self.earthParticles.setEmitter('SphereVolumeEmitter')
-            self.particleEffect.addParticles(self.earthParticles)
-            
-            # Configure fallback particles
-            if isCFOBoss:
-                earthPoolSize = int(80 * baseScale)
-                earthBirthRate = 0.03
-            else:
-                earthPoolSize = int(40 * baseScale)
-                earthBirthRate = 0.05
-            
-            self.earthParticles.setPoolSize(earthPoolSize)
-            self.earthParticles.setBirthRate(earthBirthRate)
-            self.earthParticles.setLitterSize(2)
-            self.earthParticles.factory.setLifespanBase(0.8)
-            self.earthParticles.renderer.setAlphaMode(3)
-            self.earthParticles.renderer.setColor(Vec4(0.5, 0.35, 0.15, 0.95))
-            try:
-                self.earthParticles.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/spark")
-            except:
-                pass
-        
-        # Always create dust particles (separate from PTF)
-        # ===== LAYER 2: DUST (Floating dust particles) =====
-        self.dust = Particles.Particles('dust')
-        self.dust.setFactory('PointParticleFactory')
-        self.dust.setRenderer('SpriteParticleRenderer')
-        self.dust.setEmitter('SphereVolumeEmitter')
-        self.particleEffect.addParticles(self.dust)
-        
-        # ===== CONFIGURE DUST (Floating dust particles) =====
+        # ===== CONFIGURE DUST CLOUDS (Floating brown dust) =====
         if isCFOBoss:
-            dustPoolSize = int(60 * baseScale)
+            dustPoolSize = int(80 * baseScale)
+            dustBirthRate = 0.04
+            dustLitterSize = 3
+            dustLifespan = 1.5 * baseScale
+            dustScale = max(0.3, 0.5 * baseScale)
+        else:
+            dustPoolSize = int(40 * baseScale)
             dustBirthRate = 0.06
             dustLitterSize = 2
-            dustLifespan = 1.5 * baseScale
-            dustScale = max(0.25, 0.35 * baseScale)
-        else:
-            dustPoolSize = int(30 * baseScale)
-            dustBirthRate = 0.08
-            dustLitterSize = 1
             dustLifespan = 1.2 * baseScale
-            dustScale = max(0.15, 0.25 * baseScale)
+            dustScale = max(0.2, 0.35 * baseScale)
         
-        self.dust.setPoolSize(dustPoolSize)
-        self.dust.setBirthRate(dustBirthRate)
-        self.dust.setLitterSize(dustLitterSize)
-        self.dust.setLitterSpread(1)
-        self.dust.factory.setLifespanBase(dustLifespan)
-        self.dust.factory.setLifespanSpread(0.4)
-        self.dust.factory.setMassBase(0.3)  # Light for floating
-        self.dust.factory.setMassSpread(0.15)
-        self.dust.factory.setTerminalVelocityBase(120.0)  # Slow floating
-        self.dust.factory.setTerminalVelocitySpread(40.0)
+        self.dustClouds.setPoolSize(dustPoolSize)
+        self.dustClouds.setBirthRate(dustBirthRate)
+        self.dustClouds.setLitterSize(dustLitterSize)
+        self.dustClouds.setLitterSpread(1)
+        self.dustClouds.factory.setLifespanBase(dustLifespan)
+        self.dustClouds.factory.setLifespanSpread(0.4)
+        self.dustClouds.factory.setMassBase(0.3)  # Light for floating
+        self.dustClouds.factory.setMassSpread(0.15)
+        self.dustClouds.factory.setTerminalVelocityBase(120.0)  # Slow floating
+        self.dustClouds.factory.setTerminalVelocitySpread(40.0)
         
-        # Dust renderer - lighter brown dust
-        self.dust.renderer.setAlphaMode(3)  # PRALPHANONE
-        self.dust.renderer.setUserAlpha(1.0)
-        self.dust.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
-        self.dust.renderer.setAlphaDisable(0)
-        self.dust.renderer.setAnimAngleFlag(1)  # Animated for dust
-        self.dust.renderer.setNonanimatedTheta(0.0)
+        # Dust clouds renderer - earthy brown/tan
+        self.dustClouds.renderer.setAlphaMode(3)  # PRALPHANONE
+        self.dustClouds.renderer.setUserAlpha(1.0)
+        self.dustClouds.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
+        self.dustClouds.renderer.setAlphaDisable(0)
+        self.dustClouds.renderer.setAnimAngleFlag(1)  # Animated for dust
+        self.dustClouds.renderer.setNonanimatedTheta(0.0)
         
-        # Try to load texture for dust - use white glow for soft dust particles
+        # Try to load smoke or white glow texture for dust
         try:
-            # Use white glow for dust (softer, more transparent)
-            dustModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            if not dustModel.isEmpty():
-                dustTemplate = dustModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-                if not dustTemplate.isEmpty():
-                    self.dust.renderer.setFromNode(dustTemplate)
+            # Try smoke texture first (good for dust clouds)
+            try:
+                smokeModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
+                if not smokeModel.isEmpty():
+                    smokeTemplate = smokeModel.find('**/tt_t_efx_ext_particleWhiteGlow')
+                    if not smokeTemplate.isEmpty():
+                        self.dustClouds.renderer.setFromNode(smokeTemplate)
+            except:
+                # Fallback to fire texture (can be colored brown)
+                self.dustClouds.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/fire")
         except:
             pass
         
-        # Lighter brown color for dust (more transparent)
-        self.dust.renderer.setColor(Vec4(0.7, 0.5, 0.3, 0.5))  # Lighter, more transparent brown
+        # Earthy brown/tan color for dust clouds (0.6, 0.4, 0.2, 1.0) - slightly lighter for visibility
+        self.dustClouds.renderer.setColor(Vec4(0.65, 0.45, 0.25, 0.7))  # Earthy brown, slightly transparent
         # Dust particles grow as they float and fade
-        self.dust.renderer.setInitialXScale(dustScale * 0.5)
-        self.dust.renderer.setFinalXScale(dustScale * 1.3)  # Expand as they float
-        self.dust.renderer.setInitialYScale(dustScale * 0.5)
-        self.dust.renderer.setFinalYScale(dustScale * 1.5)  # Taller as they float
-        self.dust.renderer.setXScaleFlag(True)
-        self.dust.renderer.setYScaleFlag(True)
-        self.dust.renderer.setIgnoreScale(False)
+        self.dustClouds.renderer.setInitialXScale(dustScale * 0.7)
+        self.dustClouds.renderer.setFinalXScale(dustScale * 1.8)  # Expand as they float
+        self.dustClouds.renderer.setInitialYScale(dustScale * 0.7)
+        self.dustClouds.renderer.setFinalYScale(dustScale * 2.0)  # Taller as they float
+        self.dustClouds.renderer.setXScaleFlag(True)
+        self.dustClouds.renderer.setYScaleFlag(True)
+        self.dustClouds.renderer.setIgnoreScale(False)
         
-        # Dust emitter - can keep as sphere for floating dust (optional)
-        self.dust.emitter.setEmissionType(1)  # ETRADIATE
+        # Dust emitter - wider spread, around the object
+        self.dustClouds.emitter.setEmissionType(1)  # ETRADIATE
         if isCFOBoss:
-            dustRadius = max(2.0, avgWidth / 2.0 * 0.8)
+            self.dustClouds.emitter.setRadius(emitterRadius * 1.0)
         else:
-            dustRadius = max(0.6, (maxPt.getX() - minPt.getX()) / 2.0) * 1.2
-        self.dust.emitter.setRadius(dustRadius * 1.0)  # Full radius
-        self.dust.emitter.setAmplitude(0.1 * baseScale)  # Very gentle
-        self.dust.emitter.setAmplitudeSpread(0.7)  # More random spread
-        # Dust can float gently (minimal force)
-        self.dust.emitter.setOffsetForce(Vec3(0.0, 0.0, 0.0))  # No upward force for orbiting effect
+            self.dustClouds.emitter.setRadius(emitterRadius * 1.2)  # Even wider for safes
+        self.dustClouds.emitter.setAmplitude(amplitude * 0.4)  # Gentle spread
+        self.dustClouds.emitter.setAmplitudeSpread(0.8)  # More random spread
+        # Dust rises slightly and floats
+        self.dustClouds.emitter.setOffsetForce(Vec3(0.0, 0.0, dustRiseZ))  # Slight upward
         
-        # ===== ADD ORBITAL FORCES FOR RANDOM ORBITS =====
-        # Create forces that make each particle orbit in a random direction
-        # The PTF file has gravity, but we want orbiting instead
-        if hasattr(self, 'earthParticles') and self.earthParticles:
-            # Disable or override gravity from PTF - we want orbiting, not falling
+        # ===== CONFIGURE EARTH PARTICLES (Small settling particles) =====
+        if isCFOBoss:
+            earthPoolSize = int(50 * baseScale)
+            earthBirthRate = 0.06
+            earthLitterSize = 2
+            earthLifespan = 1.3 * baseScale
+            earthScale = max(0.08, 0.12 * baseScale)
+        else:
+            earthPoolSize = int(25 * baseScale)
+            earthBirthRate = 0.1
+            earthLitterSize = 1
+            earthLifespan = 1.0 * baseScale
+            earthScale = max(0.05, 0.1 * baseScale)
+        
+        self.earthParticles.setPoolSize(earthPoolSize)
+        self.earthParticles.setBirthRate(earthBirthRate)
+        self.earthParticles.setLitterSize(earthLitterSize)
+        self.earthParticles.setLitterSpread(1)
+        self.earthParticles.factory.setLifespanBase(earthLifespan)
+        self.earthParticles.factory.setLifespanSpread(0.4)
+        self.earthParticles.factory.setMassBase(0.8)  # Medium weight for settling
+        self.earthParticles.factory.setMassSpread(0.2)
+        self.earthParticles.factory.setTerminalVelocityBase(300.0)  # Moderate falling
+        self.earthParticles.factory.setTerminalVelocitySpread(80.0)
+        
+        # Earth particles renderer - medium brown
+        self.earthParticles.renderer.setAlphaMode(3)  # PRALPHANONE
+        self.earthParticles.renderer.setUserAlpha(1.0)
+        self.earthParticles.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
+        self.earthParticles.renderer.setAlphaDisable(0)
+        self.earthParticles.renderer.setAnimAngleFlag(1)  # Animated for particles
+        self.earthParticles.renderer.setNonanimatedTheta(0.0)
+        
+        # Try to load spark texture for small earth particles
+        try:
+            self.earthParticles.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/spark")
+        except:
             try:
-                # Get existing force groups and disable gravity
-                forceGroups = self.particleEffect.getForceGroupList()
-                for fg in forceGroups:
-                    forces = fg.getForceList()
-                    for force in forces:
-                        # Disable gravity (LinearVectorForce pointing down)
-                        if hasattr(force, 'getVector'):
-                            vec = force.getVector()
-                            if vec and vec.getZ() < -5:  # Gravity force
-                                force.setActive(False)
+                # Fallback to fire texture
+                self.earthParticles.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/fire")
             except:
                 pass
-            
-            # Add orbital force group for random orbits
-            orbitForceGroup = ForceGroup.ForceGroup('randomOrbit')
-            
-            # Use LinearJitterForce to give each particle random orbital motion
-            # This creates varied directions for each particle - each particle gets a different random force
-            from panda3d.physics import LinearJitterForce
-            jitterForce = LinearJitterForce(self.orbitSpeed * 5.0, 0)  # Random orbital motion - high amplitude for varied orbits
-            jitterForce.setActive(True)
-            orbitForceGroup.addForce(jitterForce)
-            
-            self.particleEffect.addForceGroup(orbitForceGroup)
-            
-            # Configure emitter to give particles random initial velocities for varied orbits
-            # This makes each particle start with a different orbit direction
-            try:
-                # Set high amplitude spread so particles go in different directions
-                # This is key - each particle gets a random initial velocity direction
-                self.earthParticles.emitter.setAmplitudeSpread(4.0)  # Very high spread for random directions
-                # Set emitter to radiate from center with random directions
-                self.earthParticles.emitter.setEmissionType(1)  # ETRADIATE
-                # Set radius to orbit radius so particles spawn around the object
-                self.earthParticles.emitter.setRadius(self.orbitRadius)
-                # Set amplitude for initial velocity - particles will radiate outward in random directions
-                self.earthParticles.emitter.setAmplitude(self.orbitSpeed * 3.0)
-            except Exception as e:
-                self.notify.warning(f"Error configuring emitter for random orbits: {e}")
+        
+        # Medium brown color for earth particles
+        self.earthParticles.renderer.setColor(Vec4(0.6, 0.4, 0.2, 0.8))  # Earthy brown (matches globals)
+        # Earth particles shrink as they settle
+        self.earthParticles.renderer.setInitialXScale(earthScale)
+        self.earthParticles.renderer.setFinalXScale(earthScale * 0.6)  # Shrink as they settle
+        self.earthParticles.renderer.setInitialYScale(earthScale)
+        self.earthParticles.renderer.setFinalYScale(earthScale * 0.6)
+        self.earthParticles.renderer.setXScaleFlag(True)
+        self.earthParticles.renderer.setYScaleFlag(True)
+        self.earthParticles.renderer.setIgnoreScale(False)
+        
+        # Earth particles emitter - wider spread
+        self.earthParticles.emitter.setEmissionType(1)  # ETRADIATE
+        if isCFOBoss:
+            self.earthParticles.emitter.setRadius(emitterRadius * 0.9)
+        else:
+            self.earthParticles.emitter.setRadius(emitterRadius * 1.1)  # Wider for safes
+        self.earthParticles.emitter.setAmplitude(amplitude * 0.6)  # Moderate spread
+        self.earthParticles.emitter.setAmplitudeSpread(0.7)
+        # Earth particles fall slowly
+        self.earthParticles.emitter.setOffsetForce(Vec3(0.0, 0.0, downwardForceZ * 0.6))  # Slower fall
+        
+        # ===== ADD FORCES FOR ALL LAYERS =====
+        # Downward force for earth particles (gravity)
+        gravityForceGroup = ForceGroup.ForceGroup('earthGravity')
+        if isCFOBoss:
+            gravityStrength = -5.0 * baseScale
+        else:
+            gravityStrength = -4.0 * baseScale
+        gravityForce = LinearVectorForce(Vec3(0.0, 0.0, gravityStrength), 1.0, 0)
+        gravityForce.setActive(True)
+        gravityForceGroup.addForce(gravityForce)
+        self.particleEffect.addForceGroup(gravityForceGroup)
+        
+        # Gentle upward force for dust clouds (floating effect)
+        dustForceGroup = ForceGroup.ForceGroup('dustFloat')
+        dustUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, dustRiseZ * 0.4), 0.3, 0)
+        dustUpwardForce.setActive(True)
+        dustForceGroup.addForce(dustUpwardForce)
+        self.particleEffect.addForceGroup(dustForceGroup)
         
         # Store particles reference for cleanup
-        if hasattr(self, 'earthParticles') and self.earthParticles:
-            self.particles = self.earthParticles  # Keep for compatibility with existing code
+        self.particles = self.dustClouds  # Keep for compatibility with existing code
         
-        # Apply brown glow color to safe (not CFO) - will fade in when effect starts
+        # Apply brown/tan glow color to safe (not CFO) - will fade in when effect starts
         if isSafe and not isCFOBoss:
             try:
                 # Store original color scale if not already stored
@@ -336,12 +290,12 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                         # Color is corrupted, use default white
                         self.obj._originalGroundedColorScale = VBase4(1, 1, 1, 1)
                 
-                # Calculate lighter brown tint (less intense)
+                # Calculate lighter brown/tan tint (less intense)
                 # Blend between original and earthy brown: 70% original, 30% brown
                 # This creates a subtle glow effect
                 originalColor = self.obj._originalGroundedColorScale
-                brownTint = VBase4(0.6, 0.4, 0.2, 1.0)  # Earthy brown tint
-                blendFactor = 0.4  # 40% of the tint (lighter effect)
+                brownTint = VBase4(0.6, 0.4, 0.2, 1.0)  # Earthy brown tint (matches globals)
+                blendFactor = 0.5  # 50% of the tint (lighter effect)
                 
                 glowColor = VBase4(
                     originalColor.getX() * (1.0 - blendFactor) + brownTint.getX() * blendFactor,
@@ -352,7 +306,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                 
                 # Store the glow color for fade in/out
                 self.obj._groundedGlowColor = glowColor
-                self.notify.info("Prepared brown glow color for safe (will fade in)")
+                self.notify.info("Prepared brown/tan glow color for safe (will fade in)")
             except Exception as e:
                 self.notify.warning(f"Error preparing glow color for safe: {e}")
         
@@ -392,8 +346,6 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             # Set the stored position
             if hasattr(self, 'particlePos'):
                 self.particleEffect.setPos(self.particlePos)
-            
-            # No need for orbit task - forces handle random orbital motion
             
             # Ensure particle effect doesn't occlude damage numbers
             # Apply depth settings to the particle effect node and all its children recursively
@@ -436,12 +388,8 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         return task.done
     
-    
     def stop(self):
         """Stop the particle effect without destroying it."""
-        # Stop orbit task
-        taskMgr.remove(self.uniqueName('orbitParticles'))
-        
         if self.particleEffect:
             try:
                 # Soft stop allows the particles to fade out naturally
@@ -467,7 +415,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         # Stop spawning new particles but let existing ones fade out
         # Set birth rate to very high value to effectively stop spawning
-        for particleLayer in ['earthParticles', 'dust', 'particles']:
+        for particleLayer in ['dustClouds', 'earthParticles', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -491,8 +439,8 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         # Use the longest particle lifespan to ensure all particles fade
         maxLifespan = 1.0  # Maximum expected particle lifespan
         
-        # Check all earth and dust particle layers
-        for particleLayer in ['earthParticles', 'dust', 'particles']:
+        # Check all earth particle layers
+        for particleLayer in ['dustClouds', 'earthParticles', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -527,7 +475,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             self.particleEffect = None
         
         # Clean up all particle layer references
-        for particleLayer in ['earthParticles', 'dust', 'particles']:
+        for particleLayer in ['dustClouds', 'earthParticles', 'particles']:
             if hasattr(self, particleLayer):
                 setattr(self, particleLayer, None)
         
@@ -555,7 +503,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         return f'groundedEffect-{name}'
     
     def _fadeInSafeColor(self):
-        """Fade in the brown glow color on the safe."""
+        """Fade in the brown/tan glow color on the safe."""
         if not hasattr(self, 'obj') or not self.obj:
             return
         
@@ -579,12 +527,12 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                         blendType='easeInOut'
                     )
                     self.obj._groundedColorInterval.start()
-                    self.notify.info("Fading in brown glow color on safe")
+                    self.notify.info("Fading in brown/tan glow color on safe")
         except Exception as e:
             self.notify.warning(f"Error fading in safe color: {e}")
     
     def _fadeOutSafeColor(self):
-        """Fade out the brown glow color on the safe back to original."""
+        """Fade out the brown/tan glow color on the safe back to original."""
         if not hasattr(self, 'obj') or not self.obj:
             return
         
@@ -608,7 +556,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                         blendType='easeInOut'
                     )
                     self.obj._groundedColorInterval.start()
-                    self.notify.info("Fading out brown glow color on safe")
+                    self.notify.info("Fading out brown/tan glow color on safe")
         except Exception as e:
             self.notify.warning(f"Error fading out safe color: {e}")
     
@@ -644,7 +592,6 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         # Cancel any pending graceful cleanup and depth settings tasks
         taskMgr.remove(self.uniqueName('gracefulCleanup'))
         taskMgr.remove(self.uniqueName('ensureDepthSettings'))
-        taskMgr.remove(self.uniqueName('orbitParticles'))
         
         # Stop first to prevent new particles from spawning
         self.stop()
@@ -652,8 +599,8 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         # Restore original color to safe
         self._restoreSafeColor()
         
-        # Stop all earth and dust particle layers from spawning
-        for particleLayer in ['earthParticles', 'dust', 'particles']:
+        # Stop all earth particle layers from spawning
+        for particleLayer in ['dustClouds', 'earthParticles', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -697,7 +644,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         self.active = False
     
     def updateStack(self, stackCount: int):
-        """Update earth intensity based on stack count."""
+        """Update earth effect intensity based on stack count."""
         super().updateStack(stackCount)
         
         if not self.active:
@@ -707,34 +654,35 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         # More stacks = more intense earth effect (faster birth rate, more particles)
         intensityMultiplier = 1.0 / max(1, stackCount)
         
+        # Update dust clouds
+        if hasattr(self, 'dustClouds') and self.dustClouds:
+            try:
+                baseDustBirthRate = 0.06  # Match safe birth rate
+                self.dustClouds.setBirthRate(baseDustBirthRate * intensityMultiplier)
+                if stackCount >= 2:
+                    # More visible dust for more stacks
+                    self.dustClouds.renderer.setColor(Vec4(0.7, 0.5, 0.3, 0.8))  # Slightly brighter brown
+            except:
+                pass
+        
         # Update earth particles
         if hasattr(self, 'earthParticles') and self.earthParticles:
             try:
-                baseEarthBirthRate = 0.05
+                baseEarthBirthRate = 0.1  # Match safe birth rate
                 self.earthParticles.setBirthRate(baseEarthBirthRate * intensityMultiplier)
                 if stackCount >= 2:
-                    # More intense brown for more stacks
-                    self.earthParticles.renderer.setColor(Vec4(0.5, 0.3, 0.15, 0.95))  # Darker brown
+                    # More visible particles for more stacks
+                    self.earthParticles.renderer.setColor(Vec4(0.65, 0.45, 0.25, 0.9))  # Slightly brighter
             except:
                 pass
         
-        # Update dust
-        if hasattr(self, 'dust') and self.dust:
-            try:
-                baseDustBirthRate = 0.08
-                self.dust.setBirthRate(baseDustBirthRate * intensityMultiplier)
-                if stackCount >= 2:
-                    # More visible dust for more stacks
-                    self.dust.renderer.setColor(Vec4(0.7, 0.5, 0.3, 0.6))  # Slightly more opaque
-            except:
-                pass
-        
-        # Legacy support for self.particles (which points to earthParticles)
+        # Legacy support for self.particles (which points to dustClouds)
         if hasattr(self, 'particles') and self.particles:
             try:
-                baseBirthRate = 0.05
+                baseBirthRate = 0.06  # Match safe birth rate
                 self.particles.setBirthRate(baseBirthRate * intensityMultiplier)
                 if stackCount >= 2:
-                    self.particles.renderer.setColor(Vec4(0.5, 0.3, 0.15, 0.95))  # Darker brown
+                    self.particles.renderer.setColor(Vec4(0.7, 0.5, 0.3, 0.8))  # Brighter brown
             except:
                 pass
+
