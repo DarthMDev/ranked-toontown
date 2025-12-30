@@ -436,13 +436,31 @@ class DistributedCraneGame(DistributedMinigame):
         or returning any animation tracks. The position and orientation are
         applied immediately.
         """
-
-        for i, toon in enumerate(self.getParticipantsNotSpectating()):
-            spawn_index = self.toonSpawnpointOrder[i]
-            posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
-            pos = Point3(*posHpr[0:3])
-            hpr = VBase3(*posHpr[3:6])
-            toon.setPosHpr(pos, hpr)
+        participants = self.getParticipantsNotSpectating()
+        
+        # Ensure spawn order is valid and has enough entries
+        # If spawn order hasn't been received yet or is too short, use default sequential order
+        if len(self.toonSpawnpointOrder) < len(participants):
+            self.notify.warning(f"Spawn order too short ({len(self.toonSpawnpointOrder)} < {len(participants)}), using default sequential order")
+            # Use sequential positions as fallback
+            for i, toon in enumerate(participants):
+                spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                pos = Point3(*posHpr[0:3])
+                hpr = VBase3(*posHpr[3:6])
+                toon.setPosHpr(pos, hpr)
+        else:
+            # Use the spawn order from server
+            for i, toon in enumerate(participants):
+                spawn_index = self.toonSpawnpointOrder[i]
+                # Bounds check to prevent index errors
+                if spawn_index >= len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS):
+                    self.notify.warning(f"Invalid spawn index {spawn_index}, using index {i} instead")
+                    spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                pos = Point3(*posHpr[0:3])
+                hpr = VBase3(*posHpr[3:6])
+                toon.setPosHpr(pos, hpr)
 
         for toon in self.getSpectatingToons():
             toon.setPos(self.getBoss().getPos())
@@ -2774,8 +2792,9 @@ class DistributedCraneGame(DistributedMinigame):
                 self.roundWins[avId] = roundWins[i]
         
         # Update scoreboard with round information
+        # Pass avIdList to ensure correct order matching server
         if self.scoreboard:
-            self.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue)
+            self.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue, self.avIdList)
 
     def setModifiers(self, mods):
         """Receive modifier updates from the server"""

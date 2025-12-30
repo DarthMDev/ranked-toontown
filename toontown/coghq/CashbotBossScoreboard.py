@@ -630,16 +630,24 @@ class CashbotBossScoreboard(DirectObject):
         for r in list(self.rows.values()):
             r.ruleset = ruleset
 
-    def setRoundInfo(self, currentRound, roundWins, bestOfValue):
+    def setRoundInfo(self, currentRound, roundWins, bestOfValue, avIdList=None):
         """Update round information display"""
         self.currentRound = currentRound
         self.bestOfValue = bestOfValue
         
         # Convert roundWins list back to dict
+        # Use avIdList if provided (to match server order), otherwise fall back to getToons()
         self.roundWins = {}
-        for i, avId in enumerate(self.getToons()):
-            if i < len(roundWins):
-                self.roundWins[avId] = roundWins[i]
+        if avIdList is not None:
+            # Use the provided avIdList to match server order
+            for i, avId in enumerate(avIdList):
+                if i < len(roundWins):
+                    self.roundWins[avId] = roundWins[i]
+        else:
+            # Fallback to getToons() order (for backwards compatibility)
+            for i, avId in enumerate(self.getToons()):
+                if i < len(roundWins):
+                    self.roundWins[avId] = roundWins[i]
         
         # Update display
         if self.bestOfValue > 1:

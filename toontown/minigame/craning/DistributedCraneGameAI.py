@@ -975,8 +975,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.gameFSM.request("cleanup")
         self.gameFSM.request('prepare')
         
-        # Send round info to clients immediately after restart
-        self.d_setRoundInfo()
+        # Note: round info will be sent in enterPrepare, no need to send here
 
     def __rotateSpawnPositions(self):
         """Rotate spawn positions for the next round"""
@@ -1267,11 +1266,15 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.__makeCraningObjects()
         self.__resetCraningObjects()
         self.setupRuleset()
+        # Setup spawnpoints BEFORE sending updates to ensure clients have correct order
         self.setupSpawnpoints()
+        # Send spawn order immediately so clients have it before positioning
+        self.d_setToonSpawnpointOrder()
 
         self.__updateSkillProfile()
 
         # Send round info to clients if this is a best-of match
+        # Note: roundWins should persist across restarts (don't reset on restart)
         if self.bestOfValue > 1:
             self.d_setRoundInfo()
 
