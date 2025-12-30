@@ -78,6 +78,14 @@ class DistributedCraneGame(DistributedMinigame):
         self.bestOfValue = 1  # Default to Best of 1
         self.currentRound = 1
         self.roundWins = {}  # Maps avId -> number of rounds won
+        self.pendingForfeitRequester = None  # avId of player who requested forfeit
+        self.forfeitConsents = set()  # Set of avIds who have consented
+        self.forfeitDialog = None  # Dialog for forfeit confirmation (for non-requesters)
+        self.forfeitRequesterDialog = None  # Dialog for requester (shows status and cancel)
+        self.pendingRestartRequester = None  # avId of player who requested restart
+        self.restartConsents = set()  # Set of avIds who have consented
+        self.restartDialog = None  # Dialog for restart confirmation (for non-requesters)
+        self.restartRequesterDialog = None  # Dialog for requester (shows status and cancel)
         self.boss = None
         self.bossRequest = None
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
@@ -437,11 +445,12 @@ class DistributedCraneGame(DistributedMinigame):
         applied immediately.
         """
         participants = self.getParticipantsNotSpectating()
+        participantIds = self.getParticipantIdsNotSpectating()
         
         # Ensure spawn order is valid and has enough entries
         # If spawn order hasn't been received yet or is too short, use default sequential order
-        if len(self.toonSpawnpointOrder) < len(participants):
-            self.notify.warning(f"Spawn order too short ({len(self.toonSpawnpointOrder)} < {len(participants)}), using default sequential order")
+        if len(self.toonSpawnpointOrder) < len(self.avIdList):
+            self.notify.warning(f"Spawn order too short ({len(self.toonSpawnpointOrder)} < {len(self.avIdList)}), using default sequential order")
             # Use sequential positions as fallback
             for i, toon in enumerate(participants):
                 spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
@@ -450,17 +459,48 @@ class DistributedCraneGame(DistributedMinigame):
                 hpr = VBase3(*posHpr[3:6])
                 toon.setPosHpr(pos, hpr)
         else:
-            # Use the spawn order from server
-            for i, toon in enumerate(participants):
-                spawn_index = self.toonSpawnpointOrder[i]
-                # Bounds check to prevent index errors
-                if spawn_index >= len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS):
-                    self.notify.warning(f"Invalid spawn index {spawn_index}, using index {i} instead")
-                    spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
-                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
-                pos = Point3(*posHpr[0:3])
-                hpr = VBase3(*posHpr[3:6])
-                toon.setPosHpr(pos, hpr)
+            # When spectators are present, remap spawn positions so non-spectating players
+            # use positions 0, 1, 2, etc. based on their order in the non-spectating list
+            # This ensures players shift up when spectators are removed
+            hasSpectators = len(self.getSpectators()) > 0
+            
+            if hasSpectators:
+                # Simple remapping: use sequential positions 0, 1, 2 for non-spectating players
+                for participantIndex, toon in enumerate(participants):
+                    spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    pos = Point3(*posHpr[0:3])
+                    hpr = VBase3(*posHpr[3:6])
+                    toon.setPosHpr(pos, hpr)
+            else:
+                # No spectators: use the original spawn order based on avIdList index
+                for toon in participants:
+                    avId = toon.doId
+                    # Find this player's index in the original avIdList
+                    if avId not in self.avIdList:
+                        self.notify.warning(f"Toon {avId} not found in avIdList, using sequential position")
+                        participantIndex = participantIds.index(avId)
+                        spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    else:
+                        avIdIndex = self.avIdList.index(avId)
+                        # Use the avId's index to get their spawn position from the order
+                        if avIdIndex >= len(self.toonSpawnpointOrder):
+                            self.notify.warning(f"avIdIndex {avIdIndex} out of range for spawn order, using sequential position")
+                            participantIndex = participantIds.index(avId)
+                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                        else:
+                            spawn_index = self.toonSpawnpointOrder[avIdIndex]
+                        
+                        # Bounds check to prevent index errors
+                        if spawn_index >= len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS):
+                            self.notify.warning(f"Invalid spawn index {spawn_index} for avId {avId}, using sequential position")
+                            participantIndex = participantIds.index(avId)
+                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    
+                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    pos = Point3(*posHpr[0:3])
+                    hpr = VBase3(*posHpr[3:6])
+                    toon.setPosHpr(pos, hpr)
 
         for toon in self.getSpectatingToons():
             toon.setPos(self.getBoss().getPos())
@@ -1770,6 +1810,20 @@ class DistributedCraneGame(DistributedMinigame):
         self.__cleanupRulesPanel()
         # Clean up drone UI
         self.__cleanupDroneSelectionUI()
+        # Clean up forfeit dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        # Clean up restart dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
 
     def exitOff(self):
         pass
@@ -2222,6 +2276,21 @@ class DistributedCraneGame(DistributedMinigame):
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
         self.__cleanupRulesPanel()
+        
+        # Clean up forfeit dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        # Clean up restart dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
         
         # Clean up all drones when entering cleanup
         self.__cleanupAllDrones()
@@ -2827,3 +2896,348 @@ class DistributedCraneGame(DistributedMinigame):
         if self.isLocalToonHost() and modifierIndex < len(self.modifiers):
             modifierEnum = self.modifiers[modifierIndex].MODIFIER_ENUM
             self.sendUpdate('removeModifier', [modifierEnum])
+    
+    def setRequestForfeit(self, requesterAvId):
+        """Receive forfeit request from server"""
+        self.pendingForfeitRequester = requesterAvId
+        self.forfeitConsents.clear()
+        self.forfeitConsents.add(requesterAvId)  # Requester automatically consents
+        
+        requesterToon = self.cr.getDo(requesterAvId)
+        if not requesterToon:
+            self.notify.warning(f"Could not find requester toon {requesterAvId}")
+            return
+        
+        requesterName = requesterToon.getName()
+        requesterDNA = requesterToon.getStyle()
+        
+        # Clean up any existing dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        # Check if local player is a spectator - don't show dialog to spectators
+        if base.localAvatar.doId in self.getSpectators():
+            self.notify.info(f"Forfeit requested by {requesterName} (spectator, no dialog shown)")
+            return
+        
+        # Show different dialogs based on whether this is the requester
+        from toontown.toontowngui import ToonHeadDialog
+        from toontown.toontowngui import TTDialog
+        from otp.otpbase import OTPLocalizer
+        from direct.gui.DirectGui import DGG
+        
+        if requesterAvId == base.localAvatar.doId:
+            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
+            participants = self.getParticipantIdsNotSpectating()
+            numNeeded = len(participants)
+            message = f"Forfeit requested!\n\n"
+            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
+            
+            # Create dialog with desired scale
+            desiredScale = 0.4
+            self.forfeitRequesterDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.CancelOnly,
+                buttonTextList=[OTPLocalizer.GuildInviterCancel],
+                command=self.__handleForfeitRequesterDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.forfeitRequesterDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.forfeitRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.forfeitRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.forfeitRequesterDialog.show()
+        else:
+            # Other players see confirmation dialog (like GroupInvitee)
+            message = f"{requesterName} has requested to FORFEIT the match.\n\n"
+            
+            # Create dialog with desired scale
+            desiredScale = 0.5
+            self.forfeitDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.TwoChoice,
+                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
+                command=self.__handleForfeitDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                text_wordwrap=14,
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.forfeitDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.forfeitDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.forfeitDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.forfeitDialog.show()
+        
+        self.notify.info(f"Forfeit requested by {requesterName}")
+    
+    def setUpdateForfeitConsents(self, consentAvIds):
+        """Receive updated consent list from server"""
+        self.forfeitConsents = set(consentAvIds)
+        
+        participants = self.getParticipantIdsNotSpectating()
+        numConsented = len(self.forfeitConsents)
+        numNeeded = len(participants)
+        
+        if numConsented < numNeeded:
+            # Update requester dialog to show progress
+            if self.forfeitRequesterDialog and not self.forfeitRequesterDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
+                requesterDNA = requesterToon.getStyle() if requesterToon else None
+                if requesterDNA:
+                    message = f"Forfeit requested!\n\n"
+                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
+                    self.forfeitRequesterDialog['text'] = message
+            
+            # Update non-requester dialog to show progress
+            if self.forfeitDialog and not self.forfeitDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
+                requesterName = requesterToon.getName() if requesterToon else "Unknown"
+                message = f"{requesterName} has requested to FORFEIT the match.\n\n"
+                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
+                self.forfeitDialog['text'] = message
+    
+    def setCancelForfeit(self):
+        """Receive forfeit cancellation from server"""
+        self.pendingForfeitRequester = None
+        self.forfeitConsents.clear()
+        
+        # Clean up dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        base.localAvatar.setSystemMessage(0, "Forfeit request has been cancelled.")
+    
+    def __handleForfeitDialog(self, value):
+        """Handle forfeit dialog button click (for non-requesters)"""
+        from direct.gui.DirectGui import DGG
+        
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        
+        if value == DGG.DIALOG_OK:  # OK/Yes button
+            self.sendUpdate('confirmForfeit', [])
+        else:  # No button - reject the forfeit
+            self.sendUpdate('rejectForfeit', [])
+    
+    def __handleForfeitRequesterDialog(self, value):
+        """Handle forfeit requester dialog button click (cancel button)"""
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        # Cancel button was clicked - send cancel request to server
+        self.sendUpdate('cancelForfeitRequest', [])
+    
+    def setRequestRestart(self, requesterAvId):
+        """Receive restart request from server"""
+        self.pendingRestartRequester = requesterAvId
+        self.restartConsents.clear()
+        self.restartConsents.add(requesterAvId)  # Requester automatically consents
+        
+        requesterToon = self.cr.getDo(requesterAvId)
+        if not requesterToon:
+            self.notify.warning(f"Could not find requester toon {requesterAvId}")
+            return
+        
+        requesterName = requesterToon.getName()
+        requesterDNA = requesterToon.getStyle()
+        
+        # Clean up any existing dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        # Check if local player is a spectator - don't show dialog to spectators
+        if base.localAvatar.doId in self.getSpectators():
+            self.notify.info(f"Restart requested by {requesterName} (spectator, no dialog shown)")
+            return
+        
+        # Show different dialogs based on whether this is the requester
+        from toontown.toontowngui import ToonHeadDialog
+        from toontown.toontowngui import TTDialog
+        from otp.otpbase import OTPLocalizer
+        from direct.gui.DirectGui import DGG
+        
+        if requesterAvId == base.localAvatar.doId:
+            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
+            participants = self.getParticipantIdsNotSpectating()
+            numNeeded = len(participants)
+            message = f"Restart requested!\n\n"
+            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
+            
+            # Create dialog with desired scale
+            desiredScale = 0.4
+            self.restartRequesterDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.CancelOnly,
+                buttonTextList=[OTPLocalizer.GuildInviterCancel],
+                command=self.__handleRestartRequesterDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.restartRequesterDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.restartRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.restartRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.restartRequesterDialog.show()
+        else:
+            # Other players see confirmation dialog (like GroupInvitee)
+            message = f"{requesterName} has requested to restart the match.\n\n"
+            
+            # Create dialog with desired scale
+            desiredScale = 0.5
+            self.restartDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.TwoChoice,
+                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
+                command=self.__handleRestartDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.restartDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.restartDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.restartDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.restartDialog.show()
+        
+        self.notify.info(f"Restart requested by {requesterName}")
+    
+    def setUpdateRestartConsents(self, consentAvIds):
+        """Receive updated consent list from server"""
+        self.restartConsents = set(consentAvIds)
+        
+        participants = self.getParticipantIdsNotSpectating()
+        numConsented = len(self.restartConsents)
+        numNeeded = len(participants)
+        
+        if numConsented < numNeeded:
+            # Update requester dialog to show progress
+            if self.restartRequesterDialog and not self.restartRequesterDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingRestartRequester)
+                requesterDNA = requesterToon.getStyle() if requesterToon else None
+                if requesterDNA:
+                    message = f"Restart requested!\n\n"
+                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
+                    self.restartRequesterDialog['text'] = message
+            
+            # Update non-requester dialog to show progress
+            if self.restartDialog and not self.restartDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingRestartRequester)
+                requesterName = requesterToon.getName() if requesterToon else "Unknown"
+                message = f"{requesterName} has requested to restart the match.\n\n"
+                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
+                self.restartDialog['text'] = message
+    
+    def setCancelRestart(self):
+        """Receive restart cancellation from server"""
+        self.pendingRestartRequester = None
+        self.restartConsents.clear()
+        
+        # Clean up dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        base.localAvatar.setSystemMessage(0, "Restart request has been cancelled.")
+    
+    def __handleRestartDialog(self, value):
+        """Handle restart dialog button click (for non-requesters)"""
+        from direct.gui.DirectGui import DGG
+        
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        
+        if value == DGG.DIALOG_OK:  # OK/Yes button
+            self.sendUpdate('confirmRestart', [])
+        else:  # No button - reject the restart
+            self.sendUpdate('rejectRestart', [])
+    
+    def __handleRestartRequesterDialog(self, value):
+        """Handle restart requester dialog button click (cancel button)"""
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        # Cancel button was clicked - send cancel request to server
+        self.sendUpdate('cancelRestartRequest', [])

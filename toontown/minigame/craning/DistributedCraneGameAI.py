@@ -119,6 +119,12 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Memory leak prevention - track event listeners and task names
         self._deathListenerEvents = []
         self._allTaskNames = set()
+        
+        # Forfeit consent system
+        self.pendingForfeitRequest = None  # avId of player who requested forfeit, or None if no pending request
+        self.forfeitConsents = set()  # Set of avIds who have consented to forfeit
+        self.pendingRestartRequest = None  # avId of player who requested restart, or None if no pending request
+        self.restartConsents = set()  # Set of avIds who have consented to restart
 
     def isRanked(self) -> bool:
 
@@ -246,6 +252,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.roundWins = {}
         self.originalSpawnOrder = []
         self._inMultiRoundMatch = False
+        
+        # Clear any pending forfeit requests
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        # Clear any pending restart requests
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        
         # Initialize best-of settings
         self.d_setBestOf()
         self.d_setRoundInfo()
@@ -1547,6 +1561,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.currentlyInOvertime = False
         self.overtimeWillHappen = False
         self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
+        
+        # Clear any pending forfeit requests when exiting play
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
 
         # Clear all status effects from boss and safes when exiting play
         if self.statusEffectSystem:
@@ -1885,3 +1903,237 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                     # Send vanishWithPoof to clients, which will then requestDelete
                     drone.vanishWithPoof()
             self.boss.drones = []
+    
+    def requestForfeit(self):
+        """Handle forfeit request from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to request forfeit but is not a participant")
+            return
+        
+        # If there's already a pending request, cancel it first
+        if self.pendingForfeitRequest is not None:
+            self.cancelForfeitRequest()
+        
+        # Start a new forfeit request
+        self.pendingForfeitRequest = avId
+        self.forfeitConsents.clear()
+        self.forfeitConsents.add(avId)  # Requester automatically consents
+        
+        # Send forfeit request to all players
+        self.d_requestForfeit(avId)
+        
+        self.notify.info(f"Player {avId} requested forfeit. Waiting for all players to confirm.")
+    
+    def confirmForfeit(self):
+        """Handle forfeit confirmation from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingForfeitRequest is None:
+            self.notify.warning(f"Player {avId} tried to confirm forfeit but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to confirm forfeit but is not a participant")
+            return
+        
+        # Add consent
+        self.forfeitConsents.add(avId)
+        
+        # Check if all players have consented
+        participants = self.getParticipantIdsNotSpectating()
+        if len(self.forfeitConsents) >= len(participants):
+            # All players have consented, proceed with forfeit
+            self.executeForfeit(self.pendingForfeitRequest)
+        else:
+            # Update clients with current consent status
+            self.d_updateForfeitConsents(list(self.forfeitConsents))
+    
+    def rejectForfeit(self):
+        """Handle forfeit rejection from a player - cancels the forfeit immediately"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingForfeitRequest is None:
+            self.notify.warning(f"Player {avId} tried to reject forfeit but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to reject forfeit but is not a participant")
+            return
+        
+        # Rejection cancels the forfeit immediately
+        self.notify.info(f"Player {avId} rejected the forfeit request. Cancelling forfeit.")
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        self.d_cancelForfeit()
+    
+    def cancelForfeitRequest(self):
+        """Cancel the current forfeit request (called from client)"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Only the requester can cancel
+        if self.pendingForfeitRequest != avId:
+            self.notify.warning(f"Player {avId} tried to cancel forfeit but is not the requester")
+            return
+        
+        if self.pendingForfeitRequest is not None:
+            self.notify.info(f"Cancelling forfeit request from {self.pendingForfeitRequest}")
+            self.pendingForfeitRequest = None
+            self.forfeitConsents.clear()
+            self.d_cancelForfeit()
+    
+    def executeForfeit(self, forfeiterAvId):
+        """Execute the forfeit - put the requester in last place"""
+        # Forfeit: Set the forfeiter's score to ensure they come in last place
+        context = self.getScoringContext()
+        _round = context.get_round(self.currentRound)
+        score = _round.get_score(forfeiterAvId)
+        num_players = len(self.getParticipantsNotSpectating())
+        
+        # Ensure all participants at least have a point
+        for toon in self.getParticipantsNotSpectating():
+            if toon.getDoId() != forfeiterAvId or num_players == 1:
+                self.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+        
+        self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+        
+        # Clear forfeit request state
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        
+        # Notify clients to clean up forfeit dialogs
+        self.d_cancelForfeit()
+        
+        # End the game
+        self.gameFSM.request('victory')
+        
+        self.notify.info(f"Forfeit executed - {forfeiterAvId} placed in last place")
+    
+    def d_requestForfeit(self, requesterAvId):
+        """Send forfeit request to all clients"""
+        self.sendUpdate('setRequestForfeit', [requesterAvId])
+    
+    def d_updateForfeitConsents(self, consentAvIds):
+        """Update clients with current consent status"""
+        self.sendUpdate('setUpdateForfeitConsents', [consentAvIds])
+    
+    def d_cancelForfeit(self):
+        """Notify clients that forfeit request was cancelled"""
+        self.sendUpdate('setCancelForfeit', [])
+    
+    def requestRestart(self):
+        """Handle restart request from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to request restart but is not a participant")
+            return
+        
+        # If there's already a pending request, cancel it first
+        if self.pendingRestartRequest is not None:
+            self.cancelRestartRequest()
+        
+        # Start a new restart request
+        self.pendingRestartRequest = avId
+        self.restartConsents.clear()
+        self.restartConsents.add(avId)  # Requester automatically consents
+        
+        # Send restart request to all players
+        self.d_requestRestart(avId)
+        
+        self.notify.info(f"Player {avId} requested restart. Waiting for all players to confirm.")
+    
+    def confirmRestart(self):
+        """Handle restart confirmation from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingRestartRequest is None:
+            self.notify.warning(f"Player {avId} tried to confirm restart but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to confirm restart but is not a participant")
+            return
+        
+        # Add consent
+        self.restartConsents.add(avId)
+        
+        # Check if all players have consented
+        participants = self.getParticipantIdsNotSpectating()
+        if len(self.restartConsents) >= len(participants):
+            # All players have consented, proceed with restart
+            self.executeRestart(self.pendingRestartRequest)
+        else:
+            # Update clients with current consent status
+            self.d_updateRestartConsents(list(self.restartConsents))
+    
+    def rejectRestart(self):
+        """Handle restart rejection from a player - cancels the restart immediately"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingRestartRequest is None:
+            self.notify.warning(f"Player {avId} tried to reject restart but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to reject restart but is not a participant")
+            return
+        
+        # Rejection cancels the restart immediately
+        self.notify.info(f"Player {avId} rejected the restart request. Cancelling restart.")
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        self.d_cancelRestart()
+    
+    def cancelRestartRequest(self):
+        """Cancel the current restart request (called from client)"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Only the requester can cancel
+        if self.pendingRestartRequest != avId:
+            self.notify.warning(f"Player {avId} tried to cancel restart but is not the requester")
+            return
+        
+        if self.pendingRestartRequest is not None:
+            self.notify.info(f"Cancelling restart request from {self.pendingRestartRequest}")
+            self.pendingRestartRequest = None
+            self.restartConsents.clear()
+            self.d_cancelRestart()
+    
+    def executeRestart(self, requesterAvId):
+        """Execute the restart - transition to cleanup then prepare"""
+        # Clear restart request state
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        
+        # Notify clients to clean up restart dialogs
+        self.d_cancelRestart()
+        
+        # Restart the game
+        self.gameFSM.request("cleanup")
+        self.gameFSM.request('prepare')
+        
+        self.notify.info(f"Restart executed - requested by {requesterAvId}")
+    
+    def d_requestRestart(self, requesterAvId):
+        """Send restart request to all clients"""
+        self.sendUpdate('setRequestRestart', [requesterAvId])
+    
+    def d_updateRestartConsents(self, consentAvIds):
+        """Update clients with current consent status"""
+        self.sendUpdate('setUpdateRestartConsents', [consentAvIds])
+    
+    def d_cancelRestart(self):
+        """Notify clients that restart request was cancelled"""
+        self.sendUpdate('setCancelRestart', [])

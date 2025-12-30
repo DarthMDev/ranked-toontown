@@ -637,7 +637,7 @@ class CashbotBossScoreboard(DirectObject):
         
         # Convert roundWins list back to dict
         # Use avIdList if provided (to match server order), otherwise fall back to getToons()
-        self.roundWins = {}
+        # Don't clear existing roundWins - update it so data persists even if rows are recreated
         if avIdList is not None:
             # Use the provided avIdList to match server order
             for i, avId in enumerate(avIdList):
@@ -657,6 +657,7 @@ class CashbotBossScoreboard(DirectObject):
             self.roundInfoText.show()
             
             # Update individual row displays with round wins using the new method
+            # This will update existing rows, and new rows created by addToon() will check roundWins
             for avId, row in self.rows.items():
                 wins = self.roundWins.get(avId, 0)
                 row.updateRoundWins(wins)
@@ -695,6 +696,12 @@ class CashbotBossScoreboard(DirectObject):
                 self.rows[avId].round_wins_text.show()
             else:
                 self.rows[avId].round_wins_text.hide()
+            
+            # If we already have round win data for this toon, restore it
+            # This ensures win counts persist when rows are recreated in enterPrepare
+            if avId in self.roundWins:
+                wins = self.roundWins[avId]
+                self.rows[avId].updateRoundWins(wins)
                 
         self.show()
 

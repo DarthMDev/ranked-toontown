@@ -1933,6 +1933,7 @@ class EndCFO(MagicWord):
     desc = "Ends the C.F.O. and forfeits, putting you in last place."
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
     accessLevel = 'USER'
+    arguments = [("action", str, False, "")]
 
     def handleWord(self, invoker, avId, toon, *args):
         from ..minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
@@ -1940,29 +1941,47 @@ class EndCFO(MagicWord):
         if craneGame is None:
             return "You aren't in a crane round!"
 
-        # Check if this is a ranked game and if less than 2 minutes have elapsed
-        if craneGame.isRanked():
-            elapsed_seconds = globalClock.getFrameTime() - craneGame.battleThreeStart
-            if elapsed_seconds < 120:  # 2 minutes = 120 seconds
-                remaining_time = 120 - elapsed_seconds
-                minutes = int(remaining_time // 60)
-                seconds = int(remaining_time % 60)
-                return f"Cannot forfeit a ranked game until 2 minutes have elapsed. Time remaining: {minutes}m {seconds}s"
+        # Get the action argument (if provided)
+        action = args[0].lower() if len(args) > 0 and args[0] else ""
+        
+        # Check if there's already a pending forfeit request
+        if craneGame.pendingForfeitRequest is not None:
+            if craneGame.pendingForfeitRequest == invoker.doId:
+                # Requester can cancel
+                if action in ['cancel', 'c']:
+                    craneGame.cancelForfeitRequest()
+                    return "Forfeit request cancelled."
+                return "You have already requested a forfeit. Waiting for all players to confirm."
+            else:
+                # Other players can confirm
+                if action in ['confirm', 'c', 'yes', 'y']:
+                    craneGame.confirmForfeit()
+                    return "You have confirmed the forfeit request."
+                return "A forfeit request is already pending. Use ~ff confirm to confirm, or the requester can use ~ff cancel to cancel."
 
-        # Forfeit: Set the invoker's score to ensure they come in last place
-        context = craneGame.getScoringContext()
-        _round = context.get_round(craneGame.currentRound)
-        score = _round.get_score(invoker.doId)
-        num_players = len(craneGame.getParticipantsNotSpectating())
+        # Check if player is trying to confirm (but no request exists)
+        if action in ['confirm', 'c', 'yes', 'y']:
+            return "No forfeit request is pending. Use ~ff to request a forfeit."
+        
+        # Check if player is trying to cancel (but no request exists)
+        if action in ['cancel', 'c']:
+            return "No forfeit request is pending."
 
-        # Ensure all participants at least have a point.
-        for toon in craneGame.getParticipantsNotSpectating():
-            if toon.getDoId() != invoker.doId or num_players == 1:
-                craneGame.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
-
-        craneGame.addScore(invoker.doId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
-        craneGame.gameFSM.request('victory')
-        return f"Forfeiting crane round - {toon.getName()} will be placed in last place."
+        # Start a new forfeit request (requires all players to confirm)
+        participants = craneGame.getParticipantIdsNotSpectating()
+        if len(participants) == 1:
+            # Single player game - forfeit immediately
+            context = craneGame.getScoringContext()
+            _round = context.get_round(craneGame.currentRound)
+            score = _round.get_score(invoker.doId)
+            craneGame.addScore(invoker.doId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+            craneGame.gameFSM.request('victory')
+            return f"Forfeiting crane round - {toon.getName()} will be placed in last place."
+        
+        # Multi-player game - require consent from all players
+        craneGame.requestForfeit()
+        numParticipants = len(participants)
+        return f"Forfeit requested! All {numParticipants} players must confirm using ~ff confirm. The requester can cancel with ~ff cancel."
 
 
 class RestartCraneRound(MagicWord):
@@ -1978,9 +1997,44 @@ class RestartCraneRound(MagicWord):
         if craneGame is None:
             return "You aren't in a crane round!"
 
-        craneGame.gameFSM.request("cleanup")
-        craneGame.gameFSM.request('prepare')
-        return "Restarting Crane Round"
+        # Get the action argument (if provided)
+        action = args[0].lower() if len(args) > 0 and args[0] else ""
+        
+        # Check if there's already a pending restart request
+        if craneGame.pendingRestartRequest is not None:
+            if craneGame.pendingRestartRequest == invoker.doId:
+                # Requester can cancel
+                if action in ['cancel', 'c']:
+                    craneGame.cancelRestartRequest()
+                    return "Restart request cancelled."
+                return "You have already requested a restart. Waiting for all players to confirm."
+            else:
+                # Other players can confirm
+                if action in ['confirm', 'c', 'yes', 'y']:
+                    craneGame.confirmRestart()
+                    return "You have confirmed the restart request."
+                return "A restart request is already pending. Use ~rcr confirm to confirm, or the requester can use ~rcr cancel to cancel."
+
+        # Check if player is trying to confirm (but no request exists)
+        if action in ['confirm', 'c', 'yes', 'y']:
+            return "No restart request is pending. Use ~rcr to request a restart."
+        
+        # Check if player is trying to cancel (but no request exists)
+        if action in ['cancel', 'c']:
+            return "No restart request is pending."
+        
+        # Start a new restart request (requires all players to confirm)
+        participants = craneGame.getParticipantIdsNotSpectating()
+        if len(participants) == 1:
+            # Single player game - restart immediately
+            craneGame.gameFSM.request("cleanup")
+            craneGame.gameFSM.request('prepare')
+            return "Restarting Crane Round"
+        
+        # Multi-player game - require consent from all players
+        craneGame.requestRestart()
+        numParticipants = len(participants)
+        return f"Restart requested! All {numParticipants} players must confirm using ~rcr confirm. The requester can cancel with ~rcr cancel."
 
 
 class SpectateMinigame(MagicWord):
