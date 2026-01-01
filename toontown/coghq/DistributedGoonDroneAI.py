@@ -6,7 +6,7 @@ New structure:
 - DistributedGoonDroneBaseAI - Base AI class with common functionality
 - DistributedGoonDroneLaserAI - Laser drone AI implementation
 - DistributedGoonDroneHealAI - Heal drone AI implementation
-- DistributedGoonDroneExplosiveAI - Explosive drone AI implementation
+- DistributedGoonDroneExplodeyAI - Explodey drone AI implementation
 - DistributedGoonDroneStunAI - Stun drone AI implementation
 
 This file now acts as a factory that routes to the appropriate class based on droneType.
@@ -35,9 +35,9 @@ def create_drone_ai(air, boss, ownerId, droneType=None):
     elif droneType == CraneLeagueGlobals.DroneType.HEAL:
         from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
         return DistributedGoonDroneHealAI(air, boss, ownerId)
-    elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
-        from toontown.coghq.DistributedGoonDroneExplosiveAI import DistributedGoonDroneExplosiveAI
-        return DistributedGoonDroneExplosiveAI(air, boss, ownerId)
+    elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+        from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
+        return DistributedGoonDroneExplodeyAI(air, boss, ownerId)
     elif droneType == CraneLeagueGlobals.DroneType.STUN:
         from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
         return DistributedGoonDroneStunAI(air, boss, ownerId)

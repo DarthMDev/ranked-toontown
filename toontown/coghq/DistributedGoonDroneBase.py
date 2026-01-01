@@ -366,7 +366,7 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
             self.performStunVisualEffect()
         elif droneTypeEnum == CraneLeagueGlobals.DroneType.HEAL:
             self.performHealVisualEffect()
-        elif droneTypeEnum == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+        elif droneTypeEnum == CraneLeagueGlobals.DroneType.EXPLODEY:
             self.performExplodeVisualEffect()
     
     def performHealVisualEffect(self):

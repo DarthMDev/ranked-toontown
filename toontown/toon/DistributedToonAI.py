@@ -172,7 +172,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         if simbase.wantBingo:
             self.bingoCheat = False
         self.customMessages = []
-        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explosive
+        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explodey
         self.catalogNotify = ToontownGlobals.NoItems
         self.mailboxNotify = ToontownGlobals.NoItems
         self.catalogScheduleCurrentWeek = 0

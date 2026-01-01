@@ -1389,13 +1389,13 @@ class DistributedCraneGame(DistributedMinigame):
         """Create the drone selection UI with 3 slots at the bottom of the screen."""
         from toontown.coghq import CraneLeagueGlobals
         
-        # Initialize selected drone types for local toon (default: Laser, Heal, Explosive)
+        # Initialize selected drone types for local toon (default: Laser, Heal, Explodey)
         localAvId = base.localAvatar.doId
         if localAvId not in self.selectedDroneTypes:
             self.selectedDroneTypes[localAvId] = [
                 CraneLeagueGlobals.DroneType.LASER,
                 CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLOSIVE
+                CraneLeagueGlobals.DroneType.EXPLODEY
             ]
         
         # Create container frame for all slots
@@ -1561,7 +1561,7 @@ class DistributedCraneGame(DistributedMinigame):
         droneTypes = [
             CraneLeagueGlobals.DroneType.LASER,
             CraneLeagueGlobals.DroneType.HEAL,
-            CraneLeagueGlobals.DroneType.EXPLOSIVE,
+            CraneLeagueGlobals.DroneType.EXPLODEY,
             CraneLeagueGlobals.DroneType.STUN
         ]
 
@@ -1625,7 +1625,7 @@ class DistributedCraneGame(DistributedMinigame):
             self.selectedDroneTypes[localAvId] = [
                 CraneLeagueGlobals.DroneType.LASER,
                 CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLOSIVE
+                CraneLeagueGlobals.DroneType.EXPLODEY
             ]
         
         # Check if this drone type is already in another slot
@@ -1774,7 +1774,7 @@ class DistributedCraneGame(DistributedMinigame):
             self.selectedDroneTypes[avId] = [
                 CraneLeagueGlobals.DroneType.LASER,
                 CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLOSIVE
+                CraneLeagueGlobals.DroneType.EXPLODEY
             ]
         
         if slotIndex >= 0 and slotIndex < 3:

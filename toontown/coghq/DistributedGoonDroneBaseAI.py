@@ -131,7 +131,7 @@ class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
         return nearestId
     
     def findCFO(self):
-        """Find the CFO boss for explosive drone targeting."""
+        """Find the CFO boss for explodey drone targeting."""
         return self.boss if self.boss else None
     
     def vanishWithPoof(self, task=None):

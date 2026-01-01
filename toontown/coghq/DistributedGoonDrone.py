@@ -6,7 +6,7 @@ New structure:
 - DistributedGoonDroneBase - Base class with common functionality
 - DistributedGoonDroneLaser - Laser drone implementation
 - DistributedGoonDroneHeal - Heal drone implementation  
-- DistributedGoonDroneExplosive - Explosive drone implementation
+- DistributedGoonDroneExplodey - Explodey drone implementation
 - DistributedGoonDroneStun - Stun drone implementation
 
 This file now acts as a compatibility layer that routes to the appropriate class.
@@ -16,7 +16,7 @@ from direct.directnotify import DirectNotifyGlobal
 from toontown.coghq import CraneLeagueGlobals
 from toontown.coghq.DistributedGoonDroneLaser import DistributedGoonDroneLaser
 from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
-from toontown.coghq.DistributedGoonDroneExplosive import DistributedGoonDroneExplosive
+from toontown.coghq.DistributedGoonDroneExplodey import DistributedGoonDroneExplodey
 from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
 
 # For backwards compatibility, map the old class name to Laser drone
@@ -97,7 +97,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                 taskMgr.remove(self.uniqueName('startBehavior'))
                 if self.droneType == CraneLeagueGlobals.DroneType.LASER:
                     self.startFlying()
-                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
                     self.startFlyingToCFO()
         
     def generate(self):
@@ -129,7 +129,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                         break
         
         # Check if there are any opponents (only for laser drones)
-        # Heal and explosive drones don't need opponents
+        # Heal and explodey drones don't need opponents
         if not hasattr(self, 'droneType'):
             self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default
         
@@ -190,8 +190,8 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                     elif self.droneType == CraneLeagueGlobals.DroneType.HEAL:
                         # Heal drone doesn't need target, just hover above owner
                         self.startHovering()
-                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
-                        # Explosive drone flies to CFO (targetId should be CFO's doId)
+                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+                        # Explodey drone flies to CFO (targetId should be CFO's doId)
                         if self.targetId or self.boss:
                             self.startFlyingToCFO()
                         else:
@@ -792,7 +792,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         # Heal drone just hovers - the AI will trigger the heal after 2 seconds
     
     def startFlyingToCFO(self):
-        """Start flying to CFO for explosive drone."""
+        """Start flying to CFO for explodey drone."""
         # Find boss if not set - try multiple methods
         if not self.boss:
             # Method 1: Get from minigame
@@ -812,7 +812,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                         break
         
         if not self.boss:
-            self.notify.warning('Explosive drone could not find CFO boss')
+            self.notify.warning('Explodey drone could not find CFO boss')
             self.vanishWithPoof()
             return
         
@@ -838,7 +838,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         self.behaviorSequence.start()
     
     def onReachedCFO(self):
-        """Called when explosive drone reaches CFO."""
+        """Called when explodey drone reaches CFO."""
         # The AI will trigger the explosion, we just wait for the visual
         pass
     
@@ -891,7 +891,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
             self.performStunVisualEffect()
         elif droneType == CraneLeagueGlobals.DroneType.HEAL.value:
             self.performHealVisualEffect()
-        elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE.value:
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY.value:
             self.performExplodeVisualEffect()
     
     def disable(self):

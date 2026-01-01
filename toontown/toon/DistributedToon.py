@@ -132,7 +132,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             self.petTrickPhrases = []
             self.petDNA = None
         self.customMessages = []
-        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explosive
+        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explodey
         self.resistanceMessages = []
         self.cogSummonsEarned = []
         self.catalogNotify = ToontownGlobals.NoItems

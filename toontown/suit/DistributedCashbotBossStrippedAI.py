@@ -1050,7 +1050,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         if droneType is None:
             droneType = CraneLeagueGlobals.DroneType.LASER
         
-        # For heal and explosive drones, we don't need opponents check
+        # For heal and explodey drones, we don't need opponents check
         if droneType == CraneLeagueGlobals.DroneType.LASER:
             # Check if there are any opponents (toons other than the owner)
             if not self.game:
@@ -1079,9 +1079,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         elif droneType == CraneLeagueGlobals.DroneType.HEAL:
             from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
             drone = DistributedGoonDroneHealAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
-            from toontown.coghq.DistributedGoonDroneExplosiveAI import DistributedGoonDroneExplosiveAI
-            drone = DistributedGoonDroneExplosiveAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+            from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
+            drone = DistributedGoonDroneExplodeyAI(self.air, self, toonId)
         elif droneType == CraneLeagueGlobals.DroneType.STUN:
             from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
             drone = DistributedGoonDroneStunAI(self.air, self, toonId)

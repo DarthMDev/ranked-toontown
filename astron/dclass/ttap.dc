@@ -201,7 +201,7 @@ from toontown.suit import DistributedGoon/AI
 from toontown.coghq import DistributedGoonDrone/AI
 from toontown.coghq import DistributedGoonDroneLaser/AI
 from toontown.coghq import DistributedGoonDroneHeal/AI
-from toontown.coghq import DistributedGoonDroneExplosive/AI
+from toontown.coghq import DistributedGoonDroneExplodey/AI
 from toontown.coghq import DistributedGoonDroneStun/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
@@ -3140,7 +3140,7 @@ dclass DistributedGoonDroneLaser : DistributedGoonDrone {
 dclass DistributedGoonDroneHeal : DistributedGoonDrone {
 };
 
-dclass DistributedGoonDroneExplosive : DistributedGoonDrone {
+dclass DistributedGoonDroneExplodey : DistributedGoonDrone {
 };
 
 dclass DistributedGoonDroneStun : DistributedGoonDrone {

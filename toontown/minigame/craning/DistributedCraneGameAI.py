@@ -1906,11 +1906,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         """Set the selected drone type for a toon's slot."""
         from toontown.coghq import CraneLeagueGlobals
         if avId not in self.selectedDroneTypes:
-            # Initialize with default (Laser, Heal, Explosive)
+            # Initialize with default (Laser, Heal, Explodey)
             self.selectedDroneTypes[avId] = [
                 CraneLeagueGlobals.DroneType.LASER,
                 CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLOSIVE
+                CraneLeagueGlobals.DroneType.EXPLODEY
             ]
         
         # Convert value to enum if needed
