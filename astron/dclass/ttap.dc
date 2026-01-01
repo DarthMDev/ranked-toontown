@@ -199,6 +199,10 @@ from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
 from toontown.suit import DistributedGoon/AI
 from toontown.coghq import DistributedGoonDrone/AI
+from toontown.coghq import DistributedGoonDroneLaser/AI
+from toontown.coghq import DistributedGoonDroneHeal/AI
+from toontown.coghq import DistributedGoonDroneExplosive/AI
+from toontown.coghq import DistributedGoonDroneStun/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -3126,6 +3130,20 @@ dclass DistributedGoonDrone : DistributedGoon {
   requestStun() airecv clsend;
   destroyDrone() broadcast clsend airecv;
   vanishWithPoof() broadcast clsend airecv;
+};
+
+// Specialized drone classes - all inherit from DistributedGoonDrone
+// These share the same interface but allow different Python implementations
+dclass DistributedGoonDroneLaser : DistributedGoonDrone {
+};
+
+dclass DistributedGoonDroneHeal : DistributedGoonDrone {
+};
+
+dclass DistributedGoonDroneExplosive : DistributedGoonDrone {
+};
+
+dclass DistributedGoonDroneStun : DistributedGoonDrone {
 };
 
 dclass DistributedGridGoon : DistributedGoon {

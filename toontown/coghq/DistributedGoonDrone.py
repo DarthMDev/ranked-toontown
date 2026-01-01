@@ -1,19 +1,31 @@
-from panda3d.core import *
-from direct.interval.IntervalGlobal import *
-from direct.task.Task import Task
-from direct.directnotify import DirectNotifyGlobal
-from direct.distributed import DistributedObject
-from direct.distributed.ClockDelta import globalClockDelta
-from toontown.toonbase import ToontownGlobals
-from toontown.suit import DistributedGoon
-from toontown.coghq import DistributedCrushableEntity, CraneLeagueGlobals
-from toontown.battle import BattleProps
-from toontown.effects import DustCloud
-from panda3d.core import Vec2, Vec3
-import math
+"""
+DEPRECATED: This file is kept for backwards compatibility.
+The drone system has been refactored into specialized classes.
 
-class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushableEntity.DistributedCrushableEntity):
-    """A drone goon that flies around and targets opponents."""
+New structure:
+- DistributedGoonDroneBase - Base class with common functionality
+- DistributedGoonDroneLaser - Laser drone implementation
+- DistributedGoonDroneHeal - Heal drone implementation  
+- DistributedGoonDroneExplosive - Explosive drone implementation
+- DistributedGoonDroneStun - Stun drone implementation
+
+This file now acts as a compatibility layer that routes to the appropriate class.
+"""
+
+from direct.directnotify import DirectNotifyGlobal
+from toontown.coghq import CraneLeagueGlobals
+from toontown.coghq.DistributedGoonDroneLaser import DistributedGoonDroneLaser
+from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
+from toontown.coghq.DistributedGoonDroneExplosive import DistributedGoonDroneExplosive
+from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
+
+# For backwards compatibility, map the old class name to Laser drone
+# (since Laser was the default/original type)
+class DistributedGoonDrone(DistributedGoonDroneLaser):
+    """
+    Backwards compatibility wrapper.
+    Defaults to Laser drone behavior.
+    """
     
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedGoonDrone')
     
@@ -193,29 +205,17 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
     def setupSafeCollision(self):
         """Set up collision detection so safes can destroy this drone."""
         # Add collision sphere for safe detection
-        cn = CollisionNode('droneCollision')
-        cs = CollisionSphere(0, 0, 0, 4)
+        # Name it 'goon' so the safe's collision event pattern '-goon' matches
+        cn = CollisionNode('goon')
+        cs = CollisionSphere(0, 0, 4, 4)  # Same as regular goons
         cn.addSolid(cs)
-        cn.setIntoCollideMask(ToontownGlobals.CashbotBossObjectBitmask)
-        cn.setFromCollideMask(ToontownGlobals.CashbotBossObjectBitmask)
+        # Use PieBitmask so safes (which have PieBitmask in FromCollideMask) can collide with us
+        cn.setIntoCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.CashbotBossObjectBitmask)
         self.droneCollisionNodePath = self.attachNewNode(cn)
         
-        # Set up collision handler
-        from direct.directnotify import DirectNotifyGlobal
-        self.collisionEvent = self.uniqueName('droneHit')
-        self.collisionHandler = CollisionHandlerEvent()
-        self.collisionHandler.addInPattern(self.collisionEvent + '-%in')
-        base.cTrav.addCollider(self.droneCollisionNodePath, self.collisionHandler)
-        self.accept(self.collisionEvent + '-%in', self.handleSafeCollision)
-        
-    def handleSafeCollision(self, entry):
-        """Handle collision with a safe - destroy the drone."""
-        # Check if it's a safe
-        into = entry.getIntoNodePath()
-        if into and 'safe' in into.getName().lower():
-            self.sendUpdate('destroyDrone', [])
-            self.destroyDrone()
-            
+        # Set the doId tag on both the collision node path and the drone itself
+        self.droneCollisionNodePath.setTag('doId', str(self.doId))
+        self.setTag('doId', str(self.doId))
     def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect (called from AI or locally)."""
         if self.isEmpty():
@@ -245,10 +245,23 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         vanishDustCloud.play()
         self.hide()
     
+    def b_destroyGoon(self):
+        """Called by safes when they hit this drone."""
+        # Send update to AI to destroy this drone
+        self.sendUpdate('destroyDrone', [])
+        # Don't call destroyDrone() locally - wait for the AI broadcast
+    
+    def doLocalStun(self):
+        """Called by safes when SAFES_STUN_GOONS is enabled."""
+        # For drones, stunning just destroys them
+        self.b_destroyGoon()
+    
     def destroyDrone(self):
-        """Destroy the drone visually."""
-        # Clean up and remove
-        self.disable()
+        """Destroy the drone visually (called from AI broadcast)."""
+        if not self.isEmpty():
+            # Use the same crush effect as regular goons
+            self.playCrushMovie(None, None)
+        # Don't call disable() here - playCrushMovie handles cleanup via dead()
         
     def attachPropellers(self):
         """Attach rotating propellers to the goon's head."""
@@ -901,10 +914,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             self.propeller.cleanup()
             self.propeller.removeNode()
             self.propeller = None
-        if hasattr(self, 'collisionEvent'):
-            self.ignore(self.collisionEvent + '-%in')
         if hasattr(self, 'droneCollisionNodePath'):
-            base.cTrav.removeCollider(self.droneCollisionNodePath)
             self.droneCollisionNodePath.removeNode()
         taskMgr.remove(self.uniqueName('shootLasers'))
         # Remove all shootLaser tasks

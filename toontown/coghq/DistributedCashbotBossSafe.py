@@ -120,7 +120,20 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
             return self.boss.ruleset.MIN_SAFE_IMPACT
 
     def doHitGoon(self, goon):
-
+        # Check if this is a drone and if it belongs to the safe's controller or a teammate
+        if hasattr(goon, 'ownerId') and goon.ownerId:
+            # This is a drone - check for friendly fire
+            if self.avId == goon.ownerId:
+                # Can't destroy your own drone
+                return
+            
+            # Check if they're on the same team (both are participants, not opponents)
+            if hasattr(self.boss, 'game') and self.boss.game:
+                participants = self.boss.game.getParticipantIdsNotSpectating()
+                # If both the safe controller and drone owner are participants, they're teammates
+                if self.avId in participants and goon.ownerId in participants:
+                    return
+        
         # Should we disable or destroy?
         if self.boss.ruleset.SAFES_STUN_GOONS:
             goon.doLocalStun()

@@ -1071,9 +1071,11 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         toonPos = toon.getPos()
         dronePos = Point3(toonPos.getX(), toonPos.getY(), toonPos.getZ() + 15)  # 15 units above
         
-        # Create the drone with specified type
-        from toontown.coghq import DistributedGoonDroneAI
-        drone = DistributedGoonDroneAI.DistributedGoonDroneAI(self.air, self, toonId, droneType)
+        # Create the drone with specified type - use unified AI class
+        # (Specialized classes are used on client side only to avoid dclass issues)
+        from toontown.coghq.DistributedGoonDroneAI import DistributedGoonDroneAI
+        drone = DistributedGoonDroneAI(self.air, self, toonId, droneType)
+        
         drone.generateWithRequired(self.zoneId)
         # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI
         # b_setPosition expects a tuple/list of (x, y, z)
