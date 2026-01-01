@@ -33,6 +33,7 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.myHits = []
         self.tempHp = self.ruleset.CFO_MAX_HP
         self.processingHp = False
+        self.lastLocalHit = 0
         return
 
     def announceGenerate(self):

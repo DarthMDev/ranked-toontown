@@ -76,16 +76,33 @@ class DistributedCraneGame(DistributedMinigame):
         self.bestOfValue = 1  # Default to Best of 1
         self.currentRound = 1
         self.roundWins = {}  # Maps avId -> number of rounds won
+        self.pendingForfeitRequester = None  # avId of player who requested forfeit
+        self.forfeitConsents = set()  # Set of avIds who have consented
+        self.forfeitDialog = None  # Dialog for forfeit confirmation (for non-requesters)
+        self.forfeitRequesterDialog = None  # Dialog for requester (shows status and cancel)
+        self.pendingRestartRequester = None  # avId of player who requested restart
+        self.restartConsents = set()  # Set of avIds who have consented
+        self.restartDialog = None  # Dialog for restart confirmation (for non-requesters)
+        self.restartRequesterDialog = None  # Dialog for requester (shows status and cancel)
         self.boss = None
         self.bossRequest = None
-        self.wantCustomCraneSpawns = False
-        self.customSpawnPositions = {}
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
         self.modifiers = []
         self.heatDisplay = CraneLeagueHeatDisplay()
         self.heatDisplay.hide()
         self.endVault = None
         self.statusIndicators = {}  # Dictionary to store status indicators for each toon
+        self.droneCooldowns = {}  # Track drone cooldowns per slot {avId: {slotIndex: (startTime, duration)}}
+        self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
+        
+        # Drone cooldown UI elements (shown near leave button when on crane)
+        self.droneCooldownIndicator = None
+        self.droneCooldownText = None
+        self.droneCooldownTask = None
+        
+        # Drone selection UI elements (shown during rules phase)
+        self.droneSelectionSlots = []  # List of 3 slot UI elements
+        self.droneSelectionDialog = None
         
         # Status effect system will be set via setStatusEffectSystemId
         self.statusEffectSystem : DistributedStatusEffectSystem | None = None
@@ -366,20 +383,58 @@ class DistributedCraneGame(DistributedMinigame):
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    return
+            
             cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask)  # TTCC No Back Wall
-        except:
-            print('[Crane League] Failed to disable back wall.')
+            self.notify.debug('[Crane League] Back wall disabled')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to disable back wall: {e}')
 
     def enableBackWall(self):
         if self.endVault is None:
+            self.notify.warning('[Crane League] Cannot enable back wall: endVault is None')
             return
 
         try:
-            cn = self.endVault.find('**/wallsCollision').node()
-            cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | BitMask32.lowerOn(3) << 21) #TTR Back Wall
-        except:
-            print('[Crane League] Failed to enable back wall.')
+            # The walls collision is in evWalls, which is created by replaceCollisionPolysWithPlanes
+            if not hasattr(self, 'evWalls') or self.evWalls is None or self.evWalls.isEmpty():
+                self.notify.warning('[Crane League] Cannot enable back wall: evWalls not found')
+                return
+            
+            # evWalls IS the collision node (replaceCollisionPolysWithPlanes returns NodePath(newCollisionNode))
+            # So we can get the node directly
+            cn = self.evWalls.node()
+            if cn is None or not isinstance(cn, CollisionNode):
+                # Try to find the collision node if evWalls itself isn't the node
+                wallsCollision = self.evWalls.find('**/+CollisionNode')
+                if wallsCollision.isEmpty():
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node not found in evWalls')
+                    return
+                cn = wallsCollision.node()
+                if cn is None:
+                    self.notify.warning('[Crane League] Cannot enable back wall: collision node is None')
+                    return
+            
+            backWallMask = BitMask32.lowerOn(3) << 21
+            newMask = OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | backWallMask
+            cn.setIntoCollideMask(newMask)
+            self.notify.debug(f'[Crane League] Back wall enabled with mask: {newMask}')
+        except Exception as e:
+            self.notify.warning(f'[Crane League] Failed to enable back wall: {e}')
 
     def setToonsToBattleThreePos(self):
         """
@@ -387,34 +442,63 @@ class DistributedCraneGame(DistributedMinigame):
         or returning any animation tracks. The position and orientation are
         applied immediately.
         """
-
-        # If we want custom crane spawns, completely override the spawn logic.
-        if self.wantCustomCraneSpawns:
-            for toon in self.getParticipantIdsNotSpectating():
-                if toon in self.customSpawnPositions:
-                    # Use the stored custom position for this toon
-                    toonWantedPosition = self.customSpawnPositions[toon]
-                else:
-                    # Or pick a random spot if it doesn't exist
-                    stop = 7 if len(self.getParticipantIdsNotSpectating()) <= 8 else 15
-                    toonWantedPosition = random.randrange(0, stop)
-
-                # Retrieve the position/HPR from the global constants
-                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
+        participants = self.getParticipantsNotSpectating()
+        participantIds = self.getParticipantIdsNotSpectating()
+        
+        # Ensure spawn order is valid and has enough entries
+        # If spawn order hasn't been received yet or is too short, use default sequential order
+        if len(self.toonSpawnpointOrder) < len(self.avIdList):
+            self.notify.warning(f"Spawn order too short ({len(self.toonSpawnpointOrder)} < {len(self.avIdList)}), using default sequential order")
+            # Use sequential positions as fallback
+            for i, toon in enumerate(participants):
+                spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                 pos = Point3(*posHpr[0:3])
                 hpr = VBase3(*posHpr[3:6])
-
-                # Instantly set the toon's position/orientation
                 toon.setPosHpr(pos, hpr)
-            return
-
-        # Otherwise, use the pre-defined spawn-point order as normal
-        for i, toon in enumerate(self.getParticipantsNotSpectating()):
-            spawn_index = self.toonSpawnpointOrder[i]
-            posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
-            pos = Point3(*posHpr[0:3])
-            hpr = VBase3(*posHpr[3:6])
-            toon.setPosHpr(pos, hpr)
+        else:
+            # When spectators are present, remap spawn positions so non-spectating players
+            # use positions 0, 1, 2, etc. based on their order in the non-spectating list
+            # This ensures players shift up when spectators are removed
+            hasSpectators = len(self.getSpectators()) > 0
+            
+            if hasSpectators:
+                # Simple remapping: use sequential positions 0, 1, 2 for non-spectating players
+                for participantIndex, toon in enumerate(participants):
+                    spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    pos = Point3(*posHpr[0:3])
+                    hpr = VBase3(*posHpr[3:6])
+                    toon.setPosHpr(pos, hpr)
+            else:
+                # No spectators: use the original spawn order based on avIdList index
+                for toon in participants:
+                    avId = toon.doId
+                    # Find this player's index in the original avIdList
+                    if avId not in self.avIdList:
+                        self.notify.warning(f"Toon {avId} not found in avIdList, using sequential position")
+                        participantIndex = participantIds.index(avId)
+                        spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    else:
+                        avIdIndex = self.avIdList.index(avId)
+                        # Use the avId's index to get their spawn position from the order
+                        if avIdIndex >= len(self.toonSpawnpointOrder):
+                            self.notify.warning(f"avIdIndex {avIdIndex} out of range for spawn order, using sequential position")
+                            participantIndex = participantIds.index(avId)
+                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                        else:
+                            spawn_index = self.toonSpawnpointOrder[avIdIndex]
+                        
+                        # Bounds check to prevent index errors
+                        if spawn_index >= len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS):
+                            self.notify.warning(f"Invalid spawn index {spawn_index} for avId {avId}, using sequential position")
+                            participantIndex = participantIds.index(avId)
+                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                    
+                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    pos = Point3(*posHpr[0:3])
+                    hpr = VBase3(*posHpr[3:6])
+                    toon.setPosHpr(pos, hpr)
 
         for toon in self.getSpectatingToons():
             toon.setPos(self.getBoss().getPos())
@@ -1234,27 +1318,456 @@ class DistributedCraneGame(DistributedMinigame):
         if self.rulesPanel is not None:
             self.rulesPanel.cleanup()
             self.rulesPanel = None
+    
+    def __createDroneSelectionUI(self):
+        """Create the drone selection UI with 3 slots at the bottom of the screen."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        # Initialize selected drone types for local toon (default: Laser, Heal, Explosive)
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[localAvId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Create container frame for all slots
+        self.droneSelectionFrame = DirectFrame(
+            relief=None,
+            parent=aspect2d,
+            pos=(0, 0, -0.85),  # Bottom of screen
+            sortOrder=DGG.NO_FADE_SORT_INDEX
+        )
+        
+        # Get keybinds from settings for the 3 slots
+        slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
+        slotKeys = [base.settings.getControl(keyName) for keyName in slotKeyNames]
+        slotSpacing = 0.25  # Space between slots
+        
+        # Helper function to format keybind for display
+        def formatKeybindDisplay(keybind):
+            """Format a keybind string for display in the UI."""
+            if len(keybind) == 1:
+                # Single character key -> uppercase
+                return keybind.upper()
+            elif keybind.startswith('arrow_'):
+                # Arrow keys -> show arrow symbol
+                direction = keybind.replace('arrow_', '')
+                arrowMap = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
+                return arrowMap.get(direction, keybind.upper())
+            elif keybind.startswith('page_'):
+                # Page keys
+                return keybind.replace('page_', 'Pg').upper()
+            elif keybind in ['control', 'shift', 'alt']:
+                # Modifier keys
+                return keybind.capitalize()
+            else:
+                # Other keys -> uppercase first letter of each word
+                return keybind.replace('_', ' ').title()
+        
+        self.droneSelectionSlots = []
+        self.droneSlotKeybinds = []  # Store keybinds for cleanup
+        for i in range(3):
+            slotType = self.selectedDroneTypes[localAvId][i]
+            slotKey = slotKeys[i]
+            self.droneSlotKeybinds.append(slotKey)
+            
+            # Create slot frame
+            slotFrame = DirectFrame(
+                relief=DGG.RAISED,
+                frameSize=(-0.12, 0.12, -0.08, 0.08),
+                frameColor=(0.2, 0.2, 0.2, 0.8),
+                borderWidth=(0.01, 0.01),
+                parent=self.droneSelectionFrame,
+                pos=(-0.25 + i * slotSpacing, 0, 0)
+            )
+            
+            # Keybind label (top right)
+            keybindText = OnscreenText(
+                text=formatKeybindDisplay(slotKey),
+                pos=(0.1, 0.06),
+                scale=0.04,
+                fg=(1, 1, 1, 0.7),
+                align=TextNode.ARight,
+                parent=slotFrame,
+                mayChange=True  # Allow changes if keybind updates
+            )
+            
+            # Drone icon/name (center)
+            droneName = OnscreenText(
+                text=slotType.getName(),
+                pos=(0, -0.02),
+                scale=0.03,
+                fg=slotType.getHatColor(),
+                align=TextNode.ACenter,
+                parent=slotFrame,
+                mayChange=True
+            )
+            
+            # Cooldown text (bottom of slot, shows remaining time or "Ready")
+            cooldownText = OnscreenText(
+                text='Ready',
+                pos=(0, -0.06),
+                scale=0.025,
+                fg=(0.3, 1.0, 0.3, 1),
+                align=TextNode.ACenter,
+                parent=slotFrame,
+                mayChange=True
+            )
+            
+            # Clickable button overlay - behavior depends on game state
+            slotButton = DirectButton(
+                parent=slotFrame,
+                relief=None,
+                frameSize=(-0.12, 0.12, -0.08, 0.08),
+                command=self.__handleDroneSlotClick,
+                extraArgs=[i]
+            )
+            
+            slotData = {
+                'frame': slotFrame,
+                'keybindText': keybindText,
+                'droneName': droneName,
+                'cooldownText': cooldownText,
+                'button': slotButton,
+                'slotIndex': i,
+                'cooldownTask': None
+            }
+            self.droneSelectionSlots.append(slotData)
+    
+    def __cleanupDroneSelectionUI(self):
+        """Clean up the drone selection UI."""
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('frame'):
+                    slot['frame'].destroy()
+            self.droneSelectionSlots = []
+        
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.destroy()
+            self.droneSelectionFrame = None
+        
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+            self.droneSelectionDialog = None
+    
+    def __openDroneSelectionDialog(self, slotIndex):
+        """Open dialog to select drone type for a slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        # Clean up existing dialog
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+        
+        # Create selection dialog
+        self.droneSelectionDialog = DirectFrame(
+            relief=None,
+            image=DGG.getDefaultDialogGeom(),
+            image_color=ToontownGlobals.GlobalDialogColor,
+            image_scale=(1.0, 1, 0.8),
+            pos=(0, 0, 0),
+            parent=aspect2d,
+            sortOrder=DGG.NO_FADE_SORT_INDEX + 2
+        )
+        
+        # Title
+        titleLabel = DirectLabel(
+            parent=self.droneSelectionDialog,
+            relief=None,
+            text=f"Select Drone Type (Slot {slotIndex + 1})",
+            text_scale=0.06,
+            text_pos=(0, 0.3),
+            text_fg=(0.1, 0.1, 0.4, 1),
+            text_font=ToontownGlobals.getInterfaceFont()
+        )
+        
+        # Load button assets
+        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
+        buttonImage = (buttons.find('**/ChtBx_OKBtn_UP'), 
+                      buttons.find('**/ChtBx_OKBtn_DN'), 
+                      buttons.find('**/ChtBx_OKBtn_Rllvr'))
+        closeButtonImage = (buttons.find('**/CloseBtn_UP'), 
+                          buttons.find('**/CloseBtn_DN'), 
+                          buttons.find('**/CloseBtn_Rllvr'))
+        
+        # Create buttons for each drone type
+        droneTypes = [
+            CraneLeagueGlobals.DroneType.LASER,
+            CraneLeagueGlobals.DroneType.HEAL,
+            CraneLeagueGlobals.DroneType.EXPLOSIVE,
+            CraneLeagueGlobals.DroneType.STUN
+        ]
+
+        for i, droneType in enumerate(droneTypes):
+            currentY = i // 4 * -.15 + .1
+            currentX = i % 4 * .2 - .3
+            
+            # Drone type button
+            typeButton = DirectButton(
+                parent=self.droneSelectionDialog,
+                relief=None,
+                image=buttonImage,
+                text=droneType.getName(),
+                text_scale=0.04,
+                text_pos=(0, -0.02),
+                text_fg=droneType.getHatColor(),
+                pos=(currentX, 0, currentY),
+                command=self.__selectDroneType,
+                extraArgs=[slotIndex, droneType]
+            )
+        
+        # Close button
+        closeButton = DirectButton(
+            parent=self.droneSelectionDialog,
+            relief=None,
+            image=closeButtonImage,
+            text="Cancel",
+            text_scale=0.05,
+            text_pos=(0, -0.1),
+            pos=(0, 0, -0.3),
+            command=self.__closeDroneSelectionDialog
+        )
+        
+        buttons.removeNode()
+    
+    def __handleDroneSlotClick(self, slotIndex):
+        """Handle clicking on a drone slot - behavior depends on game state."""
+        # Check if drones are enabled
+        if not self.__areDronesEnabled():
+            return
+        
+        # Check if we're in rules phase (can change drone) or play phase (deploy drone)
+        if hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
+            currentState = self.frameworkFSM.getCurrentState().getName()
+            if currentState == 'frameworkRules':
+                # During rules phase - open selection dialog
+                self.__openDroneSelectionDialog(slotIndex)
+            else:
+                # During play phase - deploy the drone
+                self.__deployDrone(slotIndex)
+        else:
+            # Fallback: if we can't determine state, try to deploy
+            self.__deployDrone(slotIndex)
+    
+    def __selectDroneType(self, slotIndex, droneType):
+        """Select a drone type for a slot. Prevents duplicates by swapping."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[localAvId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Check if this drone type is already in another slot
+        currentSlots = self.selectedDroneTypes[localAvId]
+        for otherSlotIndex, otherDroneType in enumerate(currentSlots):
+            if otherSlotIndex != slotIndex and otherDroneType == droneType:
+                # Swap: put the current slot's drone type into the other slot
+                oldDroneType = currentSlots[slotIndex]
+                currentSlots[otherSlotIndex] = oldDroneType
+                # Update UI for the swapped slot
+                self.__updateDroneSlotUI(otherSlotIndex)
+                # Send update for swapped slot
+                self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, otherSlotIndex, oldDroneType.value])
+                break
+        
+        # Update local selection
+        self.selectedDroneTypes[localAvId][slotIndex] = droneType
+        
+        # Update UI
+        self.__updateDroneSlotUI(slotIndex)
+        
+        # Send to server (avId, slotIndex, droneTypeValue)
+        self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, slotIndex, droneType.value])
+        
+        # Save the updated setup to the toon's database
+        self.__saveDroneSetupToToon()
+        
+        # Close dialog
+        self.__closeDroneSelectionDialog()
+    
+    def __closeDroneSelectionDialog(self):
+        """Close the drone selection dialog."""
+        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
+            self.droneSelectionDialog.destroy()
+            self.droneSelectionDialog = None
+    
+    def __loadDroneSetupFromToon(self):
+        """Load the saved drone setup from the local toon."""
+        if not hasattr(base, 'localAvatar') or not base.localAvatar:
+            return
+        
+        # Get saved setup from toon
+        if hasattr(base.localAvatar, 'droneSetup') and base.localAvatar.droneSetup:
+            savedSetup = base.localAvatar.droneSetup
+            if len(savedSetup) == 3:
+                from toontown.coghq import CraneLeagueGlobals
+                localAvId = base.localAvatar.doId
+                # Convert uint8 values to DroneType enums
+                self.selectedDroneTypes[localAvId] = [
+                    CraneLeagueGlobals.DroneType(savedSetup[0]),
+                    CraneLeagueGlobals.DroneType(savedSetup[1]),
+                    CraneLeagueGlobals.DroneType(savedSetup[2])
+                ]
+                # Send to server to sync with other clients
+                for i, droneType in enumerate(self.selectedDroneTypes[localAvId]):
+                    self.sendUpdate('setDroneTypeForToon', [localAvId, i, droneType.value])
+    
+    def __saveDroneSetupToToon(self):
+        """Save the current drone setup to the local toon's database."""
+        if not hasattr(base, 'localAvatar') or not base.localAvatar:
+            return
+        
+        localAvId = base.localAvatar.doId
+        if localAvId not in self.selectedDroneTypes:
+            return
+        
+        # Convert DroneType enums to uint8 values
+        setup = [droneType.value for droneType in self.selectedDroneTypes[localAvId]]
+        
+        # Save to toon (this will persist to database via sendUpdate)
+        # The AI will handle the database save via b_setDroneSetup
+        base.localAvatar.sendUpdate('setDroneSetup', [setup])
+    
+    def __areDronesEnabled(self):
+        """Check if drones are enabled via the modifier system."""
+        if not hasattr(self, 'ruleset') or not self.ruleset:
+            return False
+        enabled = getattr(self.ruleset, 'WANT_DRONES', False)
+        self.notify.debug(f"__areDronesEnabled: {enabled}, ruleset.WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
+        return enabled
+    
+    def __updateDroneUIVisibility(self):
+        """Update drone UI visibility based on whether drones are enabled."""
+        # Create UI if it doesn't exist and drones are enabled
+        if (not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None) and self.__areDronesEnabled():
+            self.__loadDroneSetupFromToon()
+            self.__createDroneSelectionUI()
+        
+        if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
+            return
+        
+        if self.__areDronesEnabled():
+            # Show drone UI if we're in play state or rules state
+            if hasattr(self, 'gameFSM') and self.gameFSM.getCurrentState():
+                currentState = self.gameFSM.getCurrentState().getName()
+                if currentState == 'play':
+                    self.droneSelectionFrame.show()
+                elif currentState == 'frameworkRules':
+                    self.droneSelectionFrame.show()
+                else:
+                    self.droneSelectionFrame.hide()
+            elif hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
+                # Check framework FSM if game FSM doesn't exist yet
+                frameworkState = self.frameworkFSM.getCurrentState().getName()
+                if frameworkState == 'frameworkRules':
+                    self.droneSelectionFrame.show()
+                else:
+                    self.droneSelectionFrame.hide()
+        else:
+            # Hide drone UI if drones are disabled
+            self.droneSelectionFrame.hide()
+    
+    def __updateDroneSlotUI(self, slotIndex):
+        """Update the UI for a specific drone slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        if slotIndex >= len(self.droneSelectionSlots):
+            return
+        
+        # Use spectated player's data if spectating, otherwise use local toon's data
+        localAvId = base.localAvatar.doId
+        targetAvId = localAvId
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            spectatedAvId = self.scoreboard.getSpectatedAvId()
+            if spectatedAvId is not None:
+                targetAvId = spectatedAvId
+        
+        if targetAvId not in self.selectedDroneTypes:
+            return
+        
+        slot = self.droneSelectionSlots[slotIndex]
+        droneType = self.selectedDroneTypes[targetAvId][slotIndex]
+        
+        # Update drone name
+        if slot.get('droneName'):
+            slot['droneName']['text'] = droneType.getName()
+            slot['droneName']['fg'] = droneType.getHatColor()
+    
+    def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
+        """Receive drone type update from server."""
+        from toontown.coghq import CraneLeagueGlobals
+        
+        droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        
+        if avId not in self.selectedDroneTypes:
+            self.selectedDroneTypes[avId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        if slotIndex >= 0 and slotIndex < 3:
+            self.selectedDroneTypes[avId][slotIndex] = droneType
+            
+            # Update UI if it's the local toon or the spectated player
+            localAvId = base.localAvatar.doId
+            spectatedAvId = None
+            if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+                spectatedAvId = self.scoreboard.getSpectatedAvId()
+            
+            if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
+                self.__updateDroneSlotUI(slotIndex)
 
     def updateRequiredElements(self):
-        self.bossSpeedrunTimer.cleanup()
+        # Clean up existing timer if it exists
+        if hasattr(self, 'bossSpeedrunTimer') and self.bossSpeedrunTimer is not None:
+            self.bossSpeedrunTimer.cleanup()
+        
+        # Recreate timer
         self.bossSpeedrunTimer = BossSpeedrunTimedTimer(
             time_limit=self.ruleset.TIMER_MODE_TIME_LIMIT) if self.ruleset.TIMER_MODE else BossSpeedrunTimer()
         self.bossSpeedrunTimer.hide()
         self.updateRulesetDependencies()
 
     def updateRulesetDependencies(self):
-        # If the scoreboard was made then update the ruleset
-        if self.scoreboard:
+        # Recreate scoreboard if it doesn't exist
+        if not hasattr(self, 'scoreboard') or self.scoreboard is None:
+            self.scoreboard = CashbotBossScoreboard(ruleset=self.ruleset)
+            self.scoreboard.hide()
+        else:
+            # If the scoreboard exists, update the ruleset
             self.scoreboard.set_ruleset(self.ruleset)
 
+        # Recreate heat display if it doesn't exist
+        if not hasattr(self, 'heatDisplay') or self.heatDisplay is None:
+            self.heatDisplay = CraneLeagueHeatDisplay()
+            self.heatDisplay.hide()
+        
         self.heatDisplay.update(self.modifiers)
 
         if self.boss is not None:
             self.boss.setRuleset(self.ruleset)
+        
+        # Update back wall based on ruleset
+        if self.ruleset.WANT_BACKWALL:
+            self.enableBackWall()
+        else:
+            self.disableBackWall()
+        
+        # Update drone UI visibility when ruleset changes
+        self.__updateDroneUIVisibility()
 
     def setRawRuleset(self, attrs):
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset.fromStruct(attrs)
+        self.notify.debug(f"setRawRuleset: WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
         self.updateRulesetDependencies()
+        # Update drone UI visibility when ruleset changes
+        self.__updateDroneUIVisibility()
 
     def getRawRuleset(self):
         return self.ruleset.asStruct()
@@ -1284,6 +1797,22 @@ class DistributedCraneGame(DistributedMinigame):
         self.notify.debug("enterOff")
         self.__checkSpectatorState(spectate=False)
         self.__cleanupRulesPanel()
+        # Clean up drone UI
+        self.__cleanupDroneSelectionUI()
+        # Clean up forfeit dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        # Clean up restart dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
 
     def exitOff(self):
         pass
@@ -1303,6 +1832,11 @@ class DistributedCraneGame(DistributedMinigame):
         # Display Modifiers Heat
         self.updateRequiredElements()
 
+        # Ensure scoreboard exists (updateRequiredElements should have created it, but double-check)
+        if not hasattr(self, 'scoreboard') or self.scoreboard is None:
+            self.scoreboard = CashbotBossScoreboard(ruleset=self.ruleset)
+            self.scoreboard.hide()
+
         # Setup the scoreboard
         self.scoreboard.clearToons()
         for avId in self.getParticipantIdsNotSpectating():
@@ -1311,6 +1845,10 @@ class DistributedCraneGame(DistributedMinigame):
         self.introductionMovie = self.__generatePrepareInterval()
         self.introductionMovie.start()
         self.boss.prepareBossForBattle()
+
+        # Clean up all status effects when starting a new round
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
 
         # Make absolutely sure all indicators are cleaned up
         self.removeStatusIndicators()
@@ -1353,11 +1891,80 @@ class DistributedCraneGame(DistributedMinigame):
         self.accept("LocalSetFinalBattleMode", self.toFinalBattleMode)
         self.accept("LocalSetOuchMode", self.toOuchMode)
         self.accept("ChatMgr-enterMainMenu", self.chatClosed)
+        self.accept("spectatedPlayerChanged", self.__onSpectatedPlayerChanged)
+        
+        # Only enable drones if the modifier is active
+        if self.__areDronesEnabled():
+            # Enable drone deployment keybinds for 3 slots from settings
+            slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
+            self.droneSlotKeybinds = []
+            for i, keyName in enumerate(slotKeyNames):
+                keybind = base.settings.getControl(keyName)
+                self.droneSlotKeybinds.append(keybind)
+                self.accept(keybind, self.__deployDrone, [i])
+            
+            # Move drone UI next to laff meter (right side) and show it
+            # If drone UI doesn't exist (shouldn't happen, but be safe), create it
+            if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
+                self.__createDroneSelectionUI()
+            
+            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+                # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
+                # Position drone UI to the right of it with more spacing
+                self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
+                # Adjust position: laff meter width ~0.15, so start further right at ~0.5 to avoid overlap
+                self.droneSelectionFrame.setPos(0.4, 0.0, 0.13)
+                # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
+                slotSpacing = 0.25
+                if hasattr(self, 'droneSelectionSlots'):
+                    for i, slot in enumerate(self.droneSelectionSlots):
+                        if slot.get('frame'):
+                            slot['frame'].setPos(i * slotSpacing, 0, 0)
+                # Show the UI
+                self.droneSelectionFrame.show()
+            
+            # Initialize cooldown displays for all slots
+            # Use spectated player's data if spectating, otherwise use local toon's data
+            localAvId = base.localAvatar.doId
+            targetAvId = localAvId
+            if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+                spectatedAvId = self.scoreboard.getSpectatedAvId()
+                if spectatedAvId is not None:
+                    targetAvId = spectatedAvId
+            
+            for i in range(3):
+                if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
+                    startTime, duration = self.droneCooldowns[targetAvId][i]
+                    self.__updateDroneSlotCooldown(i, startTime, duration)
+                else:
+                    self.__updateDroneSlotCooldown(i, None, None)
+        else:
+            # Drones disabled - hide UI if it exists
+            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+                self.droneSelectionFrame.hide()
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
 
         self.__checkSpectatorState()
+    
+    def __deployDrone(self, slotIndex=0):
+        """Deploy a drone above the local toon using the selected slot."""
+        if not self.hasLocalToon:
+            return
+        
+        # Check if this specific slot is on cooldown
+        currentTime = globalClock.getFrameTime()
+        localAvId = base.localAvatar.doId
+        if localAvId in self.droneCooldowns and slotIndex in self.droneCooldowns[localAvId]:
+            startTime, duration = self.droneCooldowns[localAvId][slotIndex]
+            endTime = startTime + duration
+            if currentTime < endTime:
+                # Still on cooldown, don't send request
+                return
+        
+        # Request drone deployment from server with slot index
+        self.sendUpdate('requestDeployDrone', [slotIndex])
 
     def exitPlay(self):
 
@@ -1368,10 +1975,251 @@ class DistributedCraneGame(DistributedMinigame):
         self.scoreboard.finish()
 
         self.walkStateData.exit()
+        
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
+        
+        # Hide drone UI when exiting play
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.hide()
+        
+        # Disable drone deployment keybinds
+        if hasattr(self, 'droneSlotKeybinds'):
+            for keybind in self.droneSlotKeybinds:
+                self.ignore(keybind)
+            self.droneSlotKeybinds = []
+        
+
+        # Clean up all status effects when exiting play state
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
+    
+    def setDroneCooldown(self, avId, slotIndex, duration):
+        """Receive drone cooldown from server and update UI."""
+        startTime = globalClock.getFrameTime()
+        if avId not in self.droneCooldowns:
+            self.droneCooldowns[avId] = {}
+        self.droneCooldowns[avId][slotIndex] = (startTime, duration)
+        
+        # Update UI for local toon or spectated player
+        localAvId = base.localAvatar.doId
+        spectatedAvId = None
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            spectatedAvId = self.scoreboard.getSpectatedAvId()
+        
+        if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
+            self.__updateDroneSlotCooldown(slotIndex, startTime, duration)
+    
+    def clearAllDroneCooldowns(self):
+        """Clear all drone cooldowns (called by server on round restart)."""
+        self.droneCooldowns.clear()
+        # Update all slot cooldown displays
+        if hasattr(self, 'droneSelectionSlots'):
+            for i in range(3):
+                self.__updateDroneSlotCooldown(i, None, None)
+    
+    def __onSpectatedPlayerChanged(self, avId):
+        """Called when the spectator switches to a different player."""
+        # Update all drone slot UIs and cooldowns for the new spectated player
+        if not self.__areDronesEnabled():
+            return
+        
+        # Get target avId (spectated player or local toon)
+        localAvId = base.localAvatar.doId
+        targetAvId = avId if avId is not None else localAvId
+        
+        # Update all slots
+        for i in range(3):
+            # Update drone type display
+            self.__updateDroneSlotUI(i)
+            
+            # Update cooldown display
+            if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
+                startTime, duration = self.droneCooldowns[targetAvId][i]
+                self.__updateDroneSlotCooldown(i, startTime, duration)
+            else:
+                self.__updateDroneSlotCooldown(i, None, None)
+
+    def __updateDroneSlotCooldown(self, slotIndex, startTime, duration):
+        """Update the cooldown display for a specific drone slot."""
+        if not hasattr(self, 'droneSelectionSlots') or slotIndex >= len(self.droneSelectionSlots):
+            return
+        
+        slot = self.droneSelectionSlots[slotIndex]
+        if not slot.get('cooldownText'):
+            return
+        
+        # Clean up existing task for this slot
+        if slot.get('cooldownTask'):
+            taskMgr.remove(slot['cooldownTask'])
+            slot['cooldownTask'] = None
+        
+        if startTime is None or duration is None:
+            # No cooldown - show "Ready"
+            slot['cooldownText']['text'] = 'Ready'
+            slot['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
+            return
+        
+        # Start update task for this slot
+        def updateTask(task, slotIdx=slotIndex, start=startTime, dur=duration):
+            if slotIdx >= len(self.droneSelectionSlots):
+                return task.done
+            slotData = self.droneSelectionSlots[slotIdx]
+            if not slotData.get('cooldownText'):
+                return task.done
+            
+            currentTime = globalClock.getFrameTime()
+            elapsed = currentTime - start
+            remaining = max(0, dur - elapsed)
+            
+            if remaining <= 0:
+                slotData['cooldownText']['text'] = 'Ready'
+                slotData['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
+                slotData['cooldownTask'] = None
+                return task.done
+            else:
+                # Show remaining time (MM:SS format)
+                minutes = int(remaining // 60)
+                seconds = int(remaining % 60)
+                slotData['cooldownText']['text'] = f'{minutes}:{seconds:02d}'
+                slotData['cooldownText']['fg'] = (1.0, 0.3, 0.3, 1)  # Red when on cooldown
+                return task.cont
+        
+        slot['cooldownTask'] = taskMgr.add(
+            updateTask,
+            f'droneSlotCooldown{slotIndex}',
+            extraArgs=[],
+            appendTask=True
+        )
+    
+    def __showDroneCooldownIndicator(self, startTime, duration):
+        """Display the drone cooldown indicator near the leave button."""
+        from panda3d.core import TransparencyAttrib
+        
+        # Clean up existing indicator
+        self.__cleanupDroneCooldownIndicator()
+        
+        # Create cooldown text indicator (simple version)
+        # Note: Change the first value in pos (X coordinate) to move left/right
+        # Increase X to move right, decrease to move left
+        self.droneCooldownText = OnscreenText(
+            text='',
+            pos=(1.6, -0.9),  # Changed from 1.05 to 1.6 (moved right)
+            scale=0.05,
+            fg=(1, 0.3, 0.3, 1),
+            align=TextNode.ACenter,
+            mayChange=True,
+            parent=aspect2d
+        )
+        
+        # Store cooldown info
+        self.droneCooldownStartTime = startTime
+        self.droneCooldownDuration = duration
+        
+        # Start update task
+        if self.droneCooldownTask:
+            taskMgr.remove(self.droneCooldownTask)
+        self.droneCooldownTask = taskMgr.add(
+            self.__updateDroneCooldownTask,
+            'droneCooldownTask',
+            extraArgs=[],
+            appendTask=True
+        )
+    
+    def __updateDroneCooldownTask(self, task):
+        """Update the drone cooldown display."""
+        if not self.droneCooldownText:
+            return task.done
+        
+        currentTime = globalClock.getFrameTime()
+        elapsed = currentTime - self.droneCooldownStartTime
+        remaining = max(0, self.droneCooldownDuration - elapsed)
+        
+        if remaining <= 0:
+            # Cooldown finished - keep showing "Ready" until round ends
+            self.droneCooldownText['text'] = 'Drone Ready!'
+            self.droneCooldownText['fg'] = (0.3, 1.0, 0.3, 1)
+            # Keep the task running to maintain the display
+            return task.cont
+        else:
+            # Show remaining time
+            minutes = int(remaining // 60)
+            seconds = int(remaining % 60)
+            self.droneCooldownText['text'] = f'Drone: {minutes}:{seconds:02d}'
+        
+        return task.cont
+    
+    def __cleanupDroneCooldownIndicator(self, task=None):
+        """Remove the drone cooldown indicator."""
+        if self.droneCooldownTask:
+            taskMgr.remove(self.droneCooldownTask)
+            self.droneCooldownTask = None
+        
+        if self.droneCooldownText:
+            self.droneCooldownText.destroy()
+            self.droneCooldownText = None
+        
+        return task.done if task else None
+    
+    def __initializeDroneIndicator(self):
+        """Initialize the drone indicator at the start of play."""
+        # Check if local toon has an active cooldown
+        localAvId = base.localAvatar.doId
+        if localAvId in self.droneCooldowns:
+            startTime, duration = self.droneCooldowns[localAvId]
+            # If cooldown is still active, show it
+            self.__showDroneCooldownIndicator(startTime, duration)
+        else:
+            # No cooldown, show "Drone Ready!"
+            self.__showDroneReadyIndicator()
+    
+    def __showDroneReadyIndicator(self):
+        """Show the 'Drone Ready!' indicator without a cooldown."""
+        from panda3d.core import TransparencyAttrib
+        
+        # Clean up existing indicator
+        self.__cleanupDroneCooldownIndicator()
+        
+        # Create "Drone Ready!" text
+        self.droneCooldownText = OnscreenText(
+            text='Drone Ready!',
+            pos=(1.4, -0.9),
+            scale=0.05,
+            fg=(0.3, 1.0, 0.3, 1),
+            align=TextNode.ACenter,
+            mayChange=True,
+            parent=aspect2d
+        )
+    
+    def __cleanupAllDrones(self):
+        """Request the server to clean up all active drones."""
+        # Send a request to the AI to clean up all drones
+        self.sendUpdate('requestCleanupDrones', [])
 
     def enterVictory(self):
         if self.victor == 0:
             return
+
+        # Clean up all drones when round ends
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache
+        self.droneCooldowns.clear()
+        
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
+        
+        # Clean up all status effects when round ends
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
 
         victor = base.cr.getDo(self.victor)
         if self.victor == self.localAvId:
@@ -1391,12 +2239,18 @@ class DistributedCraneGame(DistributedMinigame):
             if roundWins >= winsNeeded:
                 # Match is over - use normal victory flow
                 taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+                # Safety timeout: force gameOver after 30 seconds if something goes wrong
+                taskMgr.doMethodLater(30, self.gameOver, self.uniqueName("craneGameVictorySafety"), extraArgs=[])
             else:
                 # Round is over, but match continues - shorter victory time
                 taskMgr.doMethodLater(5, self.__nextRound, self.uniqueName("craneGameNextRound"), extraArgs=[])
+                # Safety timeout: force next round after 15 seconds if something goes wrong
+                taskMgr.doMethodLater(15, self.__nextRound, self.uniqueName("craneGameNextRoundSafety"), extraArgs=[])
         else:
             # Single round match
             taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+            # Safety timeout: force gameOver after 30 seconds if something goes wrong
+            taskMgr.doMethodLater(30, self.gameOver, self.uniqueName("craneGameVictorySafety"), extraArgs=[])
         
         for crane in self.cranes.values():
             crane.stopFlicker()
@@ -1404,22 +2258,66 @@ class DistributedCraneGame(DistributedMinigame):
     def exitVictory(self):
         taskMgr.remove(self.uniqueName("craneGameVictory"))
         taskMgr.remove(self.uniqueName("craneGameNextRound"))
+        taskMgr.remove(self.uniqueName("craneGameVictorySafety"))
+        taskMgr.remove(self.uniqueName("craneGameNextRoundSafety"))
         camera.reparentTo(base.localAvatar)
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
         self.__cleanupRulesPanel()
+        
+        # Clean up forfeit dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        # Clean up restart dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        # Clean up all drones when entering cleanup
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache
+        self.droneCooldowns.clear()
+        
+        # Clean up drone slot cooldown tasks
+        if hasattr(self, 'droneSelectionSlots'):
+            for slot in self.droneSelectionSlots:
+                if slot.get('cooldownTask'):
+                    taskMgr.remove(slot['cooldownTask'])
+                    slot['cooldownTask'] = None
+        
+        # Clean up drone selection UI
+        self.__cleanupDroneSelectionUI()
+        
         for toon in self.getParticipants():
             toon.setGhostMode(False)
             toon.show()
             toon.setZ(0) # Reset Z position
         self.overlayText.removeNode()
-        self.bossSpeedrunTimer.cleanup()
-        del self.bossSpeedrunTimer
-        self.scoreboard.cleanup()
-        self.scoreboard = None
-        self.heatDisplay.cleanup()
-        self.heatDisplay = None
+        
+        # Clean up timer
+        if hasattr(self, 'bossSpeedrunTimer') and self.bossSpeedrunTimer is not None:
+            self.bossSpeedrunTimer.cleanup()
+            self.bossSpeedrunTimer = None
+        
+        # Clean up scoreboard
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            self.scoreboard.cleanup()
+            self.scoreboard = None
+        
+        # Clean up heat display
+        if hasattr(self, 'heatDisplay') and self.heatDisplay is not None:
+            self.heatDisplay.cleanup()
+            self.heatDisplay = None
+        
         self.boss = None
         
         # Cleanup status effect system
@@ -1454,11 +2352,14 @@ class DistributedCraneGame(DistributedMinigame):
         self.scoreboard.addScore(avId, score, convertedReason)
 
     def updateCombo(self, avId, comboLength):
+        if self.scoreboard is None:
+            return
         self.scoreboard.setCombo(avId, comboLength)
 
     def updateTimer(self, secs):
-        self.bossSpeedrunTimer.override_time(secs)
-        self.bossSpeedrunTimer.update_time()
+        if self.bossSpeedrunTimer:
+            self.bossSpeedrunTimer.override_time(secs)
+            self.bossSpeedrunTimer.update_time()
 
     def declareVictor(self, avId: int) -> None:
         self.victor = avId
@@ -1469,10 +2370,12 @@ class DistributedCraneGame(DistributedMinigame):
             self.overtimeActive = True
             self.ruleset.REVIVE_TOONS_UPON_DEATH = False
         elif flag == CraneLeagueGlobals.OVERTIME_FLAG_ENABLE:
-            self.bossSpeedrunTimer.show_overtime()
+            if self.bossSpeedrunTimer:
+                self.bossSpeedrunTimer.show_overtime()
         else:
             self.overtimeActive = False
-            self.bossSpeedrunTimer.hide_overtime()
+            if self.bossSpeedrunTimer:
+                self.bossSpeedrunTimer.hide_overtime()
 
     def setModifiers(self, mods):
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances
@@ -1631,13 +2534,13 @@ class DistributedCraneGame(DistributedMinigame):
 
 
 
-        # Only show the play and participants buttons for the leader
+        # Show the play button for all players (everyone needs to ready up)
+        self.playButton.show()
+        
+        # Only show the modifiers and best-of buttons for the leader
         if self.isLocalToonHost():
-            self.playButton.show()
             self.modifiersButton.show()
             self.bestOfButton.show()
-        else:
-            messenger.send(self.rulesDoneEvent)
 
         # Position toons in the rules formation
         self.setToonsToRulesPositions()
@@ -1655,6 +2558,19 @@ class DistributedCraneGame(DistributedMinigame):
 
         # Accept spot status change messages
         self.accept('spotStatusChanged', self.handleSpotStatusChanged)
+        
+        # Clean up any existing drone UI first (in case of restart)
+        self.__cleanupDroneSelectionUI()
+        
+        # Always load saved drone setup from toon (even if drones aren't enabled yet)
+        # This ensures the setup is ready when the modifier is added
+        self.__loadDroneSetupFromToon()
+        
+        # Always create drone selection UI (it will be hidden if drones aren't enabled)
+        self.__createDroneSelectionUI()
+        
+        # Update visibility based on current modifier state
+        self.__updateDroneUIVisibility()
 
     def exitFrameworkRules(self):
         # Restore all toon shadows
@@ -1671,6 +2587,9 @@ class DistributedCraneGame(DistributedMinigame):
         # Make sure to clean up all indicators
         self.removeStatusIndicators()
         self.__cleanupRulesPanel()
+        # Don't destroy drone UI - just hide it, we'll show it again in enterPlay
+        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            self.droneSelectionFrame.hide()
 
     def handleMouseClick(self):
         """Handle mouse clicks during the rules state to detect clicks on spotlights."""
@@ -1882,10 +2801,8 @@ class DistributedCraneGame(DistributedMinigame):
 
     def enterFrameworkWaitServerStart(self):
         self.notify.debug('BASE: enterFrameworkWaitServerStart')
-        if self.numPlayers > 1 and self.hasHost():
-            msg = "Waiting for Group Leader to start..."
-        elif self.numPlayers > 1:
-            msg = "The game will start shortly..."
+        if self.numPlayers > 1:
+            msg = TTLocalizer.MinigameWaitingForOtherPlayers
         else:
             msg = TTLocalizer.MinigamePleaseWait
         self.waitingStartLabel['text'] = msg
@@ -1933,8 +2850,9 @@ class DistributedCraneGame(DistributedMinigame):
                 self.roundWins[avId] = roundWins[i]
         
         # Update scoreboard with round information
+        # Pass avIdList to ensure correct order matching server
         if self.scoreboard:
-            self.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue)
+            self.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue, self.avIdList)
 
     def setModifiers(self, mods):
         """Receive modifier updates from the server"""
@@ -1952,6 +2870,12 @@ class DistributedCraneGame(DistributedMinigame):
 
     def __nextRound(self, task=None):
         """Transition to the next round"""
+        # Clean up all drones when round restarts
+        self.__cleanupAllDrones()
+        
+        # Clear local cooldown cache for next round
+        self.droneCooldowns.clear()
+        
         # The server will handle the transition to the next round automatically
         # We just need to clean up the victory state
         return Task.done
@@ -1961,3 +2885,348 @@ class DistributedCraneGame(DistributedMinigame):
         if self.isLocalToonHost() and modifierIndex < len(self.modifiers):
             modifierEnum = self.modifiers[modifierIndex].MODIFIER_ENUM
             self.sendUpdate('removeModifier', [modifierEnum])
+    
+    def setRequestForfeit(self, requesterAvId):
+        """Receive forfeit request from server"""
+        self.pendingForfeitRequester = requesterAvId
+        self.forfeitConsents.clear()
+        self.forfeitConsents.add(requesterAvId)  # Requester automatically consents
+        
+        requesterToon = self.cr.getDo(requesterAvId)
+        if not requesterToon:
+            self.notify.warning(f"Could not find requester toon {requesterAvId}")
+            return
+        
+        requesterName = requesterToon.getName()
+        requesterDNA = requesterToon.getStyle()
+        
+        # Clean up any existing dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        # Check if local player is a spectator - don't show dialog to spectators
+        if base.localAvatar.doId in self.getSpectators():
+            self.notify.info(f"Forfeit requested by {requesterName} (spectator, no dialog shown)")
+            return
+        
+        # Show different dialogs based on whether this is the requester
+        from toontown.toontowngui import ToonHeadDialog
+        from toontown.toontowngui import TTDialog
+        from otp.otpbase import OTPLocalizer
+        from direct.gui.DirectGui import DGG
+        
+        if requesterAvId == base.localAvatar.doId:
+            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
+            participants = self.getParticipantIdsNotSpectating()
+            numNeeded = len(participants)
+            message = f"Forfeit requested!\n\n"
+            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
+            
+            # Create dialog with desired scale
+            desiredScale = 0.4
+            self.forfeitRequesterDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.CancelOnly,
+                buttonTextList=[OTPLocalizer.GuildInviterCancel],
+                command=self.__handleForfeitRequesterDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.forfeitRequesterDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.forfeitRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.forfeitRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.forfeitRequesterDialog.show()
+        else:
+            # Other players see confirmation dialog (like GroupInvitee)
+            message = f"{requesterName} has requested to FORFEIT the match.\n\n"
+            
+            # Create dialog with desired scale
+            desiredScale = 0.5
+            self.forfeitDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.TwoChoice,
+                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
+                command=self.__handleForfeitDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                text_wordwrap=14,
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.forfeitDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.forfeitDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.forfeitDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.forfeitDialog.show()
+        
+        self.notify.info(f"Forfeit requested by {requesterName}")
+    
+    def setUpdateForfeitConsents(self, consentAvIds):
+        """Receive updated consent list from server"""
+        self.forfeitConsents = set(consentAvIds)
+        
+        participants = self.getParticipantIdsNotSpectating()
+        numConsented = len(self.forfeitConsents)
+        numNeeded = len(participants)
+        
+        if numConsented < numNeeded:
+            # Update requester dialog to show progress
+            if self.forfeitRequesterDialog and not self.forfeitRequesterDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
+                requesterDNA = requesterToon.getStyle() if requesterToon else None
+                if requesterDNA:
+                    message = f"Forfeit requested!\n\n"
+                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
+                    self.forfeitRequesterDialog['text'] = message
+            
+            # Update non-requester dialog to show progress
+            if self.forfeitDialog and not self.forfeitDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
+                requesterName = requesterToon.getName() if requesterToon else "Unknown"
+                message = f"{requesterName} has requested to FORFEIT the match.\n\n"
+                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
+                self.forfeitDialog['text'] = message
+    
+    def setCancelForfeit(self):
+        """Receive forfeit cancellation from server"""
+        self.pendingForfeitRequester = None
+        self.forfeitConsents.clear()
+        
+        # Clean up dialogs
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        base.localAvatar.setSystemMessage(0, "Forfeit request has been cancelled.")
+    
+    def __handleForfeitDialog(self, value):
+        """Handle forfeit dialog button click (for non-requesters)"""
+        from direct.gui.DirectGui import DGG
+        
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        
+        if value == DGG.DIALOG_OK:  # OK/Yes button
+            self.sendUpdate('confirmForfeit', [])
+        else:  # No button - reject the forfeit
+            self.sendUpdate('rejectForfeit', [])
+    
+    def __handleForfeitRequesterDialog(self, value):
+        """Handle forfeit requester dialog button click (cancel button)"""
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+        
+        # Cancel button was clicked - send cancel request to server
+        self.sendUpdate('cancelForfeitRequest', [])
+    
+    def setRequestRestart(self, requesterAvId):
+        """Receive restart request from server"""
+        self.pendingRestartRequester = requesterAvId
+        self.restartConsents.clear()
+        self.restartConsents.add(requesterAvId)  # Requester automatically consents
+        
+        requesterToon = self.cr.getDo(requesterAvId)
+        if not requesterToon:
+            self.notify.warning(f"Could not find requester toon {requesterAvId}")
+            return
+        
+        requesterName = requesterToon.getName()
+        requesterDNA = requesterToon.getStyle()
+        
+        # Clean up any existing dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        # Check if local player is a spectator - don't show dialog to spectators
+        if base.localAvatar.doId in self.getSpectators():
+            self.notify.info(f"Restart requested by {requesterName} (spectator, no dialog shown)")
+            return
+        
+        # Show different dialogs based on whether this is the requester
+        from toontown.toontowngui import ToonHeadDialog
+        from toontown.toontowngui import TTDialog
+        from otp.otpbase import OTPLocalizer
+        from direct.gui.DirectGui import DGG
+        
+        if requesterAvId == base.localAvatar.doId:
+            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
+            participants = self.getParticipantIdsNotSpectating()
+            numNeeded = len(participants)
+            message = f"Restart requested!\n\n"
+            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
+            
+            # Create dialog with desired scale
+            desiredScale = 0.4
+            self.restartRequesterDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.CancelOnly,
+                buttonTextList=[OTPLocalizer.GuildInviterCancel],
+                command=self.__handleRestartRequesterDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.restartRequesterDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.restartRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.restartRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.restartRequesterDialog.show()
+        else:
+            # Other players see confirmation dialog (like GroupInvitee)
+            message = f"{requesterName} has requested to restart the match.\n\n"
+            
+            # Create dialog with desired scale
+            desiredScale = 0.5
+            self.restartDialog = ToonHeadDialog.ToonHeadDialog(
+                dna=requesterDNA,
+                text=message,
+                style=TTDialog.TwoChoice,
+                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
+                command=self.__handleRestartDialog,
+                image_color=(1.0, 0.89, 0.77, 1.0),
+                geom_scale=0.2,
+                geom_pos=(-0.1, 0, -0.025),
+                pad=(0.075, 0.075),
+                topPad=0,
+                midPad=0,
+                pos=(0.45, 0, 0.75),
+                scale=desiredScale
+            )
+            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
+            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
+            # but we can create our own animation that runs and overrides it.
+            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
+            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
+            # Create our custom animation that ends at desiredScale instead of 1.0
+            # We'll start it immediately to compete with/override the default animation
+            self.restartDialog.setScale(0.01)  # Match the default animation's start
+            customAnim = Sequence(
+                LerpScaleInterval(self.restartDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
+                LerpScaleInterval(self.restartDialog, 0.09, desiredScale, blendType='easeInOut')
+            )
+            customAnim.start()
+            self.restartDialog.show()
+        
+        self.notify.info(f"Restart requested by {requesterName}")
+    
+    def setUpdateRestartConsents(self, consentAvIds):
+        """Receive updated consent list from server"""
+        self.restartConsents = set(consentAvIds)
+        
+        participants = self.getParticipantIdsNotSpectating()
+        numConsented = len(self.restartConsents)
+        numNeeded = len(participants)
+        
+        if numConsented < numNeeded:
+            # Update requester dialog to show progress
+            if self.restartRequesterDialog and not self.restartRequesterDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingRestartRequester)
+                requesterDNA = requesterToon.getStyle() if requesterToon else None
+                if requesterDNA:
+                    message = f"Restart requested!\n\n"
+                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
+                    self.restartRequesterDialog['text'] = message
+            
+            # Update non-requester dialog to show progress
+            if self.restartDialog and not self.restartDialog.isEmpty():
+                requesterToon = self.cr.getDo(self.pendingRestartRequester)
+                requesterName = requesterToon.getName() if requesterToon else "Unknown"
+                message = f"{requesterName} has requested to restart the match.\n\n"
+                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
+                self.restartDialog['text'] = message
+    
+    def setCancelRestart(self):
+        """Receive restart cancellation from server"""
+        self.pendingRestartRequester = None
+        self.restartConsents.clear()
+        
+        # Clean up dialogs
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        base.localAvatar.setSystemMessage(0, "Restart request has been cancelled.")
+    
+    def __handleRestartDialog(self, value):
+        """Handle restart dialog button click (for non-requesters)"""
+        from direct.gui.DirectGui import DGG
+        
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        
+        if value == DGG.DIALOG_OK:  # OK/Yes button
+            self.sendUpdate('confirmRestart', [])
+        else:  # No button - reject the restart
+            self.sendUpdate('rejectRestart', [])
+    
+    def __handleRestartRequesterDialog(self, value):
+        """Handle restart requester dialog button click (cancel button)"""
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
+        
+        # Cancel button was clicked - send cancel request to server
+        self.sendUpdate('cancelRestartRequest', [])

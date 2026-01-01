@@ -198,6 +198,7 @@ from toontown.coghq import CrusherCell/AI
 from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
 from toontown.suit import DistributedGoon/AI
+from toontown.coghq import DistributedGoonDrone/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -1056,6 +1057,7 @@ dclass DistributedToon : DistributedPlayer {
   setEmoteAccess(uint8[] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1]) required ownrecv db;
   playEmote(int16, int16/1000, int16) broadcast ownrecv;
   setCustomMessages(uint16[] = []) required ownrecv db;
+  setDroneSetup(uint8[] = [0, 1, 2]) required ownrecv db clsend;
   setSleepAutoReply(uint32) broadcast clsend ownrecv;
   setResistanceMessages(pair16 [] = []) required ownrecv db;
   setPetTrickPhrases(uint8[] = [0]) required ownrecv db;
@@ -1430,6 +1432,7 @@ struct CraneLeagueRuleset {
   bool CFO_FLINCHES_ON_HIT;
   bool SAFES_STUN_GOONS;
   bool GOONS_ALWAYS_WAKE_WHEN_GRABBED;
+  bool WANT_DRONES;
 };
 
 struct CraneLeagueModifier {
@@ -3114,6 +3117,20 @@ dclass DistributedGoon : DistributedCrushableEntity {
   setMovie(uint8, uint32, int32/10, int16) broadcast ram;
 };
 
+dclass DistributedGoonDrone : DistributedGoon {
+  setOwnerId(uint32) broadcast ram;
+  setTargetId(uint32) broadcast ram;
+  setDroneType(uint8) broadcast ram;
+  performVisualEffect(uint8) broadcast;
+  shootLaser(uint32) airecv clsend;
+  requestLaserHit(uint32) airecv clsend;
+  requestHeal() airecv clsend;
+  requestExplode() airecv clsend;
+  requestStun() airecv clsend;
+  destroyDrone() broadcast clsend airecv;
+  vanishWithPoof() broadcast clsend airecv;
+};
+
 dclass DistributedGridGoon : DistributedGoon {
   setPathPts(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) broadcast ram;
 };
@@ -3981,6 +3998,11 @@ dclass DistributedCraneGame: DistributedMinigame {
   updateSpawnOrder(uint32[]) airecv clsend;
   setBestOf(uint8) airecv clsend broadcast ram;
   setRoundInfo(uint8, uint8[]) broadcast ram;
+  requestDeployDrone(uint8 slotIndex) airecv clsend;
+  setDroneCooldown(uint32 avId, uint8 slotIndex, uint32 duration) broadcast;
+  clearAllDroneCooldowns() broadcast;
+  setDroneTypeForToon(uint32 avId, uint8 slotIndex, uint8 droneTypeValue) airecv clsend broadcast ram;
+  requestCleanupDrones() airecv clsend;
   nextRound() airecv clsend;
   setCraneSpawn(bool, uint8, uint32) broadcast ram;
   updateCombo(uint32 avId, uint8) broadcast ram;
@@ -3996,6 +4018,20 @@ dclass DistributedCraneGame: DistributedMinigame {
   updateSpotStatus(uint8 spotIndex, bool isPlayer) broadcast ram;
   addModifier(uint32 modifierEnum, uint8 tier) airecv clsend;
   removeModifier(uint32 modifierEnum) airecv clsend;
+  requestForfeit() airecv clsend;
+  confirmForfeit() airecv clsend;
+  rejectForfeit() airecv clsend;
+  cancelForfeitRequest() airecv clsend;
+  setRequestForfeit(uint32 requesterAvId) broadcast ram;
+  setUpdateForfeitConsents(uint32[]) broadcast ram;
+  setCancelForfeit() broadcast ram;
+  requestRestart() airecv clsend;
+  confirmRestart() airecv clsend;
+  rejectRestart() airecv clsend;
+  cancelRestartRequest() airecv clsend;
+  setRequestRestart(uint32 requesterAvId) broadcast ram;
+  setUpdateRestartConsents(uint32[]) broadcast ram;
+  setCancelRestart() broadcast ram;
 };
 
 dclass DistributedScaleGame: DistributedMinigame {

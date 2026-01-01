@@ -132,6 +132,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             self.petTrickPhrases = []
             self.petDNA = None
         self.customMessages = []
+        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explosive
         self.resistanceMessages = []
         self.cogSummonsEarned = []
         self.catalogNotify = ToontownGlobals.NoItems
@@ -1212,6 +1213,11 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.customMessages = customMessages
         if self.isLocal():
             messenger.send('customMessagesChanged')
+
+    def setDroneSetup(self, droneSetup):
+        self.droneSetup = droneSetup
+        if self.isLocal():
+            messenger.send('droneSetupChanged')
 
     def setResistanceMessages(self, resistanceMessages):
         self.resistanceMessages = resistanceMessages

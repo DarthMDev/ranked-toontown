@@ -1,3 +1,4 @@
+import time
 from enum import IntEnum
 from panda3d.core import *
 from panda3d.physics import *
@@ -39,8 +40,9 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.craneId = 0
         self.cleanedUp = 0
         
-        # An attribute to cache the last 7 speed for the object
+        # An attribute to cache the last 7 speeds and velocities for the object
         self.speeds = []
+        self.velocities = []
             
         # A CollisionNode to keep me out of walls and floors, and to
         # keep others from bumping into me.  We use PieBitmask instead
@@ -58,8 +60,10 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         
         # A solid sound for when we get a good hit on the boss.
         self.hitBossSfx = loader.loadSfx('phase_5/audio/sfx/AA_drop_safe_miss.ogg')
+        self.hitBossRapidlySfx = loader.loadSfx('phase_4/audio/sfx/Golf_Hit_Barrier_2.ogg')
         self.hitBossSoundInterval = SoundInterval(self.hitBossSfx)
-        
+        self.hitBossRapidlyInterval = SoundInterval(self.hitBossRapidlySfx)
+
         # A squishy sound for when we hit the boss, but not hard enough.
         self.touchedBossSfx = loader.loadSfx('phase_5/audio/sfx/AA_drop_sandbag.ogg')
         self.touchedBossSoundInterval = SoundInterval(self.touchedBossSfx, duration=0.8)
@@ -91,10 +95,12 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.toMagnetSoundInterval.finish()
         self.hitFloorSoundInterval.finish()
         self.hitBossSoundInterval.finish()
+        self.hitBossRapidlyInterval.finish()
         self.touchedBossSoundInterval.finish()
         del self.toMagnetSoundInterval
         del self.hitFloorSoundInterval
         del self.hitBossSoundInterval
+        del self.hitBossRapidlyInterval
         del self.touchedBossSoundInterval
         
         self.boss = None
@@ -132,22 +138,29 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     def startSpeedCaching(self, task):
 
         speed = self.physicsObject.getVelocity().length()
+        vel = self.physicsObject.getVelocity()
 
         if len(self.speeds) > 6:
             self.speeds.pop(0)
+
+        if len(self.velocities) > 6:
+            self.velocities.pop(0)
         
         self.speeds.append(speed)
+        self.velocities.append(vel)
 
         return Task.again
         
     def resetSpeedCaching(self):
         
         self.speeds = []
+        self.velocities = []
         taskMgr.remove(self.startCacheName)
 
     def activatePhysics(self):
         if not self.physicsActivated:
             self.speeds.append(self.physicsObject.getVelocity().length())
+            self.velocities.append(self.physicsObject.getVelocity())
             taskMgr.doMethodLater(0.1, self.startSpeedCaching, self.startCacheName)
             self.boss.physicsMgr.attachPhysicalNode(self.node())
             base.cTrav.addCollider(self.collisionNodePath, self.handler)
@@ -211,8 +224,13 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             
             #get the velocity of the object, relative to the crane
             speed = max(self.speeds)
-            impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
-            
+            vel = max(self.velocities)
+            vel = self.crane.root.getRelativeVector(render, vel)
+            vel.normalize()
+            clash_impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
+            ttr_impact = vel[1]
+            impact = max(clash_impact, ttr_impact)
+
             if impact >= self.getMinImpact():
                 self.hitBossSoundInterval.start()
             else:
@@ -228,6 +246,13 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
 
         if self.boss.getBoss().heldObject or self.boss.getBoss().attackCode != ToontownGlobals.BossCogDizzy:
             return
+
+        # Check if we performed a pretty quick hit.
+        now = time.time()
+        isRapidHit = now - self.boss.getBoss().lastLocalHit < 1
+        self.boss.getBoss().lastLocalHit = time.time()
+        if isRapidHit:
+            self.hitBossRapidlyInterval.start()
         
         timeUntilStunEnd = self.boss.getBoss().stunEndTime - globalClock.getFrameTime()
         if self.boss.getBoss().stunEndTime == 0 or timeUntilStunEnd < 1.5:

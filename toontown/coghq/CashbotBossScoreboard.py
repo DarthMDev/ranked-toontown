@@ -4,10 +4,12 @@ from direct.gui.DirectGui import *
 
 from direct.showbase.DirectObject import DirectObject
 from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.coghq.DistributedCashbotBossCrane import DistributedCashbotBossCrane
 from toontown.suit.Suit import *
 from direct.task.Task import Task
 from direct.interval.IntervalGlobal import *
 
+from toontown.toon.LaffMeter import LaffMeter
 from toontown.toon.ToonHead import ToonHead
 
 import random
@@ -228,7 +230,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         
         # Add round wins text (positioned between Pts and expandable stats)
         self.round_wins_text = DirectLabel(parent=self.frame, relief=None, text=str(self.roundWins), text_shadow=(0, 0, 0, 1), text_fg=WHITE,
-                                           text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X + .15, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
+                                           text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X + .2, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
         
         self.combo_text = DirectLabel(parent=self.frame, relief=None, text='x' + '0', text_shadow=(0, 0, 0, 1), text_fg=CYAN, text_align=TextNode.ACenter,
                                        text_scale=.055, pos=(self.FIRST_PLACE_HEAD_X + .1, 0, +.055), text_font=ToontownGlobals.getCompetitionFont())
@@ -238,6 +240,12 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Adjust extra stats position to make room for Wins column
         self.extra_stats_text = DirectLabel(parent=self.frame , relief=None, text='', text_shadow=(0, 0, 0, 1), text_fg=WHITE, text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X+.62, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
 
+        # Indicator for if this toon is being spectated. Currently, this is using a placeholder texture.
+        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui')
+        notReadyStatusTexture = boarding_model.find('**/status-notready')
+        self.spectating_indicator = DirectLabel(parent=self.frame, pos=(self.FIRST_PLACE_HEAD_X - .1, 0, .015), relief=None, text='', image=notReadyStatusTexture, scale=.03)
+        self.spectating_indicator.hide()
+        self.spectator_laff_meter = None
 
         self.combo_text.hide()
         self.sad_text.hide()
@@ -294,16 +302,39 @@ class CashbotBossScoreboardToonRow(DirectObject):
         # Spectate them
         self.__change_camera_angle(t)
         self.isBeingSpectated = True
+        self.spectating_indicator.show()
+
+        # Laff meter override.
+        base.localAvatar.laffMeter.hide()
+        if self.spectator_laff_meter is not None:
+            self.spectator_laff_meter.destroy()
+        self.spectator_laff_meter = LaffMeter(t.style, t.hp, t.maxHp)
+        self.spectator_laff_meter.setAvatar(t)
+        self.spectator_laff_meter.setScale(0.075)
+        self.spectator_laff_meter.reparentTo(base.a2dBottomLeft)
+        if t.style.getAnimal() == 'monkey':
+            self.spectator_laff_meter.setPos(0.153, 0.0, 0.13)
+        else:
+            self.spectator_laff_meter.setPos(0.133, 0.0, 0.13)
+        self.spectator_laff_meter.start()
 
         # Listen for any events where we should change the camera angle based on what the toon is doing that we are
         # spectating.
         self.accept('crane-enter-exit-%s' % self.avId, self.__change_camera_angle)
+        
+        # Notify the crane game that we're now spectating this player (for drone UI updates)
+        messenger.send('spectatedPlayerChanged', [self.avId])
 
     def stopSpectating(self):
 
         if not self.isBeingSpectated:
             return
 
+        # Restore our laff meter.
+        if self.spectator_laff_meter is not None:
+            self.spectator_laff_meter.destroy()
+        base.localAvatar.laffMeter.show()
+        self.spectating_indicator.hide()
         localAvatar.attachCamera()
         localAvatar.orbitalCamera.start()
         localAvatar.setCameraFov(ToontownGlobals.BossBattleCameraFov)
@@ -311,6 +342,30 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.isBeingSpectated = False
         # Not spectating anymore, no need to watch for crane events any more
         self.ignore('crane-enter-exit-%s' % self.avId)
+        
+        # Notify the crane game that we stopped spectating (for drone UI updates)
+        messenger.send('spectatedPlayerChanged', [None])
+
+    def __isOnCrane(self, toon):
+        """
+        Check if a toon is currently on a crane.
+        Returns the crane object if found, None otherwise.
+        """
+        if not toon:
+            return None
+        
+        avId = toon.getDoId()
+        for obj in base.cr.doId2do.values():
+            if isinstance(obj, DistributedCashbotBossCrane):
+                # Check if this crane is controlled by the toon we're checking
+                if hasattr(obj, 'avId') and obj.avId == avId:
+                    # Check if the crane is in the controlled state
+                    # FSM objects have a 'state' attribute that contains the current state name
+                    if hasattr(obj, 'state'):
+                        stateName = obj.state
+                        if stateName == 'LocalControlled' or stateName == 'Controlled':
+                            return obj
+        return None
 
     def __change_camera_angle(self, toon, crane=None, _=None):
 
@@ -324,10 +379,20 @@ class CashbotBossScoreboardToonRow(DirectObject):
                 self.stopSpectating()
                 return
 
-            base.camera.reparentTo(toon)
-            base.camera.setY(-12)
-            base.camera.setZ(5)
-            base.camera.setP(-5)
+            # Check if the toon is already on a crane
+            # This handles the case where we switch to a player who is already on a crane
+            foundCrane = self.__isOnCrane(toon)
+
+            if foundCrane is not None:
+                # Toon is on a crane, attach camera to the crane
+                base.camera.reparentTo(foundCrane.hinge)
+                camera.setPosHpr(0, -20, -5, 0, -20, 0)
+            else:
+                # Toon is not on a crane, attach camera to the toon
+                base.camera.reparentTo(toon)
+                base.camera.setY(-12)
+                base.camera.setZ(5)
+                base.camera.setP(-5)
         else:
             base.camera.reparentTo(crane.hinge)
             camera.setPosHpr(0, -20, -5, 0, -20, 0)
@@ -564,16 +629,24 @@ class CashbotBossScoreboard(DirectObject):
         for r in list(self.rows.values()):
             r.ruleset = ruleset
 
-    def setRoundInfo(self, currentRound, roundWins, bestOfValue):
+    def setRoundInfo(self, currentRound, roundWins, bestOfValue, avIdList=None):
         """Update round information display"""
         self.currentRound = currentRound
         self.bestOfValue = bestOfValue
         
         # Convert roundWins list back to dict
-        self.roundWins = {}
-        for i, avId in enumerate(self.getToons()):
-            if i < len(roundWins):
-                self.roundWins[avId] = roundWins[i]
+        # Use avIdList if provided (to match server order), otherwise fall back to getToons()
+        # Don't clear existing roundWins - update it so data persists even if rows are recreated
+        if avIdList is not None:
+            # Use the provided avIdList to match server order
+            for i, avId in enumerate(avIdList):
+                if i < len(roundWins):
+                    self.roundWins[avId] = roundWins[i]
+        else:
+            # Fallback to getToons() order (for backwards compatibility)
+            for i, avId in enumerate(self.getToons()):
+                if i < len(roundWins):
+                    self.roundWins[avId] = roundWins[i]
         
         # Update display
         if self.bestOfValue > 1:
@@ -583,6 +656,7 @@ class CashbotBossScoreboard(DirectObject):
             self.roundInfoText.show()
             
             # Update individual row displays with round wins using the new method
+            # This will update existing rows, and new rows created by addToon() will check roundWins
             for avId, row in self.rows.items():
                 wins = self.roundWins.get(avId, 0)
                 row.updateRoundWins(wins)
@@ -621,6 +695,12 @@ class CashbotBossScoreboard(DirectObject):
                 self.rows[avId].round_wins_text.show()
             else:
                 self.rows[avId].round_wins_text.hide()
+            
+            # If we already have round win data for this toon, restore it
+            # This ensures win counts persist when rows are recreated in enterPrepare
+            if avId in self.roundWins:
+                wins = self.roundWins[avId]
+                self.rows[avId].updateRoundWins(wins)
                 
         self.show()
 
@@ -778,6 +858,15 @@ class CashbotBossScoreboard(DirectObject):
         """
         for row in self.rows.values():
             row.disableSpectating()
+
+    def getSpectatedAvId(self):
+        """
+        Returns the avId of the currently spectated player, or None if not spectating.
+        """
+        for row in self.rows.values():
+            if row.isBeingSpectated:
+                return row.avId
+        return None
 
     def finish(self):
         for row in self.rows.values():

@@ -30,6 +30,7 @@ import toontown.archipelago.util.global_text_properties as global_text_propertie
 from .ErrorTrackingService import ErrorTrackingService, ServiceType, BasicErrorTrackingService
 from ..settings.Settings import Settings, ControlSettings
 from ..settings.DedicatedServerSettings import DedicatedServerSettings
+from .WindowAntiFreeze import install_window_anti_freeze
 
 if typing.TYPE_CHECKING:
     from toontown.toonbase.ToonBaseGlobals import *
@@ -112,6 +113,10 @@ class ToonBase(OTPBase.OTPBase):
         if 'launcher' in __builtins__ and launcher:
             launcher.setPandaErrorCode(11)
         globalClock.setMaxDt(0.2)
+        
+        # Install window anti-freeze protection to prevent collision detection exploit
+        # Only active during trolley minigames
+        taskMgr.doMethodLater(0.5, lambda task: install_window_anti_freeze(), 'install-anti-freeze')
         if fpsLimit != 0:
             globalClock.setMode(ClockObject.MLimited)
             globalClock.setFrameRate(fpsLimit)
@@ -199,7 +204,7 @@ class ToonBase(OTPBase.OTPBase):
         self.colorBlindMode = self.settings.get('color-blind-mode')
         # do they want laff meter on or off?
         self.laffMeterDisplay = self.settings.get('laff-display')
-        self.ap_version_text = OnscreenText(text=f"Toontown Ranked Client {version}", parent=self.a2dBottomLeft, pos=(.3, .05), mayChange=False, sort=-100, scale=.04, fg=(1, 1, 1, .3), shadow=(0, 0, 0, .3), align=TextNode.ALeft)
+        self.ap_version_text = OnscreenText(text=f"Toontown Ranked Client {version}", parent=self.a2dBottomLeft, pos=(.015, .015), mayChange=False, sort=-100, scale=.0275, fg=(1, 1, 1, .2), shadow=(0, 0, 0, .2), align=TextNode.ALeft)
 
         self.enableHotkeys()
 
@@ -507,6 +512,13 @@ class ToonBase(OTPBase.OTPBase):
         else:
             messenger.send('clientLogout')
             self.cr.dumpAllSubShardObjects()
+
+        # Clean up window anti-freeze protection
+        try:
+            from .WindowAntiFreeze import uninstall_window_anti_freeze
+            uninstall_window_anti_freeze()
+        except:
+            pass
 
         self.cr.loginFSM.request('shutdown')
         self.notify.warning('Could not request shutdown; exiting anyway.')

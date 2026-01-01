@@ -310,6 +310,16 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
 
     def handleExitedAvatar(self, avId):
         self.notify.warning('BASE: handleExitedAvatar: avatar id exited: ' + str(avId))
+        # If the exiting avatar is a spectator, just clean them up but don't abort the game
+        if self.isSpectating(avId):
+            self.notify.debug('BASE: handleExitedAvatar: avatar %s is a spectator, cleaning up without aborting game' % avId)
+            self.stateDict[avId] = EXITED
+            # Remove them from spectators list if they're still in it
+            if avId in self._spectators:
+                spectators = list(self._spectators)
+                spectators.remove(avId)
+                self.b_setSpectators(spectators)
+            return
         self.stateDict[avId] = EXITED
         self.setGameAbort()
 
@@ -364,7 +374,18 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
 
         def handleTimeout(avIds, self = self):
             self.notify.debug("BASE: timed out waiting for clients %s to report 'ready'" % avIds)
-            self.setGameAbort()
+            # Instead of aborting, force all remaining players to be ready and start the game
+            for avId in avIds:
+                if avId in self.stateDict and self.stateDict[avId] != READY:
+                    self.notify.debug(f"BASE: Forcing avatar {avId} to ready state due to timeout")
+                    self.stateDict[avId] = READY
+                    self.__barrier.clear(avId)
+            # Check if all avatars are now ready and manually trigger if needed
+            # (The barrier should auto-trigger, but this ensures it happens)
+            allReady = all(self.stateDict.get(avId, None) == READY for avId in self.avIdList)
+            if allReady:
+                self.notify.debug("BASE: All avatars are now ready after timeout, starting game")
+                allAvatarsReady()
 
         self.__barrier = ToonBarrier('waitClientsReady', self.uniqueName('waitClientsReady'), self.avIdList, READY_TIMEOUT, allAvatarsReady, handleTimeout)
         for avId in list(self.stateDict.keys()):

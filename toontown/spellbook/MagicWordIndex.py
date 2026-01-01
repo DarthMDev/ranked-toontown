@@ -1932,6 +1932,7 @@ class EndCFO(MagicWord):
     desc = "Ends the C.F.O. and forfeits, putting you in last place."
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
     accessLevel = 'USER'
+    arguments = [("action", str, False, "")]
 
     def handleWord(self, invoker, avId, toon, *args):
         from ..minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
@@ -1939,20 +1940,47 @@ class EndCFO(MagicWord):
         if craneGame is None:
             return "You aren't in a crane round!"
 
-        # Forfeit: Set the invoker's score to ensure they come in last place
-        context = craneGame.getScoringContext()
-        _round = context.get_round(craneGame.currentRound)
-        score = _round.get_score(invoker.doId)
-        num_players = len(craneGame.getParticipantsNotSpectating())
+        # Get the action argument (if provided)
+        action = args[0].lower() if len(args) > 0 and args[0] else ""
+        
+        # Check if there's already a pending forfeit request
+        if craneGame.pendingForfeitRequest is not None:
+            if craneGame.pendingForfeitRequest == invoker.doId:
+                # Requester can cancel
+                if action in ['cancel', 'c']:
+                    craneGame.cancelForfeitRequest()
+                    return "Forfeit request cancelled."
+                return "You have already requested a forfeit. Waiting for all players to confirm."
+            else:
+                # Other players can confirm
+                if action in ['confirm', 'c', 'yes', 'y']:
+                    craneGame.confirmForfeit()
+                    return "You have confirmed the forfeit request."
+                return "A forfeit request is already pending. Use ~ff confirm to confirm, or the requester can use ~ff cancel to cancel."
 
-        # Ensure all participants at least have a point.
-        for toon in craneGame.getParticipantsNotSpectating():
-            if toon.getDoId() != invoker.doId or num_players == 1:
-                craneGame.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+        # Check if player is trying to confirm (but no request exists)
+        if action in ['confirm', 'c', 'yes', 'y']:
+            return "No forfeit request is pending. Use ~ff to request a forfeit."
+        
+        # Check if player is trying to cancel (but no request exists)
+        if action in ['cancel', 'c']:
+            return "No forfeit request is pending."
 
-        craneGame.addScore(invoker.doId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
-        craneGame.gameFSM.request('victory')
-        return f"Forfeiting crane round - {toon.getName()} will be placed in last place."
+        # Start a new forfeit request (requires all players to confirm)
+        participants = craneGame.getParticipantIdsNotSpectating()
+        if len(participants) == 1:
+            # Single player game - forfeit immediately
+            context = craneGame.getScoringContext()
+            _round = context.get_round(craneGame.currentRound)
+            score = _round.get_score(invoker.doId)
+            craneGame.addScore(invoker.doId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+            craneGame.gameFSM.request('victory')
+            return f"Forfeiting crane round - {toon.getName()} will be placed in last place."
+        
+        # Multi-player game - require consent from all players
+        craneGame.requestForfeit()
+        numParticipants = len(participants)
+        return f"Forfeit requested! All {numParticipants} players must confirm using ~ff confirm. The requester can cancel with ~ff cancel."
 
 
 class RestartCraneRound(MagicWord):
@@ -1968,9 +1996,44 @@ class RestartCraneRound(MagicWord):
         if craneGame is None:
             return "You aren't in a crane round!"
 
-        craneGame.gameFSM.request("cleanup")
-        craneGame.gameFSM.request('prepare')
-        return "Restarting Crane Round"
+        # Get the action argument (if provided)
+        action = args[0].lower() if len(args) > 0 and args[0] else ""
+        
+        # Check if there's already a pending restart request
+        if craneGame.pendingRestartRequest is not None:
+            if craneGame.pendingRestartRequest == invoker.doId:
+                # Requester can cancel
+                if action in ['cancel', 'c']:
+                    craneGame.cancelRestartRequest()
+                    return "Restart request cancelled."
+                return "You have already requested a restart. Waiting for all players to confirm."
+            else:
+                # Other players can confirm
+                if action in ['confirm', 'c', 'yes', 'y']:
+                    craneGame.confirmRestart()
+                    return "You have confirmed the restart request."
+                return "A restart request is already pending. Use ~rcr confirm to confirm, or the requester can use ~rcr cancel to cancel."
+
+        # Check if player is trying to confirm (but no request exists)
+        if action in ['confirm', 'c', 'yes', 'y']:
+            return "No restart request is pending. Use ~rcr to request a restart."
+        
+        # Check if player is trying to cancel (but no request exists)
+        if action in ['cancel', 'c']:
+            return "No restart request is pending."
+        
+        # Start a new restart request (requires all players to confirm)
+        participants = craneGame.getParticipantIdsNotSpectating()
+        if len(participants) == 1:
+            # Single player game - restart immediately
+            craneGame.gameFSM.request("cleanup")
+            craneGame.gameFSM.request('prepare')
+            return "Restarting Crane Round"
+        
+        # Multi-player game - require consent from all players
+        craneGame.requestRestart()
+        numParticipants = len(participants)
+        return f"Restart requested! All {numParticipants} players must confirm using ~rcr confirm. The requester can cancel with ~rcr cancel."
 
 
 class SpectateMinigame(MagicWord):
@@ -2012,8 +2075,7 @@ class SetCraneSpawn(MagicWord):
         if not (1 <= spawn <= 8):
             return "Incorrect spawn position, please enter between 1 to 8!"
 
-        boss.wantCustomCraneSpawns = True
-        boss.d_setCraneSpawn(True, args[0] - 1, invoker.doId)
+        boss.setCraneSpawn(args[0] - 1, invoker.doId)
 
         return ("Set your spawn position to #%s" % (spawn))
 
@@ -3828,6 +3890,135 @@ class SandboxBattle(MagicWord):
         return f"Started a sandbox battle for {toon.getName()}{suff}"
 
 
+class DebugEnableMemoryDebugging(MagicWord):
+    desc = 'Enables memory debugging. This cannot be undone! (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+    arguments = [("confirm", str, False, '')]
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if len(args) < 1 or args[0] != 'CONFIRM':
+            return f"Are you sure? This cannot be undone, pass in CONFIRM as an argument to continue."
+
+        if self.air.memoryDebugger.is_enabled():
+            return f"This server already has the memory debugger enabled! No need to run this command."
+
+        self.air.memoryDebugger.start()
+        return f"Started memory debugging. You may now use any of the associated memory debugging commands."
+
+class DebugTakeSnapshot(MagicWord):
+    desc = 'Takes a snapshot used for memory leak debugging (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+    arguments = [("name", str, True)]
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if len(args) < 1:
+            return f"Missing an argument. Please provide snapshot name."
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        name = args[0]
+        self.air.memoryDebugger.take_snapshot(name)
+        return f"Took memory snapshot with name {name}. Use '~DebugCompareSnapshot <other> <{name}>' to compare this snapshot with a previous one."
+
+
+class DebugCompareSnapshot(MagicWord):
+    desc = 'Compares two snapshots used for memory leak debugging (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+    arguments = [("first", str, True), ("second", str, True)]
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if len(args) < 2:
+            return f"Missing an argument. Please provide two snapshot names."
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        self.air.memoryDebugger.compare_snapshots(*args)
+        return f"Check AI logs for snapshot results."
+
+
+class DebugCountInstances(MagicWord):
+    desc = 'Checks the amount of instances instantiated for a certain class (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+    arguments = [("name", str, True)]
+
+    def handleWord(self, invoker, avId, toon, *args):
+        if len(args) < 1:
+            return f"Missing an argument. Please provide a class name."
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        ret = self.air.memoryDebugger.count_class_instances(args[0])
+        return f"{args[0]} instances found: {ret}. Check AI logs for more specific results."
+
+
+class DebugFindGCUncollectable(MagicWord):
+    desc = 'Detects memory that is unable to be cleaned up by the garbage collector (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        self.air.memoryDebugger.find_uncollectable()
+        return f"Ran the GC uncollectable discovery process. Check AI logs for results."
+
+
+class DebugCountWeakRefs(MagicWord):
+    desc = 'Counts how many weak references are associated with a label (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+    arguments = [("label", str, True)]
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if len(args) < 1:
+            return f"Missing an argument. Please provide a label to query."
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        if not self.air.memoryDebugger.is_tracking_weakrefs_for(args[0]):
+            return f"Not tracking anything for {args[0]}. Either there are no instances or none have spawned in this session."
+
+        ret = self.air.memoryDebugger.count_tracked_weak(args[0])
+        return f"Weak tracked objects for {args[0]}: {ret}. Check AI logs for results."
+
+
+class DebugWeakRefLabels(MagicWord):
+    desc = 'Shows which weak ref labels are currently being tracked (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+
+    def handleWord(self, invoker, avId, toon, *args):
+
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+
+        return ', '.join(self.air.memoryDebugger.get_tracking_labels())
+
+class DebugCountMostInstances(MagicWord):
+    desc = 'Counts how many instances are currently taking up memory (AI)'
+    execLocation = MagicWordConfig.EXEC_LOC_SERVER
+    accessLevel = "TTOFF_DEVELOPER"
+
+    def handleWord(self, invoker, avId, toon, *args):
+        if not self.air.memoryDebugger.is_enabled():
+            return f"Memory debugging is not enabled. Run ~DebugEnableMemoryDebugging to turn it on."
+        self.air.memoryDebugger.show_most_common_types()
+        return f"Counted most common instances. Check AI logs for results."
+
 # Use this command template for spawning objects client side to tweak attributes quickly
 # class SpawnObject(MagicWord):
 #     aliases = ["sb"]
@@ -3848,6 +4039,11 @@ class SandboxBattle(MagicWord):
 
 # Loop through every registered subclass of MagicWord and instantiate it.
 for magicWordSubclass in MagicWord.__subclasses__():
-    _ = magicWordSubclass()
-
-
+    try:
+        clazz = magicWordSubclass()
+    except Exception as e:
+        # This might look silly, but we are injecting a print statement into the exception so we can
+        # know *which* magic word is causing us issues, then spit the traceback out :p
+        # Some magic word registration procedures does some very wild tricks that make them vague in tracebacks.
+        print(f"Failed to register magic word class {magicWordSubclass.__name__}. Is it setup correctly?")
+        raise e

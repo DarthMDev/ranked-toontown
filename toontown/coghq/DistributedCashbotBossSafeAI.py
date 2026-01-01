@@ -23,6 +23,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
 
     def __init__(self, air, boss, index):
         DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.__init__(self, air, boss)
+        air.memoryDebugger.track_weak(self, "CraneGameSafe")
         self.index = index
         
         self.avoidHelmet = 0
@@ -178,6 +179,9 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
             for effect in effects:
                 self.handleStatusEffect(effect, avId)
                 self.boss.statusEffectSystem.b_removeStatusEffect(self.doId, effect)
+            # Cancel the scheduled removal task since we removed the effect early
+            if hasattr(self.boss, 'game') and self.boss.game:
+                self.boss.game.cancelSafeEffectRemovalTask(self.doId)
             
         if self.avoidHelmet or self == self.boss.getBoss().heldObject:
             # Ignore the helmet we just knocked off.

@@ -188,21 +188,22 @@ class LaffMeter(DirectFrame):
             self.stopFlash()
             self.ignore(self.av.uniqueName('hpChange'))
 
-        del self.style
-        del self.av
-        del self.hp
-        del self.maxHp
+        self.style = None
+        self.av = None
+        self.hp = None
+        self.maxHp = None
 
-        for tooth in self.teeth:
-            tooth.destroy()
+        if self.teeth is not None:
+            for tooth in self.teeth:
+                tooth.destroy()
 
         if self.isToon:
-            del self.frown
-            del self.smile
-            del self.openSmile
-            del self.teeth
-            del self.maxLabel
-            del self.hpLabel
+            self.frown = None
+            self.smile = None
+            self.openSmile = None
+            self.teeth = None
+            self.maxLabel = None
+            self.hpLabel = None
 
         super().destroy()
 

@@ -33,6 +33,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def __init__(self, air, minigameId):
         DistributedMinigameAI.__init__(self, air, minigameId)
+        air.memoryDebugger.track_weak(self, "CraneGame")
         self.setProfileSkillKey(None)  # By default, no ranked mode.
 
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
@@ -111,10 +112,18 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.practiceCheatHandler: CraneGamePracticeCheatAI = CraneGamePracticeCheatAI(self)
 
         self.statusEffectSystem: DistributedStatusEffectSystemAI | None = None
+        self.droneCooldowns = {}  # Track drone deployment cooldowns per player per slot {avId: {slotIndex: nextAvailableTime}}
+        self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
 
         # Memory leak prevention - track event listeners and task names
         self._deathListenerEvents = []
         self._allTaskNames = set()
+        
+        # Forfeit consent system
+        self.pendingForfeitRequest = None  # avId of player who requested forfeit, or None if no pending request
+        self.forfeitConsents = set()  # Set of avIds who have consented to forfeit
+        self.pendingRestartRequest = None  # avId of player who requested restart, or None if no pending request
+        self.restartConsents = set()  # Set of avIds who have consented to restart
 
     def isRanked(self) -> bool:
 
@@ -242,6 +251,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.roundWins = {}
         self.originalSpawnOrder = []
         self._inMultiRoundMatch = False
+        
+        # Clear any pending forfeit requests
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        # Clear any pending restart requests
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        
         # Initialize best-of settings
         self.d_setBestOf()
         self.d_setRoundInfo()
@@ -260,11 +277,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if len(self.getParticipantsNotSpectating()) >= 2 and not self.defaultModifiersInitialized:
             invincibleBoss = CraneLeagueGlobals.ModifierInvincibleBoss()
             timerEnabler = CraneLeagueGlobals.ModifierTimerEnabler(3)
+            sideCranesEnabler = CraneLeagueGlobals.ModifierSideCranesEnabler()
             modifiers.append(invincibleBoss)
             modifiers.append(timerEnabler)
+            modifiers.append(sideCranesEnabler)
             # Also add them to desiredModifiers so they persist until explicitly removed
             self.desiredModifiers.append(invincibleBoss)
             self.desiredModifiers.append(timerEnabler)
+            self.desiredModifiers.append(sideCranesEnabler)
             self.defaultModifiersInitialized = True
 
         self.applyModifiers(modifiers, updateClient=True)
@@ -961,14 +981,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def __startNextRound(self, task=None):
         """Start the next round in a best-of match"""
         # Rotate spawn positions for variety
-        self.__rotateSpawnPositions()
-        
+        if not self.customSpawnOrderSet:
+            self.__rotateSpawnPositions()
+
         # Use proper FSM transitions like the RestartCraneRound magic word
         self.gameFSM.request("cleanup")
         self.gameFSM.request('prepare')
         
-        # Send round info to clients immediately after restart
-        self.d_setRoundInfo()
+        # Note: round info will be sent in enterPrepare, no need to send here
 
     def __rotateSpawnPositions(self):
         """Rotate spawn positions for the next round"""
@@ -1025,13 +1045,16 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def getToonOutgoingMultiplier(self, avId):
         return 100
 
-    def recordHit(self, damage, impact=0, craneId=-1, objId=0, isGoon=False, isDOT=False):
+    def recordHit(self, damage, impact=0, craneId=-1, objId=0, isGoon=False, isDOT=False, avIdOverride=None, forceStun=False):
 
         # Don't process a hit if we aren't in the play state.
         if self.gameFSM.getCurrentState().getName() != 'play':
             return
 
         avId = self.air.getAvatarIdFromSender()
+        # Sometimes we want to force damage from other sources and not an update.
+        if avIdOverride is not None:
+            avId = avIdOverride
         crane = simbase.air.doId2do.get(craneId)
         if not self.validate(avId, avId in self.getParticipants(), 'recordHit from unknown avatar'):
             return
@@ -1065,13 +1088,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
 
         # The CFO is already dizzy, OR the crane is None, so get outta here
-        if self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane:
+        if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         self.boss.stopHelmets()
 
         # Is the damage high enough to stun? or did a side crane hit a high impact hit?
-        hitMeetsStunRequirements = self.boss.considerStun(crane, damage, impact)
+        hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
         if hitMeetsStunRequirements:
             # A particularly good hit (when he's not already
             # dizzy) will make the boss dizzy for a little while.
@@ -1079,7 +1102,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             self.boss.b_setAttackCode(ToontownGlobals.BossCogDizzy, delayTime=delayTime)
             isSideCrane = isinstance(crane, DistributedCashbotBossSideCraneAI)
             reason = CraneLeagueGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneLeagueGlobals.ScoreReason.STUN
-            self.addScore(avId, crane.getPointsForStun(), reason=reason)
+            points = crane.getPointsForStun() if crane is not None else self.ruleset.POINTS_STUN // 2
+            self.addScore(avId, points, reason=reason)
         else:
 
             if self.ruleset.CFO_FLINCHES_ON_HIT:
@@ -1215,8 +1239,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_addScore(self, avId: int, amount: int, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
         self.sendUpdate('addScore', [avId, amount, reason.to_astron()])
 
-    def d_setCraneSpawn(self, want, spawn, toonId):
-        self.sendUpdate('setCraneSpawn', [want, spawn, toonId])
+    def setCraneSpawn(self, spawn, toonId):
+        self.customSpawnOrderSet = True
+        self.toonSpawnpointOrder[self.getParticipantIdsNotSpectating().index(toonId)] = spawn
 
     """
     FSM states
@@ -1237,17 +1262,32 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
+        
+        # Clear all status effects from any existing objects before recreating them
+        if self.statusEffectSystem:
+            # Clear from boss if it exists
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all existing safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+        
         if not self.__bossExists():
             self.__makeBoss()
         self.boss.b_setAttackCode(ToontownGlobals.BossCogNoAttack)
         self.__makeCraningObjects()
         self.__resetCraningObjects()
         self.setupRuleset()
+        # Setup spawnpoints BEFORE sending updates to ensure clients have correct order
         self.setupSpawnpoints()
+        # Send spawn order immediately so clients have it before positioning
+        self.d_setToonSpawnpointOrder()
 
         self.__updateSkillProfile()
 
         # Send round info to clients if this is a best-of match
+        # Note: roundWins should persist across restarts (don't reset on restart)
         if self.bestOfValue > 1:
             self.d_setRoundInfo()
 
@@ -1329,13 +1369,34 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def __applyRandomSafeEffects(self, task=None):
         """Apply random status effects to safes periodically"""
-        if random.random() < 0.9:  # 90% chance
-            for safe in self.safes:
-                if safe and not self.statusEffectSystem.isObjectStatusEffected(safe.getDoId()):
+        for safe in self.safes:
+            if not safe:
+                continue
+            
+            # Skip the special helmet safe (index 0) - it should not receive elemental effects
+            if safe.index == 0:
+                continue
+                
+            safeDoId = safe.getDoId()
+            hasEffect = self.statusEffectSystem.isObjectStatusEffected(safeDoId)
+            
+            # Debug logging
+            if hasEffect:
+                currentEffects = self.statusEffectSystem.getStatusEffects(safeDoId)
+                self.notify.debug(f"Safe {safeDoId} already has effects: {currentEffects}, skipping")
+            else:
+                # 90% chance per safe to get an elemental effect
+                if random.random() < 0.9:  # Always true for debugging
+                    # Cancel any existing removal task for this safe first
+                    existingTaskName = self.uniqueName(f'remove-effect-{safeDoId}')
+                    taskMgr.remove(existingTaskName)
+                    if existingTaskName in self.safeEffectTasks:
+                        self.safeEffectTasks.remove(existingTaskName)
+                    
                     statusEffect = random.choice(list(SAFE_ALLOWED_EFFECTS))
-                    self.statusEffectSystem.b_applyStatusEffect(safe.getDoId(), statusEffect)
+                    self.notify.debug(f"Applying {statusEffect} to safe {safeDoId}")
+                    self.statusEffectSystem.b_applyStatusEffect(safeDoId, statusEffect)
                     # Store the safe's doId before creating the task
-                    safeDoId = safe.getDoId()
                     # Create task name
                     taskName = self.uniqueName(f'remove-effect-{safeDoId}')
                     # Remove the effect after 10 seconds
@@ -1344,6 +1405,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                     self.safeEffectTasks.add(taskName)
         return task.again
 
+    def cancelSafeEffectRemovalTask(self, safeDoId):
+        """Cancel the scheduled removal task for a safe's effect (called when effect is removed early, e.g., when safe hits boss)"""
+        taskName = self.uniqueName(f'remove-effect-{safeDoId}')
+        taskMgr.remove(taskName)
+        if taskName in self.safeEffectTasks:
+            self.safeEffectTasks.remove(taskName)
+    
     def __removeSafeEffect(self, doId, effect):
         """Safely remove a status effect from a safe, handling the case where the safe no longer exists"""
         if not hasattr(self, 'statusEffectSystem') or not self.statusEffectSystem:
@@ -1353,8 +1421,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         safe = self.air.doId2do.get(doId)
         if not safe:
             return True
+        
+        # Check if the effect still exists before trying to remove it
+        if not self.statusEffectSystem.hasStatusEffect(doId, effect):
+            self.notify.debug(f"Safe {doId} effect {effect} already removed, skipping")
+            return True
             
         # Remove the effect
+        self.notify.debug(f"Removing effect {effect} from safe {doId}")
         self.statusEffectSystem.b_removeStatusEffect(doId, effect)
         return True
 
@@ -1362,7 +1436,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         """Start the task that periodically applies effects to safes"""
         taskName = self.uniqueName('safe-effects')
         taskMgr.remove(taskName)
-        taskMgr.doMethodLater(10.0, self.__applyRandomSafeEffects, taskName)
+        self._allTaskNames.add(taskName)
+        taskMgr.add(self.__applyRandomSafeEffects, taskName, delay=10.0)
 
     # Called when we actually run out of time, simply tell the clients we ran out of time then handle it later
     def __timesUp(self, task=None):
@@ -1479,11 +1554,26 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         taskMgr.remove(self.uniqueName('times-up-task'))
         taskName = self.uniqueName('NextGoon')
         taskMgr.remove(taskName)
+        taskMgr.remove(self.uniqueName('droneStun'))
 
         self.stopDrainingLaff()
         self.currentlyInOvertime = False
         self.overtimeWillHappen = False
         self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
+        
+        # Clear any pending forfeit requests when exiting play
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+
+        # Clear all status effects from boss and safes when exiting play
+        if self.statusEffectSystem:
+            # Clear from boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            # Clear from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
 
         # Ignore death messages.
         self.ignoreToonDeaths()
@@ -1584,6 +1674,29 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
+        
+        # Clean up all status effects from boss and safes before cleanup
+        if self.statusEffectSystem:
+            # Clear all status effects from the boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+            
+            # Clear all status effects from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+        
+        # Clean up all drones before cleaning up other objects
+        if self.boss and hasattr(self.boss, 'drones'):
+            for drone in list(self.boss.drones):
+                if drone:
+                    drone.vanishWithPoof()
+            self.boss.drones = []
+        
+        # Reset drone cooldowns for all players and broadcast the reset
+        self.droneCooldowns.clear()
+        self.sendUpdate('clearAllDroneCooldowns', [])
+        
         self.__deleteCraningObjects()
         self.__deleteBoss()
         self.gameFSM.request('inactive')
@@ -1687,3 +1800,339 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Update boss if it exists
         if self.getBoss() is not None:
             self.getBoss().setRuleset(self.ruleset)
+    
+    def requestDeployDrone(self, slotIndex=0):
+        """Handle request to deploy a drone from client."""
+        # Check if drones are enabled
+        if not self.ruleset.WANT_DRONES:
+            avId = self.air.getAvatarIdFromSender()
+            self.notify.warning(f"Client {avId} attempted to deploy drone but drones are disabled")
+            return
+        avId = self.air.getAvatarIdFromSender()
+        if avId not in self.getParticipantIdsNotSpectating():
+            return
+        
+        # Validate slot index
+        if slotIndex < 0 or slotIndex > 2:
+            self.notify.warning(f'Invalid slot index {slotIndex} from {avId}')
+            return
+        
+        # Check cooldown (90 seconds = 1.5 minutes)
+        currentTime = globalClock.getFrameTime()
+        DRONE_COOLDOWN = 90  # Integer seconds for DC compatibility
+        
+        # Initialize per-slot cooldown dict if needed
+        if avId not in self.droneCooldowns:
+            self.droneCooldowns[avId] = {}
+        
+        # Check if this specific slot is on cooldown
+        if slotIndex in self.droneCooldowns[avId]:
+            nextAvailableTime = self.droneCooldowns[avId][slotIndex]
+            if currentTime < nextAvailableTime:
+                # Still on cooldown
+                remainingTime = nextAvailableTime - currentTime
+                self.notify.debug(f'Drone slot {slotIndex} on cooldown for {avId}, {remainingTime:.1f}s remaining')
+                return
+        
+        # Get selected drone type for this slot
+        from toontown.coghq import CraneLeagueGlobals
+        droneType = self.getDroneTypeForToon(avId, slotIndex)
+        if droneType is None:
+            # Default to laser if no type selected
+            droneType = CraneLeagueGlobals.DroneType.LASER
+        
+        # Set cooldown for this specific slot
+        self.droneCooldowns[avId][slotIndex] = currentTime + DRONE_COOLDOWN
+        
+        # Broadcast cooldown to all clients (avId, slotIndex, duration)
+        self.sendUpdate('setDroneCooldown', [avId, slotIndex, int(DRONE_COOLDOWN)])
+        
+        if self.boss:
+            self.boss.deployDroneForToon(avId, None, droneType)
+    
+    def getDroneTypeForToon(self, avId, slotIndex=0):
+        """Get the selected drone type for a toon's slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        if avId not in self.selectedDroneTypes:
+            # Default: all slots are laser
+            return CraneLeagueGlobals.DroneType.LASER
+        slotTypes = self.selectedDroneTypes[avId]
+        if slotIndex >= len(slotTypes):
+            return CraneLeagueGlobals.DroneType.LASER
+        return slotTypes[slotIndex]
+    
+    def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
+        """Set the selected drone type for a toon's slot."""
+        from toontown.coghq import CraneLeagueGlobals
+        if avId not in self.selectedDroneTypes:
+            # Initialize with default (Laser, Heal, Explosive)
+            self.selectedDroneTypes[avId] = [
+                CraneLeagueGlobals.DroneType.LASER,
+                CraneLeagueGlobals.DroneType.HEAL,
+                CraneLeagueGlobals.DroneType.EXPLOSIVE
+            ]
+        
+        # Convert value to enum if needed
+        if isinstance(droneTypeValue, int):
+            droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        else:
+            droneType = droneTypeValue
+        
+        # Update the slot
+        if slotIndex >= 0 and slotIndex < 3:
+            self.selectedDroneTypes[avId][slotIndex] = droneType
+            # Broadcast to all clients
+            self.sendUpdate('setDroneTypeForToon', [avId, slotIndex, droneType.value])
+            
+            # Save the updated setup to the toon's database
+            # Only save if all 3 slots have been set (to avoid partial saves)
+            if len(self.selectedDroneTypes[avId]) == 3:
+                toon = self.air.doId2do.get(avId)
+                if toon and hasattr(toon, 'b_setDroneSetup'):
+                    # Convert DroneType enums to uint8 values
+                    setup = [dt.value for dt in self.selectedDroneTypes[avId]]
+                    toon.b_setDroneSetup(setup)
+    
+    def requestCleanupDrones(self):
+        """Handle request to clean up all drones."""
+        if self.boss and hasattr(self.boss, 'drones'):
+            # Clean up all active drones
+            for drone in list(self.boss.drones):
+                if drone:
+                    # Send vanishWithPoof to clients, which will then requestDelete
+                    drone.vanishWithPoof()
+            self.boss.drones = []
+    
+    def requestForfeit(self):
+        """Handle forfeit request from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to request forfeit but is not a participant")
+            return
+        
+        # If there's already a pending request, cancel it first
+        if self.pendingForfeitRequest is not None:
+            self.cancelForfeitRequest()
+        
+        # Start a new forfeit request
+        self.pendingForfeitRequest = avId
+        self.forfeitConsents.clear()
+        self.forfeitConsents.add(avId)  # Requester automatically consents
+        
+        # Send forfeit request to all players
+        self.d_requestForfeit(avId)
+        
+        self.notify.info(f"Player {avId} requested forfeit. Waiting for all players to confirm.")
+    
+    def confirmForfeit(self):
+        """Handle forfeit confirmation from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingForfeitRequest is None:
+            self.notify.warning(f"Player {avId} tried to confirm forfeit but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to confirm forfeit but is not a participant")
+            return
+        
+        # Add consent
+        self.forfeitConsents.add(avId)
+        
+        # Check if all players have consented
+        participants = self.getParticipantIdsNotSpectating()
+        if len(self.forfeitConsents) >= len(participants):
+            # All players have consented, proceed with forfeit
+            self.executeForfeit(self.pendingForfeitRequest)
+        else:
+            # Update clients with current consent status
+            self.d_updateForfeitConsents(list(self.forfeitConsents))
+    
+    def rejectForfeit(self):
+        """Handle forfeit rejection from a player - cancels the forfeit immediately"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingForfeitRequest is None:
+            self.notify.warning(f"Player {avId} tried to reject forfeit but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to reject forfeit but is not a participant")
+            return
+        
+        # Rejection cancels the forfeit immediately
+        self.notify.info(f"Player {avId} rejected the forfeit request. Cancelling forfeit.")
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        self.d_cancelForfeit()
+    
+    def cancelForfeitRequest(self):
+        """Cancel the current forfeit request (called from client)"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Only the requester can cancel
+        if self.pendingForfeitRequest != avId:
+            self.notify.warning(f"Player {avId} tried to cancel forfeit but is not the requester")
+            return
+        
+        if self.pendingForfeitRequest is not None:
+            self.notify.info(f"Cancelling forfeit request from {self.pendingForfeitRequest}")
+            self.pendingForfeitRequest = None
+            self.forfeitConsents.clear()
+            self.d_cancelForfeit()
+    
+    def executeForfeit(self, forfeiterAvId):
+        """Execute the forfeit - put the requester in last place"""
+        # Forfeit: Set the forfeiter's score to ensure they come in last place
+        context = self.getScoringContext()
+        _round = context.get_round(self.currentRound)
+        score = _round.get_score(forfeiterAvId)
+        num_players = len(self.getParticipantsNotSpectating())
+        
+        # Ensure all participants at least have a point
+        for toon in self.getParticipantsNotSpectating():
+            if toon.getDoId() != forfeiterAvId or num_players == 1:
+                self.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+        
+        self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+        
+        # Clear forfeit request state
+        self.pendingForfeitRequest = None
+        self.forfeitConsents.clear()
+        
+        # Notify clients to clean up forfeit dialogs
+        self.d_cancelForfeit()
+        
+        # End the game
+        self.gameFSM.request('victory')
+        
+        self.notify.info(f"Forfeit executed - {forfeiterAvId} placed in last place")
+    
+    def d_requestForfeit(self, requesterAvId):
+        """Send forfeit request to all clients"""
+        self.sendUpdate('setRequestForfeit', [requesterAvId])
+    
+    def d_updateForfeitConsents(self, consentAvIds):
+        """Update clients with current consent status"""
+        self.sendUpdate('setUpdateForfeitConsents', [consentAvIds])
+    
+    def d_cancelForfeit(self):
+        """Notify clients that forfeit request was cancelled"""
+        self.sendUpdate('setCancelForfeit', [])
+    
+    def requestRestart(self):
+        """Handle restart request from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to request restart but is not a participant")
+            return
+        
+        # If there's already a pending request, cancel it first
+        if self.pendingRestartRequest is not None:
+            self.cancelRestartRequest()
+        
+        # Start a new restart request
+        self.pendingRestartRequest = avId
+        self.restartConsents.clear()
+        self.restartConsents.add(avId)  # Requester automatically consents
+        
+        # Send restart request to all players
+        self.d_requestRestart(avId)
+        
+        self.notify.info(f"Player {avId} requested restart. Waiting for all players to confirm.")
+    
+    def confirmRestart(self):
+        """Handle restart confirmation from a player"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingRestartRequest is None:
+            self.notify.warning(f"Player {avId} tried to confirm restart but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to confirm restart but is not a participant")
+            return
+        
+        # Add consent
+        self.restartConsents.add(avId)
+        
+        # Check if all players have consented
+        participants = self.getParticipantIdsNotSpectating()
+        if len(self.restartConsents) >= len(participants):
+            # All players have consented, proceed with restart
+            self.executeRestart(self.pendingRestartRequest)
+        else:
+            # Update clients with current consent status
+            self.d_updateRestartConsents(list(self.restartConsents))
+    
+    def rejectRestart(self):
+        """Handle restart rejection from a player - cancels the restart immediately"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Validate there's a pending request
+        if self.pendingRestartRequest is None:
+            self.notify.warning(f"Player {avId} tried to reject restart but there's no pending request")
+            return
+        
+        # Validate player is in the game and not spectating
+        if avId not in self.getParticipantIdsNotSpectating():
+            self.notify.warning(f"Player {avId} tried to reject restart but is not a participant")
+            return
+        
+        # Rejection cancels the restart immediately
+        self.notify.info(f"Player {avId} rejected the restart request. Cancelling restart.")
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        self.d_cancelRestart()
+    
+    def cancelRestartRequest(self):
+        """Cancel the current restart request (called from client)"""
+        avId = self.air.getAvatarIdFromSender()
+        
+        # Only the requester can cancel
+        if self.pendingRestartRequest != avId:
+            self.notify.warning(f"Player {avId} tried to cancel restart but is not the requester")
+            return
+        
+        if self.pendingRestartRequest is not None:
+            self.notify.info(f"Cancelling restart request from {self.pendingRestartRequest}")
+            self.pendingRestartRequest = None
+            self.restartConsents.clear()
+            self.d_cancelRestart()
+    
+    def executeRestart(self, requesterAvId):
+        """Execute the restart - transition to cleanup then prepare"""
+        # Clear restart request state
+        self.pendingRestartRequest = None
+        self.restartConsents.clear()
+        
+        # Notify clients to clean up restart dialogs
+        self.d_cancelRestart()
+        
+        # Restart the game
+        self.gameFSM.request("cleanup")
+        self.gameFSM.request('prepare')
+        
+        self.notify.info(f"Restart executed - requested by {requesterAvId}")
+    
+    def d_requestRestart(self, requesterAvId):
+        """Send restart request to all clients"""
+        self.sendUpdate('setRequestRestart', [requesterAvId])
+    
+    def d_updateRestartConsents(self, consentAvIds):
+        """Update clients with current consent status"""
+        self.sendUpdate('setUpdateRestartConsents', [consentAvIds])
+    
+    def d_cancelRestart(self):
+        """Notify clients that restart request was cancelled"""
+        self.sendUpdate('setCancelRestart', [])

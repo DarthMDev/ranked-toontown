@@ -44,6 +44,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         DistributedGoonAI.DistributedGoonAI.__init__(self, air, 0)
         DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.__init__(self, air, boss)
 
+        air.memoryDebugger.track_weak(self, "CraneGameGoon")
         # A tube covering our intended path, so other goons will see
         # and avoid us.
         cn = CollisionNode('tubeNode')
@@ -339,17 +340,10 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
             self.demand('Walk')
         return Task.done
 
+    def stun(self, avId, pauseTime):
 
-    ### Messages ###
-
-    def requestStunned(self, pauseTime):
-        avId = self.air.getAvatarIdFromSender()
-
-        if avId not in self.air.doId2do:
-            return
-
-        av = self.air.doId2do[avId]
-        if av.getHp() <= 0:
+        av = self.air.doId2do.get(avId)
+        if av and av.getHp() <= 0:
             return
         if avId not in self.boss.avIdList:
             return
@@ -358,9 +352,12 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
             # stun again.
             return
 
+        taskMgr.remove(self.uniqueName('droneStun'))
+
         if self.boss.ruleset.GOONS_DIE_ON_STOMP:
             self.b_destroyGoon()
-            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE,
+                               reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
             return
 
         # Stop the goon right where he is.
@@ -372,9 +369,19 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         # Update stats and add track combo for points
         self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_STOMP, reason=CraneLeagueGlobals.ScoreReason.GOON_STOMP)
         comboTracker = self.boss.comboTrackers[avId]
-        comboTracker.incrementCombo(math.ceil((comboTracker.combo+1.0) / 4.0))
-
+        comboTracker.incrementCombo(math.ceil((comboTracker.combo + 1.0) / 4.0))
         DistributedGoonAI.DistributedGoonAI.requestStunned(self, pauseTime)
+
+
+    ### Messages ###
+
+    def requestStunned(self, pauseTime):
+        avId = self.air.getAvatarIdFromSender()
+
+        if avId not in self.air.doId2do:
+            return
+
+        self.stun(avId, pauseTime)
 
     def getMinImpact(self):
         return self.boss.ruleset.MIN_GOON_IMPACT
@@ -605,49 +612,27 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
     def cleanup(self):
         """Clean up collision system and node paths to prevent memory leaks"""
         # Clean up collision system
-        if hasattr(self, 'cTrav') and self.cTrav:
+        if hasattr(self, 'cTrav') and self.cTrav is not None:
             self.cTrav.clearColliders()
             del self.cTrav
-        if hasattr(self, 'cQueue') and self.cQueue:
+        if hasattr(self, 'cQueue') and self.cQueue is not None:
             del self.cQueue
-        
         # Clear feelers list
-        if hasattr(self, 'feelers') and self.feelers:
+        if hasattr(self, 'feelers') and self.feelers is not None:
             self.feelers.clear()
-        
         # Clean up collision nodes
-        if hasattr(self, 'tubeNode'):
+        if hasattr(self, 'tubeNode') and self.tubeNode is not None:
             self.tubeNode = None
         
-        # Remove all tasks - use try/except to handle already removed tasks
-        try:
-            taskMgr.remove(self.uniqueName('reachedTarget'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('turnedToTarget'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('startingWalk'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('syncEmergePosition'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('recoverWalk'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('checkSafeCollisions'))
-        except:
-            pass
-        try:
-            taskMgr.remove(self.uniqueName('recoverFromFall'))
-        except:
-            pass
+        # Remove all tasks
+        taskMgr.remove(self.uniqueName('droneStun'))
+        taskMgr.remove(self.uniqueName('reachedTarget'))
+        taskMgr.remove(self.uniqueName('turnedToTarget'))
+        taskMgr.remove(self.uniqueName('startingWalk'))
+        taskMgr.remove(self.uniqueName('syncEmergePosition'))
+        taskMgr.remove(self.uniqueName('recoverWalk'))
+        taskMgr.remove(self.uniqueName('checkSafeCollisions'))
+        taskMgr.remove(self.uniqueName('recoverFromFall'))
 
     def cleanupNodePaths(self):
         """Clean up node paths - called only when safe to do so (after FSM is done)"""

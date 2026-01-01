@@ -34,7 +34,12 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
         for key, activePlayerList in self.__leaderboard_active_players_cache.items():
             for activePlayer in activePlayerList:
                 # Queue up a request to query skill profiles for the toon. Once queried, the __database_callback function will fire.
-                self.air.dbInterface.queryObject(self.air.dbId, activePlayer, self.__database_callback, dclass=_dclass, fieldNames=('setName', 'setSkillProfiles',))
+                # Create a callback that includes the toonId and key for cleanup if needed
+                def makeCallback(toonId, gamemode):
+                    def callback(dclass, fields):
+                        self.__database_callback(dclass, fields, toonId, gamemode)
+                    return callback
+                self.air.dbInterface.queryObject(self.air.dbId, activePlayer, makeCallback(activePlayer, key), dclass=_dclass, fieldNames=('setName', 'setSkillProfiles',))
 
         taskMgr.doMethodLater(10, self.__refresh_task, 'leaderboard-refresh-task')
 
@@ -115,16 +120,30 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
         self.notify.debug(f"Sending {profileKey.value} ratings update to {avId}: {records}")
         self.sendUpdateToAvatarId(avId, 'requestRankingsResponse', [profileKey.value, records])
 
-    def __database_callback(self, dclass, fields):
+    def __database_callback(self, dclass, fields, toonId, gamemode):
         """
         Database callback that only runs on startup. Queries avatar information regarding skill profiles.
         """
         if dclass is None:
-            self.notify.error('Failed to resolve DB query. dclass is None.')
+            self.notify.warning(f'Failed to resolve DB query for toon {toonId}. Toon may no longer exist in database. Removing from cache.')
+            # Remove this toon from the cache since it doesn't exist anymore
+            if gamemode in self.__leaderboard_active_players_cache:
+                if toonId in self.__leaderboard_active_players_cache[gamemode]:
+                    self.__leaderboard_active_players_cache[gamemode].remove(toonId)
+            if gamemode in self.__sr_cache and toonId in self.__sr_cache[gamemode]:
+                del self.__sr_cache[gamemode][toonId]
+            self.__save_leaderboard_data()
             return
 
         if fields is None:
-            self.notify.error(f'Failed to resolve fields for dclass {dclass}. fields is None.')
+            self.notify.warning(f'Failed to resolve fields for toon {toonId}. Toon may be corrupted. Removing from cache.')
+            # Remove this toon from the cache since it's corrupted
+            if gamemode in self.__leaderboard_active_players_cache:
+                if toonId in self.__leaderboard_active_players_cache[gamemode]:
+                    self.__leaderboard_active_players_cache[gamemode].remove(toonId)
+            if gamemode in self.__sr_cache and toonId in self.__sr_cache[gamemode]:
+                del self.__sr_cache[gamemode][toonId]
+            self.__save_leaderboard_data()
             return
 
         if 'setSkillProfiles' not in fields:

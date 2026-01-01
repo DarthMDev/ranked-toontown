@@ -25,6 +25,14 @@ class ControlSettings:
     QUEST_HOTKEY: str = "end"
     GALLERY_HOTKEY: str = "g"
     CRANE_GRAB_KEY: str = "control"
+    CRANE_EXIT_KEY: str = "escape"
+    CRANE_EXTEND_KEY: str = "page_up"
+    CRANE_RETRACT_KEY: str = "page_down"
+    CRANE_SPEED_INCREASE_KEY: str = "bracketright"
+    CRANE_SPEED_DECREASE_KEY: str = "bracketleft"
+    DRONE_SLOT_0_KEY: str = "f"
+    DRONE_SLOT_1_KEY: str = "g"
+    DRONE_SLOT_2_KEY: str = "h"
     ACTION_BUTTON: str = "delete"
     SECONDARY_ACTION: str = "insert"
     CHAT_HOTKEY: str = "t"
@@ -107,7 +115,18 @@ class Settings:
         return asdict(self.controls)
 
     def updateControls(self, controls: dict[str, str]) -> None:
-        self.controls = ControlSettings(**controls)
+        # Filter out any keys that aren't valid ControlSettings fields
+        # This handles migration from old settings files (e.g., removing DRONE_DEPLOY_KEY)
+        valid_fields = {field.name for field in ControlSettings.__dataclass_fields__.values()}
+        filtered_controls = {k: v for k, v in controls.items() if k in valid_fields}
+        
+        # Fill in any missing fields with defaults
+        default_controls = asdict(ControlSettings())
+        for key in valid_fields:
+            if key not in filtered_controls:
+                filtered_controls[key] = default_controls[key]
+        
+        self.controls = ControlSettings(**filtered_controls)
         self.set("controls", asdict(self.controls))
 
     def write(self) -> None:
