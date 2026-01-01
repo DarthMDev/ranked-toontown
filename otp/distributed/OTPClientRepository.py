@@ -516,7 +516,6 @@ class OTPClientRepository(ClientRepositoryBase):
         self.loginDoneEvent = 'loginDone'
         self.accept(self.loginDoneEvent, self.__handleLoginDone)
         self.gameServicesManager.login(self.loginDoneEvent)
-        self.waitForDatabaseTimeout(requestName='WaitForGSMLoginResponse')
 
     @report(types=['args', 'deltaStamp'], dConfigParam='teleport')
     def __handleLoginDone(self, doneStatus):

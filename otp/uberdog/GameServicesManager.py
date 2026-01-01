@@ -51,7 +51,7 @@ class GameServicesManager(DistributedObjectGlobal):
 
         # If we are using discord authentication scheme, we actually need to use our discord access token.
         self.discordAuthChoice = TTGlobalDialog(
-            message='Discord is required to login. Would you like to authenticate with Discord? If you choose, no, the game will close.',
+            message='Discord is required to login. Would you like to authenticate with Discord? If you choose Cancel, the game will close.\n\nClicking OK will open your web browser!',
             doneEvent='ackDiscordAuthChoice',
             style=YesNo,
             command=self.__handleDiscordAuthChoice
@@ -59,12 +59,12 @@ class GameServicesManager(DistributedObjectGlobal):
 
     def __askForPlaytokenInput(self):
         self.discordAuthChoice = TTGlobalDialog(
-            message="This server uses a username login scheme. Please enter a username. Keep in mind anybody that knows this can access your account!",
+            message="This server uses a username login scheme. Please enter a username!",
             doneEvent='ackDiscordAuthChoice',
             style=YesNo,
             command=self.__handlePlaytokenInput
         )
-        self.playtokenInputEntry = DirectEntry(parent=self.discordAuthChoice, text="", scale=0.0625, pos=(-0.3, 0, -0.25),
+        self.playtokenInputEntry = DirectEntry(parent=self.discordAuthChoice, text="", scale=0.0625, pos=(-0.3, 0, -0.18),
                                  command=self.__determinePlaytokenAuthenticity,
                                  cursorKeys=1, obscured=1, initialText="Username", numLines=1, focus=1,
                                  focusInCommand=lambda : self.playtokenInputEntry.enterText(""))
