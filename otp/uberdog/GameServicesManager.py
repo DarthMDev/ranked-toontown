@@ -2,6 +2,7 @@ import webbrowser
 
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed.DistributedObjectGlobal import DistributedObjectGlobal
+from direct.gui.DirectEntry import DirectEntry
 
 from otp.distributed.PotentialAvatar import PotentialAvatar
 from otp.otpgui.OTPDialog import OTPDialog, YesNo, CancelOnly
@@ -21,6 +22,7 @@ class GameServicesManager(DistributedObjectGlobal):
         self.session: str = ""
         self.link: str = ""
         self.discordAuthChoice = None
+        self.playtokenInputEntry = None
 
     def d_requestAuthScheme(self):
         """
@@ -44,8 +46,7 @@ class GameServicesManager(DistributedObjectGlobal):
         self.doneEvent = doneEvent
 
         if self.authenticationScheme == AuthenticationGlobals.AUTHENTICATION_SCHEME_DEVTOKEN:
-            playToken = self.cr.playToken or 'dev'
-            self.d_login(playToken)
+            self.__askForPlaytokenInput()
             return
 
         # If we are using discord authentication scheme, we actually need to use our discord access token.
@@ -55,6 +56,30 @@ class GameServicesManager(DistributedObjectGlobal):
             style=YesNo,
             command=self.__handleDiscordAuthChoice
         )
+
+    def __askForPlaytokenInput(self):
+        self.discordAuthChoice = TTGlobalDialog(
+            message="This server uses a username login scheme. Please enter a username. Keep in mind anybody that knows this can access your account!",
+            doneEvent='ackDiscordAuthChoice',
+            style=YesNo,
+            command=self.__handlePlaytokenInput
+        )
+        self.playtokenInputEntry = DirectEntry(parent=self.discordAuthChoice, text="", scale=0.0625, pos=(-0.3, 0, -0.25),
+                                 command=self.__determinePlaytokenAuthenticity,
+                                 cursorKeys=1, obscured=1, initialText="Username", numLines=1, focus=1,
+                                 focusInCommand=lambda : self.playtokenInputEntry.enterText(""))
+
+    def __determinePlaytokenAuthenticity(self, text):
+        if len(text) == 0:
+            self.__askForPlaytokenInput()
+            return
+        self.d_login(text)
+
+    def __handlePlaytokenInput(self, value):
+        if value <= 0:
+            exit(0)
+
+        self.__determinePlaytokenAuthenticity(self.playtokenInputEntry.text())
 
     def __handleDiscordAuthChoice(self, value):
         # If they said yes, open a tab that will let the user log in. If they consent, they will be logged in!

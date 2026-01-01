@@ -24,7 +24,7 @@ class OpeningUserInput(DirectObject):
         self.launcher = launcher
         self.dialogClass = OTPGlobals.getGlobalDialogClass()
 
-        self.askForPlaytoken()
+        self.askServerPreference()
 
     def cleanup(dialogClass):
         dialogClass.cleanup()
@@ -33,40 +33,12 @@ class OpeningUserInput(DirectObject):
     def clearText(self):
         self.entry.enterText('')
 
-    def determineUsernameAuthenticity(self, textEntered):
-        username = textEntered
-        if not username:
-            self.askForUsername['text'] = CREmptyUsername
-        elif username in ['dev', 'NO PLAYTOKEN']:
-            self.askForUsername['text'] = CRInvalidUsername
-        else:
-            self.cr.playToken = username
-            self.askServerPreference()
-
     def specifyGameserver(self, textEntered):
         gameserver = textEntered
         if not gameserver:
             base.startShow(self.cr, '127.0.0.1:7198')
         else:
             base.startShow(self.cr, gameserver)
-
-    def askForPlaytoken(self):
-
-        self.askForUsername = self.dialogClass(message=CREnterUsername, style=OTPDialog.NoButtons,
-                                     doneEvent='cleanup', text_wordwrap=16, midPad=0.2, extraArgs=['askForUsername'])
-        self.accept('cleanup', self.cleanup, extraArgs=[self.askForUsername])
-
-        self.entry = DirectEntry(parent=self.askForUsername , text="", scale=0.0625, pos=(-0.3, 0, -0.19), command=self.determineUsernameAuthenticity,
-                                 cursorKeys=1, obscured=1, initialText="Username", numLines=1, focus=1, focusInCommand=self.clearText)
-
-        self.askForUsername.show()
-
-        # Is an environment variable already set? Skip the process if so.
-        token = os.getenv('PLAYTOKEN')
-        os.unsetenv('PLAYTOKEN')  # Get rid of it after one attempt at this.
-        if token is not None:
-            self.entry.setText(token)
-            self.determineUsernameAuthenticity(token)
 
     def localMultiplayerScreen(self):
         self.askForGameserver = self.dialogClass(message=CREnterGameserver, style=OTPDialog.NoButtons,
