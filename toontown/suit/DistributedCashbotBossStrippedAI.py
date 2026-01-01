@@ -1071,10 +1071,24 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         toonPos = toon.getPos()
         dronePos = Point3(toonPos.getX(), toonPos.getY(), toonPos.getZ() + 15)  # 15 units above
         
-        # Create the drone with specified type - use unified AI class
-        # (Specialized classes are used on client side only to avoid dclass issues)
-        from toontown.coghq.DistributedGoonDroneAI import DistributedGoonDroneAI
-        drone = DistributedGoonDroneAI(self.air, self, toonId, droneType)
+        # Create the drone with specified type - use specialized classes
+        # Select the appropriate drone class based on type
+        if droneType == CraneLeagueGlobals.DroneType.LASER:
+            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.HEAL:
+            from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
+            drone = DistributedGoonDroneHealAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+            from toontown.coghq.DistributedGoonDroneExplosiveAI import DistributedGoonDroneExplosiveAI
+            drone = DistributedGoonDroneExplosiveAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.STUN:
+            from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
+            drone = DistributedGoonDroneStunAI(self.air, self, toonId)
+        else:
+            self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
+            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
         
         drone.generateWithRequired(self.zoneId)
         # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI

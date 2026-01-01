@@ -371,12 +371,9 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
     
     def performHealVisualEffect(self):
         """Handle heal request from AI - show heal effect."""
-        owner = base.cr.doId2do.get(self.ownerId)
-        if owner:
-            # Show heal effect (could add green particles here if desired)
-            pass
-        # Vanish after showing effect
-        taskMgr.doMethodLater(1.0, self.vanishWithPoof, self.uniqueName('vanishAfterHeal'))
+        # The heal drone subclass handles its own visual effects
+        # This is just a placeholder for the base class
+        pass
     
     def performExplodeVisualEffect(self):
         """Handle explosion request from AI - show explosion effect."""
