@@ -25,6 +25,7 @@ from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
 from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
+from toontown.minigame.tournament import TournamentManagerAI, TournamentType
 
 class DistributedCraneGameAI(DistributedMinigameAI):
     DESPERATION_MODE_ACTIVATE_THRESHOLD = 1800
@@ -125,11 +126,18 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.forfeitConsents = set()  # Set of avIds who have consented to forfeit
         self.pendingRestartRequest = None  # avId of player who requested restart, or None if no pending request
         self.restartConsents = set()  # Set of avIds who have consented to restart
+        
+        # Tournament system
+        self.tournamentManager = TournamentManagerAI(self)
 
     def isRanked(self) -> bool:
-
-        # Todo: setting for this. We don't want EVERY game to be ranked.
-        return len(self.getParticipantsNotSpectating()) > 1
+        # Tournaments are NEVER ranked
+        if self.tournamentManager.isTournamentActive():
+            return False
+        
+        # Use base class check (skillProfileKey is not None) AND player count check
+        # This ensures we don't try to adjust ratings if skillProfileKey is None
+        return super().isRanked() and len(self.getParticipantsNotSpectating()) > 1
 
     def generate(self):
         self.notify.debug("generate")
@@ -233,6 +241,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def delete(self):
         self.notify.debug("delete")
         # Clean up all resources
+        
+        # Clean up tournament if one was active
+        if self.tournamentManager.isTournamentActive():
+            self.tournamentManager.cleanup()
+        
         self.cleanup()
         del self.gameFSM
         DistributedMinigameAI.delete(self)
@@ -388,6 +401,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.notify.debug("gameOver")
         # call this when the game is done
         # clean things up in this class
+        
+        # NOTE: Don't cleanup tournament here - it needs to persist through handleRegularPurchaseManager()
+        # so that isRanked() check works properly. Tournament cleanup happens in exitFrameworkCleanup()
+        
         self.gameFSM.request('cleanup')
         # tell the base class to wrap things up
         DistributedMinigameAI.gameOver(self)
@@ -1256,10 +1273,28 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def __updateSkillProfile(self):
         # Todo: Not every crane game needs to be ranked. Add in an option to make a game unranked.
+        
+        # Determine the appropriate skill profile based on player count
         if len(self.getParticipantsNotSpectating()) == 2:
-            self.b_setProfileSkillKey(SkillProfileKey.CRANING_SOLOS)
+            skillKey = SkillProfileKey.CRANING_SOLOS
         elif len(self.getParticipantsNotSpectating()) >= 3:
-            self.b_setProfileSkillKey(SkillProfileKey.CRANING_FFA)
+            skillKey = SkillProfileKey.CRANING_FFA
+        else:
+            skillKey = None
+        
+        # Tournaments are NEVER ranked - they don't affect SR
+        # Set skillProfileKey to None on AI side only (so isRanked() returns False)
+        # But still broadcast the skill key to clients (so they see their ranks)
+        if self.tournamentManager.isTournamentActive():
+            self.setProfileSkillKey(None)  # AI-side only - prevents SR changes
+            # Send to clients - they see ranks (convert enum to string with .value)
+            if skillKey is not None:
+                self.sendUpdate('setSkillProfileKey', [skillKey.value])
+            else:
+                self.sendUpdate('setSkillProfileKey', [''])
+        else:
+            # Normal ranked game - set on both AI and clients
+            self.b_setProfileSkillKey(skillKey)
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
@@ -1628,7 +1663,12 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         victorId = highest_scorers[0]
         self.getScoringContext().get_round(self.currentRound).set_winners(highest_scorers)
 
-        # Handle best-of matches
+        # Check if we're in tournament mode
+        if self.tournamentManager.isTournamentActive():
+            self._handleTournamentVictory(victorId)
+            return
+
+        # Handle best-of matches (non-tournament)
         if self.bestOfValue > 1:
             # Track round wins
             self.roundWins[victorId] = self.roundWins.get(victorId, 0) + 1
@@ -2137,3 +2177,248 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_cancelRestart(self):
         """Notify clients that restart request was cancelled"""
         self.sendUpdate('setCancelRestart', [])
+    
+    # ============================================
+    # Tournament System Methods
+    # ============================================
+    
+    def startTournament(self, tournamentType, stageConfig, stage2Type, participants):
+        """
+        Start a tournament with the specified type.
+        Called by the host during ruleset phase.
+        
+        Args:
+            tournamentType: Type from TournamentType enum
+            stageConfig: TournamentStage enum (ONE_STAGE or TWO_STAGE)
+            stage2Type: TournamentType for stage 2 (if two-stage)
+            participants: List of avatar IDs to participate in tournament
+        """
+        # Verify sender is the host
+        senderId = self.air.getAvatarIdFromSender()
+        if not self.hasHost() or senderId != self.getHost():
+            self.notify.warning(f"Non-leader {senderId} tried to start tournament")
+            return
+            
+        # Validate tournament type
+        if tournamentType not in [TournamentType.ROUND_ROBIN, TournamentType.SINGLE_ELIMINATION, TournamentType.DOUBLE_ELIMINATION]:
+            self.notify.warning(f"Invalid tournament type: {tournamentType}")
+            return
+        
+        # Validate participants list
+        if not participants or len(participants) < 2:
+            self.notify.warning("Cannot start tournament with less than 2 participants")
+            return
+        
+        # Validate all participants are actually in the game
+        # getParticipants() returns avatar IDs directly
+        allParticipantIds = self.getParticipants()
+        for avId in participants:
+            if avId not in allParticipantIds:
+                self.notify.warning(f"Invalid participant {avId} not in game")
+                return
+        
+        # Set non-participants as spectators
+        nonParticipants = [avId for avId in allParticipantIds if avId not in participants]
+        if nonParticipants:
+            currentSpectators = list(self.getSpectators())
+            for avId in nonParticipants:
+                if avId not in currentSpectators:
+                    currentSpectators.append(avId)
+            self.b_setSpectators(currentSpectators)
+            
+        # Start the tournament with selected participants
+        success = self.tournamentManager.startTournament(tournamentType, stageConfig, stage2Type, participants)
+        
+        if success:
+            self.notify.info(f"Tournament started: type={tournamentType}, participants={participants}")
+            # Notify clients that tournament has started
+            self.d_setTournamentActive(tournamentType)
+            # Update skill profile to None (tournaments are unranked)
+            self.__updateSkillProfile()
+            # Setup first match
+            self.tournamentManager.setupNextMatch()
+            # Send initial progress and standings (before match starts, so it shows Match 1/X)
+            self.d_setTournamentProgress()
+            self.d_setTournamentStandings()
+        else:
+            self.notify.warning("Failed to start tournament")
+    
+    def cancelTournament(self):
+        """
+        Cancel the active tournament.
+        Called by the host.
+        """
+        # Verify sender is the host
+        senderId = self.air.getAvatarIdFromSender()
+        if not self.hasHost() or senderId != self.getHost():
+            self.notify.warning(f"Non-leader {senderId} tried to cancel tournament")
+            return
+            
+        if self.tournamentManager.isTournamentActive():
+            self.notify.info("Cancelling tournament")
+            self.tournamentManager.cleanup()
+            # Notify clients
+            self.d_setTournamentActive(TournamentType.NONE)
+    
+    def d_setTournamentActive(self, tournamentType, tournamentStages=None, participants=None):
+        """
+        Notify clients about tournament state.
+        
+        Args:
+            tournamentType: TournamentType.NONE if inactive, or active type
+            tournamentStages: TournamentStage enum (if active)
+            participants: List of participant avatar IDs (if active)
+        """
+        if tournamentType == TournamentType.NONE:
+            self.sendUpdate('setTournamentActive', [tournamentType])
+        else:
+            # For active tournaments, send additional info
+            # Note: DC field only supports tournamentType, so we'll use setTournamentProgress for participants
+            self.sendUpdate('setTournamentActive', [tournamentType])
+    
+    def d_setTournamentProgress(self):
+        """Send tournament progress to clients"""
+        if not self.tournamentManager.isTournamentActive():
+            return
+            
+        progress = self.tournamentManager.getProgress()
+        if progress:
+            # Convert 0-based currentMatchIndex to 1-based for display
+            currentMatch = progress['currentMatchIndex'] + 1
+            # Send progress update
+            self.sendUpdate('setTournamentProgress', [
+                progress['currentStage'],
+                progress['totalStages'],
+                currentMatch,  # 1-based match number
+                progress['totalMatches']
+            ])
+    
+    def d_setTournamentStandings(self):
+        """Send tournament standings to clients"""
+        if not self.tournamentManager.isTournamentActive():
+            return
+        
+        bracket = self.tournamentManager.bracket
+        if not bracket:
+            return
+        
+        standings = bracket.getStandings()
+        if not standings:
+            return
+        
+        # Get current match players
+        currentMatch = self.tournamentManager.getCurrentMatch()
+        currentMatchPlayers = []
+        if currentMatch:
+            # Ensure player IDs are valid positive integers
+            if hasattr(currentMatch, 'player1') and currentMatch.player1 is not None:
+                player1 = int(currentMatch.player1)
+                if player1 > 0:
+                    currentMatchPlayers.append(player1)
+            if hasattr(currentMatch, 'player2') and currentMatch.player2 is not None:
+                player2 = int(currentMatch.player2)
+                if player2 > 0:
+                    currentMatchPlayers.append(player2)
+        
+        # Sort participants for consistent ordering
+        participantIds = sorted(standings.keys())
+        
+        # Validate we have participants
+        if not participantIds:
+            self.notify.warning("No participants in tournament standings")
+            return
+        
+        # Build parallel lists with proper type conversion and validation
+        matchWins = []
+        totalPoints = []
+        
+        for avId in participantIds:
+            standing = standings.get(avId, {})
+            # Ensure values are non-negative and properly typed
+            # Clamp wins to uint8 range (0-255)
+            wins = max(0, min(255, int(standing.get('matchWins', 0))))
+            points = max(0, int(standing.get('totalPoints', 0)))
+            matchWins.append(wins)
+            totalPoints.append(points)
+        
+        # Ensure all lists have the same length
+        if len(participantIds) != len(matchWins) or len(participantIds) != len(totalPoints):
+            self.notify.warning(f"Mismatched list lengths: {len(participantIds)} participants, {len(matchWins)} wins, {len(totalPoints)} points")
+            return
+        
+        # Send to clients
+        self.sendUpdate('setTournamentStandings', [
+            participantIds,
+            matchWins,
+            totalPoints,
+            currentMatchPlayers
+        ])
+    
+    def _handleTournamentVictory(self, victorId):
+        """
+        Handle victory in tournament mode.
+        Records match result and determines next steps.
+        
+        Args:
+            victorId: Avatar ID of the match winner
+        """
+        # Get scores from this match
+        scores = self.getScoringContext().get_round(self.currentRound).get_all_scores()
+        
+        # Record match result (this advances currentMatchIndex)
+        hasMoreMatches = self.tournamentManager.recordMatchResult(victorId, scores)
+        
+        # Declare this match's victor
+        self.sendUpdate("declareVictor", [victorId])
+        
+        # Send updated standings (but NOT progress - progress will be sent when next match starts)
+        self.d_setTournamentStandings()
+        
+        if hasMoreMatches:
+            # More matches to play
+            self.notify.info("Tournament continues to next match")
+            taskMgr.doMethodLater(3, self._startNextTournamentMatch, 
+                                  self.uniqueName("nextTournamentMatch"))
+        else:
+            # Tournament complete!
+            tournamentWinner = self.tournamentManager.getTournamentWinner()
+            self.notify.info(f"Tournament complete! Winner: {tournamentWinner}")
+            
+            # Send final tournament results
+            self.sendUpdate("declareTournamentWinner", [tournamentWinner])
+            
+            # End the minigame
+            taskMgr.doMethodLater(5, lambda task: self.gameOver(), self.uniqueName("craneGameVictory"))
+    
+    def _startNextTournamentMatch(self, task=None):
+        """
+        Setup and start the next match in the tournament.
+        
+        Args:
+            task: Task object (if called as a task)
+        """
+        # Setup participants for next match
+        hasNextMatch = self.tournamentManager.setupNextMatch()
+        
+        if not hasNextMatch:
+            # This shouldn't happen, but handle gracefully
+            self.notify.warning("No next match available, ending tournament")
+            self.gameOver()
+            return
+        
+        # Get the match we're about to play
+        currentMatch = self.tournamentManager.getCurrentMatch()
+        if currentMatch:
+            self.notify.info(f"Starting tournament match: {currentMatch.player1} vs {currentMatch.player2}")
+        
+        # Reset game state for new match
+        self.currentRound = 1
+        self.roundWins.clear()
+        
+        # Send tournament progress NOW (when match starts) and standings
+        self.d_setTournamentProgress()
+        self.d_setTournamentStandings()
+        
+        # Restart the game (cleanup then prepare)
+        self.gameFSM.request("cleanup")
+        self.gameFSM.request('prepare')

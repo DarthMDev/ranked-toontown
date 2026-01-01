@@ -33,6 +33,7 @@ from toontown.toonbase import TTLocalizer, ToontownGlobals
 from toontown.minigame.craning.CraneGameSettingsPanel import CraneGameSettingsPanel
 from toontown.minigame.statuseffects.DistributedStatusEffectSystem import DistributedStatusEffectSystem
 from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
+from toontown.minigame.tournament import TournamentType, TournamentStage
 from direct.gui.DirectGui import DGG, DirectFrame
 from direct.gui.DirectScrolledList import DirectScrolledList
 from direct.gui.DirectLabel import DirectLabel
@@ -86,6 +87,22 @@ class DistributedCraneGame(DistributedMinigame):
         self.restartConsents = set()  # Set of avIds who have consented
         self.restartDialog = None  # Dialog for restart confirmation (for non-requesters)
         self.restartRequesterDialog = None  # Dialog for requester (shows status and cancel)
+        
+        # Tournament system
+        self.tournamentActive = False  # Is a tournament active?
+        self.tournamentType = TournamentType.NONE
+        self.tournamentButton = None  # Button to open tournament settings
+        self.tournamentProgressLabel = None  # Label showing tournament progress
+        self.tournamentPanel = None  # Tournament panel (like modifiers panel)
+        self.tournamentPanelVisible = False  # Is tournament panel visible?
+        self.tournamentParticipantsList = None  # ScrolledList for participants
+        self.tournamentSpectatorsList = None  # ScrolledList for spectators
+        self.tournamentParticipantsList_selected = []  # List of selected tournament participants
+        self.tournamentParticipants = []  # All tournament participants (from server)
+        self.tournamentCurrentMatchPlayers = []  # Current match players
+        self.tournamentStandings = {}  # Tournament standings: {avId: {'matchWins': int, 'totalPoints': int}}
+        self.scoreboardShowAllParticipants = False  # Toggle for scoreboard display
+        
         self.boss = None
         self.bossRequest = None
         self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
@@ -211,6 +228,10 @@ class DistributedCraneGame(DistributedMinigame):
                     self.updateStatusIndicator(toon, isPlayer)
                 else:
                     self.createStatusIndicator(toon, isPlayer)
+        
+        # If a tournament is active, update the scoreboard to reflect spectator changes
+        if self.tournamentActive and hasattr(self, 'scoreboard') and self.scoreboard:
+            self.__updateTournamentScoreboard()
 
     def __checkSpectatorState(self, spectate=True):
         # If we're in the rules state, don't apply any visibility changes
@@ -505,13 +526,22 @@ class DistributedCraneGame(DistributedMinigame):
         for toon in self.getSpectatingToons():
             toon.setPos(self.getBoss().getPos())
 
-    def __displayOverlayText(self, text, color=(1, 1, 1, 1)):
+    def __displayOverlayText(self, text, color=(1, 1, 1, 1), duration=None, scale=None):
         self.overlayText['text'] = text
         self.overlayText['fg'] = color
+        if scale:
+            self.overlayText['scale'] = scale
+        else:
+            self.overlayText['scale'] = 0.35
         self.overlayText.show()
+        
+        if duration:
+            taskMgr.doMethodLater(duration, lambda task: self.__hideOverlayText(), 
+                                  self.uniqueName('hide-overlay-text'))
 
     def __hideOverlayText(self):
-        self.overlayText.hide()
+        if hasattr(self, 'overlayText') and self.overlayText and not self.overlayText.isEmpty():
+            self.overlayText.hide()
 
     def __generatePrepareInterval(self):
         """
@@ -685,6 +715,21 @@ class DistributedCraneGame(DistributedMinigame):
             command=self.__handleBestOfButton
         )
         self.bestOfButton.hide()  # Best of button starts hidden
+        
+        # Create tournament button next to best of button
+        self.tournamentButton = DirectButton(
+            relief=None,
+            text='Tournament',
+            text_scale=0.055,
+            text_pos=(0, -0.02),
+            geom=(btnGeom.find('**/QuitBtn_UP'),
+                  btnGeom.find('**/QuitBtn_DN'),
+                  btnGeom.find('**/QuitBtn_RLVR')),
+            geom_scale=(0.7, 1, 1),
+            pos=(0.05, 0, 0.85),
+            command=self.__handleTournamentButton
+        )
+        self.tournamentButton.hide()  # Tournament button starts hidden
         
         btnGeom.removeNode()
         
@@ -1316,12 +1361,22 @@ class DistributedCraneGame(DistributedMinigame):
         if self.bestOfButton is not None:
             self.bestOfButton.destroy()
             self.bestOfButton = None
+        if self.tournamentButton is not None:
+            self.tournamentButton.destroy()
+            self.tournamentButton = None
         if self.modifiersPanel is not None:
             self.modifiersPanel.destroy()
             self.modifiersPanel = None
             self.currentModifiersList = None
             self.availableModifiersList = None
         self.modifiersPanelVisible = False
+        # Clean up tournament panel
+        if self.tournamentPanel is not None:
+            self.tournamentPanel.destroy()
+            self.tournamentPanel = None
+            self.tournamentParticipantsList = None
+            self.tournamentSpectatorsList = None
+        self.tournamentPanelVisible = False
         # Clean up modifier config dialog if it exists
         if hasattr(self, 'modifierConfigDialog') and self.modifierConfigDialog is not None:
             self.modifierConfigDialog.destroy()
@@ -1850,8 +1905,15 @@ class DistributedCraneGame(DistributedMinigame):
 
         # Setup the scoreboard
         self.scoreboard.clearToons()
-        for avId in self.getParticipantIdsNotSpectating():
-            self.scoreboard.addToon(avId)
+        
+        # In tournament mode, use tournament scoreboard logic
+        if self.tournamentActive and hasattr(self, 'tournamentCurrentMatchPlayers'):
+            # Tournament mode: update scoreboard based on toggle state
+            self.__updateTournamentScoreboard()
+        else:
+            # Normal mode: show all non-spectators
+            for avId in self.getParticipantIdsNotSpectating():
+                self.scoreboard.addToon(avId)
 
         self.introductionMovie = self.__generatePrepareInterval()
         self.introductionMovie.start()
@@ -2314,6 +2376,18 @@ class DistributedCraneGame(DistributedMinigame):
             toon.setZ(0) # Reset Z position
         self.overlayText.removeNode()
         
+        # Clean up tournament UI elements
+        if hasattr(self, 'tournamentProgressLabel') and self.tournamentProgressLabel is not None:
+            self.tournamentProgressLabel.destroy()
+            self.tournamentProgressLabel = None
+        
+        # Disable F2 keybind
+        self.ignore('f2')
+        
+        # Reset tournament state
+        self.tournamentActive = False
+        self.scoreboardShowAllParticipants = False
+        
         # Clean up timer
         if hasattr(self, 'bossSpeedrunTimer') and self.bossSpeedrunTimer is not None:
             self.bossSpeedrunTimer.cleanup()
@@ -2548,10 +2622,11 @@ class DistributedCraneGame(DistributedMinigame):
         # Show the play button for all players (everyone needs to ready up)
         self.playButton.show()
         
-        # Only show the modifiers and best-of buttons for the leader
+        # Only show the modifiers, best-of, and tournament buttons for the leader
         if self.isLocalToonHost():
             self.modifiersButton.show()
             self.bestOfButton.show()
+            self.tournamentButton.show()
 
         # Position toons in the rules formation
         self.setToonsToRulesPositions()
@@ -2601,6 +2676,10 @@ class DistributedCraneGame(DistributedMinigame):
         # Don't destroy drone UI - just hide it, we'll show it again in enterPlay
         if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
             self.droneSelectionFrame.hide()
+        
+        # Hide tournament button
+        if self.tournamentButton:
+            self.tournamentButton.hide()
 
     def handleMouseClick(self):
         """Handle mouse clicks during the rules state to detect clicks on spotlights."""
@@ -3241,3 +3320,587 @@ class DistributedCraneGame(DistributedMinigame):
         
         # Cancel button was clicked - send cancel request to server
         self.sendUpdate('cancelRestartRequest', [])
+    
+    # ============================================
+    # Tournament System Methods
+    # ============================================
+    
+    def __handleTournamentButton(self):
+        """Handle tournament button click - toggles tournament panel"""
+        if not self.isLocalToonHost():
+            return
+        
+        if self.tournamentPanelVisible:
+            self.__hideTournamentPanel()
+        else:
+            self.__showTournamentPanel()
+    
+    def __showTournamentPanel(self):
+        """Show the tournament panel"""
+        if self.tournamentPanel is None:
+            self.__createTournamentPanel()
+        
+        self.tournamentPanel.show()
+        self.tournamentPanelVisible = True
+    
+    def __hideTournamentPanel(self):
+        """Hide the tournament panel"""
+        if self.tournamentPanel is not None:
+            self.tournamentPanel.hide()
+        self.tournamentPanelVisible = False
+    
+    def __createTournamentPanel(self):
+        """Create the tournament panel using the same pattern as modifiers panel"""
+        
+        # Create the main panel frame using proper dialog styling
+        self.tournamentPanel = DirectFrame(
+            relief=None,
+            image=DGG.getDefaultDialogGeom(),
+            image_color=ToontownGlobals.GlobalDialogColor,
+            image_scale=(1.6, 1, 1.4),
+            pos=(0, 0, 0),
+            parent=aspect2d,
+            sortOrder=DGG.NO_FADE_SORT_INDEX
+        )
+        
+        # Title label
+        titleLabel = DirectLabel(
+            parent=self.tournamentPanel,
+            relief=None,
+            text="Manage Tournament Participants",
+            text_scale=0.08,
+            text_pos=(0, 0.55),
+            text_fg=(0.1, 0.1, 0.4, 1),
+            text_font=ToontownGlobals.getInterfaceFont()
+        )
+        
+        # Instructions label
+        instructionsLabel = DirectLabel(
+            parent=self.tournamentPanel,
+            relief=None,
+            text="Select participants for the tournament (Round Robin: Everyone plays everyone once)",
+            text_scale=0.05,
+            text_pos=(0, 0.45),
+            text_fg=(0.3, 0.3, 0.3, 1),
+            text_font=ToontownGlobals.getInterfaceFont()
+        )
+        
+        # Load GUI assets for scroll list
+        gui = loader.loadModel('phase_3.5/models/gui/friendslist_gui')
+        
+        # Participants section (left side - like "Current Modifiers")
+        participantsLabel = DirectLabel(
+            parent=self.tournamentPanel,
+            relief=None,
+            text="Participants:",
+            text_scale=0.06,
+            text_pos=(-0.75, 0.3),
+            text_fg=(0.2, 0.2, 0.6, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            text_align=TextNode.ALeft
+        )
+        
+        # Create scrolled list for participants
+        self.tournamentParticipantsList = DirectScrolledList(
+            parent=self.tournamentPanel,
+            relief=DGG.SUNKEN,
+            frameColor=(0.85, 0.95, 1, 1),
+            borderWidth=(0.01, 0.01),
+            pos=(-0.35, 0, 0.2),
+            frameSize=(-0.4, 0.2, -0.24, 0.0),
+            numItemsVisible=4,
+            forceHeight=0.06,
+            itemFrame_frameSize=(-0.38, 0.38, -0.03, 0.03),
+            itemFrame_pos=(0, 0, -0.032),
+            itemFrame_relief=None,
+            # Scroll buttons using proper assets
+            incButton_image=(gui.find('**/FndsLst_ScrollUp'),
+                           gui.find('**/FndsLst_ScrollDN'),
+                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
+                           gui.find('**/FndsLst_ScrollUp')),
+            incButton_relief=None,
+            incButton_scale=(0.3, 0.3, -1.1),
+            incButton_pos=(0.15, 0, -0.26),
+            incButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6),
+            decButton_image=(gui.find('**/FndsLst_ScrollUp'),
+                           gui.find('**/FndsLst_ScrollDN'),
+                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
+                           gui.find('**/FndsLst_ScrollUp')),
+            decButton_relief=None,
+            decButton_scale=(0.3, 0.3, 1.1),
+            decButton_pos=(0.15, 0, 0.03),
+            decButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6)
+        )
+        
+        # Spectators section (right side - like "Available Modifiers")
+        spectatorsLabel = DirectLabel(
+            parent=self.tournamentPanel,
+            relief=None,
+            text="Spectators:",
+            text_scale=0.06,
+            text_pos=(0.1, 0.3),
+            text_fg=(0.2, 0.2, 0.6, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            text_align=TextNode.ALeft
+        )
+        
+        # Create scrolled list for spectators
+        self.tournamentSpectatorsList = DirectScrolledList(
+            parent=self.tournamentPanel,
+            relief=DGG.SUNKEN,
+            frameColor=(0.95, 0.85, 1, 1),
+            borderWidth=(0.01, 0.01),
+            pos=(0.5, 0, 0.2),
+            frameSize=(-0.4, 0.2, -0.24, 0.0),
+            numItemsVisible=4,
+            forceHeight=0.06,
+            itemFrame_frameSize=(-0.38, 0.38, -0.03, 0.03),
+            itemFrame_pos=(0, 0, -0.032),
+            itemFrame_relief=None,
+            # Scroll buttons using proper assets
+            incButton_image=(gui.find('**/FndsLst_ScrollUp'),
+                           gui.find('**/FndsLst_ScrollDN'),
+                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
+                           gui.find('**/FndsLst_ScrollUp')),
+            incButton_relief=None,
+            incButton_scale=(0.3, 0.3, -1.1),
+            incButton_pos=(0.15, 0, -0.26),
+            incButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6),
+            decButton_image=(gui.find('**/FndsLst_ScrollUp'),
+                           gui.find('**/FndsLst_ScrollDN'),
+                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
+                           gui.find('**/FndsLst_ScrollUp')),
+            decButton_relief=None,
+            decButton_scale=(0.3, 0.3, 1.1),
+            decButton_pos=(0.15, 0, 0.03),
+            decButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6)
+        )
+        
+        # Load button assets
+        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
+        closeButtonImage = (buttons.find('**/CloseBtn_UP'), 
+                          buttons.find('**/CloseBtn_DN'), 
+                          buttons.find('**/CloseBtn_Rllvr'))
+        
+        # Load quit button for Start Tournament button (same as other buttons)
+        btnGeom = loader.loadModel('phase_3/models/gui/quit_button')
+        
+        # Start Tournament button (centered, no close button - use Tournament button to close)
+        startButton = DirectButton(
+            parent=self.tournamentPanel,
+            relief=None,
+            geom=(btnGeom.find('**/QuitBtn_UP'),
+                  btnGeom.find('**/QuitBtn_DN'),
+                  btnGeom.find('**/QuitBtn_RLVR')),
+            geom_scale=(0.9, 1, 1),
+            text="Start Tournament",
+            text_scale=0.055,
+            text_pos=(0, -0.02),
+            pos=(0, 0, -0.55),
+            command=self.__startRoundRobinTournament
+        )
+        
+        # Clean up loaded models
+        gui.removeNode()
+        buttons.removeNode()
+        btnGeom.removeNode()
+        
+        # Initialize participant list with all non-spectators
+        self.tournamentParticipantsList_selected = list(self.getParticipantIdsNotSpectating())
+        
+        # Populate the lists with participants and spectators
+        self.__updateTournamentLists()
+        
+        # Initially hide the panel
+        self.tournamentPanel.hide()
+    
+    def __updateTournamentLists(self):
+        """Update the tournament lists with participants and spectators"""
+        if self.tournamentParticipantsList is None or self.tournamentSpectatorsList is None:
+            return
+            
+        # Clear existing items
+        self.tournamentParticipantsList.removeAllItems()
+        self.tournamentSpectatorsList.removeAllItems()
+        
+        # Load button assets for add/remove buttons
+        gui = loader.loadModel('phase_3.5/models/gui/friendslist_gui')
+        addButtonImage = (gui.find('**/Horiz_Arrow_UP'),
+                         gui.find('**/Horiz_Arrow_DN'),
+                         gui.find('**/Horiz_Arrow_Rllvr'),
+                         gui.find('**/Horiz_Arrow_UP'))
+        removeButtonImage = (gui.find('**/Horiz_Arrow_UP'),
+                           gui.find('**/Horiz_Arrow_DN'),
+                           gui.find('**/Horiz_Arrow_Rllvr'),
+                           gui.find('**/Horiz_Arrow_UP'))
+        
+        # Get all non-spectator avIds
+        allAvIds = [avId for avId in self.avIdList if avId not in self.getSpectators()]
+        
+        # Populate participants list (those selected for tournament)
+        for avId in allAvIds:
+            if avId in self.tournamentParticipantsList_selected:
+                toon = self.cr.getDo(avId)
+                if not toon:
+                    continue
+                
+                itemFrame = DirectFrame(
+                    relief=None,
+                    frameSize=(-0.38, 0.38, -0.03, 0.03)
+                )
+                
+                # Toon name label
+                nameLabel = DirectLabel(
+                    parent=itemFrame,
+                    relief=None,
+                    text=toon.getName(),
+                    text_scale=0.025,
+                    text_pos=(-0.35, 0, 0),
+                    text_fg=(0.1, 0.1, 0.1, 1),
+                    text_font=ToontownGlobals.getInterfaceFont(),
+                    text_align=TextNode.ALeft
+                )
+                
+                # Remove button (move to spectators)
+                removeButton = DirectButton(
+                    parent=itemFrame,
+                    relief=None,
+                    image=removeButtonImage,
+                    image_scale=(0.3, 1, 0.3),
+                    image_hpr=(0, 0, 180),  # Rotate to make it a remove arrow
+                    pos=(0.17, 0, 0),
+                    command=self.__removeTournamentParticipant,
+                    extraArgs=[avId]
+                )
+                
+                self.tournamentParticipantsList.addItem(itemFrame)
+        
+        # Populate spectators list (those not selected for tournament)
+        for avId in allAvIds:
+            if avId not in self.tournamentParticipantsList_selected:
+                toon = self.cr.getDo(avId)
+                if not toon:
+                    continue
+                
+                itemFrame = DirectFrame(
+                    relief=None,
+                    frameSize=(-0.38, 0.38, -0.03, 0.03)
+                )
+                
+                # Toon name label
+                nameLabel = DirectLabel(
+                    parent=itemFrame,
+                    relief=None,
+                    text=toon.getName(),
+                    text_scale=0.025,
+                    text_pos=(-0.35, 0, 0),
+                    text_fg=(0.1, 0.1, 0.1, 1),
+                    text_font=ToontownGlobals.getInterfaceFont(),
+                    text_align=TextNode.ALeft
+                )
+                
+                # Add button (move to participants)
+                addButton = DirectButton(
+                    parent=itemFrame,
+                    relief=None,
+                    image=addButtonImage,
+                    image_scale=(0.3, 1, 0.3),
+                    pos=(0.17, 0, 0),
+                    command=self.__addTournamentParticipant,
+                    extraArgs=[avId]
+                )
+                
+                self.tournamentSpectatorsList.addItem(itemFrame)
+        
+        # Clean up loaded model
+        gui.removeNode()
+    
+    def __addTournamentParticipant(self, avId):
+        """Add a participant to the tournament (move from spectators to participants)"""
+        if avId not in self.tournamentParticipantsList_selected:
+            self.tournamentParticipantsList_selected.append(avId)
+            self.__updateTournamentLists()
+    
+    def __removeTournamentParticipant(self, avId):
+        """Remove a participant from the tournament (move from participants to spectators)"""
+        if avId in self.tournamentParticipantsList_selected:
+            self.tournamentParticipantsList_selected.remove(avId)
+            self.__updateTournamentLists()
+    
+    def __startRoundRobinTournament(self):
+        """Start a round robin tournament"""
+        # Validate we have enough participants
+        if len(self.tournamentParticipantsList_selected) < 2:
+            base.localAvatar.setSystemMessage(0, "Need at least 2 participants for tournament!")
+            return
+        
+        # Hide the panel
+        self.__hideTournamentPanel()
+        
+        # First, set non-tournament participants as spectators
+        allParticipants = self.getParticipantIds()
+        nonTournamentParticipants = [avId for avId in allParticipants if avId not in self.tournamentParticipantsList_selected]
+        
+        if nonTournamentParticipants:
+            # Temporarily make them spectators for the tournament
+            currentSpectators = list(self.getSpectators())
+            for avId in nonTournamentParticipants:
+                if avId not in currentSpectators:
+                    spotIndex = self.avIdList.index(avId)
+                    self.sendUpdate('handleSpotStatusChanged', [spotIndex, False])
+        
+        # Send request to server to start tournament with selected participants
+        self.sendUpdate('startTournament', [TournamentType.ROUND_ROBIN, TournamentStage.ONE_STAGE, TournamentType.NONE, self.tournamentParticipantsList_selected])
+        
+        # Show confirmation message
+        numMatches = (len(self.tournamentParticipantsList_selected) * (len(self.tournamentParticipantsList_selected) - 1)) // 2
+        base.localAvatar.setSystemMessage(0, f"Starting Round Robin tournament with {len(self.tournamentParticipantsList_selected)} players ({numMatches} matches)...")
+    
+    
+    def setTournamentActive(self, tournamentType):
+        """
+        Receive tournament activation status from server.
+        
+        Args:
+            tournamentType: TournamentType value (NONE if inactive)
+        """
+        self.tournamentActive = (tournamentType != TournamentType.NONE)
+        self.tournamentType = tournamentType
+        
+        if self.tournamentActive:
+            self.notify.info(f"Tournament activated: type={tournamentType}")
+            # Show tournament progress label
+            self.__showTournamentProgress()
+            self.tournamentActive = True
+            # Enable keybind to toggle scoreboard view
+            self.accept('f2', self.__toggleScoreboardView)
+        else:
+            self.notify.info("Tournament deactivated")
+            # Hide tournament progress label
+            self.__hideTournamentProgress()
+            self.tournamentActive = False
+            self.ignore('f2')
+    
+    def setTournamentProgress(self, currentStage, totalStages, currentMatch, totalMatches):
+        """
+        Receive tournament progress update from server.
+        
+        Args:
+            currentStage: Current stage number (1-based)
+            totalStages: Total number of stages
+            currentMatch: Current match number (1-based)
+            totalMatches: Total number of matches in current stage
+        """
+        self.notify.debug(f"Tournament progress: Stage {currentStage}/{totalStages}, Match {currentMatch}/{totalMatches}")
+        
+        # Update progress display
+        if self.tournamentProgressLabel:
+            progressText = f"Tournament: Match {currentMatch}/{totalMatches}"
+            if totalStages > 1:
+                progressText += f" (Stage {currentStage}/{totalStages})"
+            self.tournamentProgressLabel['text'] = progressText
+    
+    def setTournamentStandings(self, participantIds, matchWins, totalPoints, currentMatchPlayers):
+        """
+        Receive tournament standings update from server.
+        
+        Args:
+            participantIds: List of avatar IDs in tournament
+            matchWins: List of match wins for each participant
+            totalPoints: List of total points for each participant
+            currentMatchPlayers: List of avatar IDs currently playing
+        """
+        # Build standings dict
+        standings = {}
+        for i, avId in enumerate(participantIds):
+            standings[avId] = {
+                'matchWins': matchWins[i],
+                'totalPoints': totalPoints[i],
+                'matchLosses': 0  # Can calculate if needed
+            }
+        
+        # Store tournament participants for scoreboard management
+        self.tournamentParticipants = list(standings.keys())
+        self.tournamentCurrentMatchPlayers = currentMatchPlayers
+        # Store tournament standings for scoreboard updates
+        self.tournamentStandings = standings  # {avId: {'matchWins': int, 'totalPoints': int}}
+        
+        # Update wins when standings are received (when match ends)
+        # But only update wins, not the scoreboard display (to preserve spectating state)
+        if self.tournamentActive and hasattr(self, 'scoreboard') and self.scoreboard:
+            # Update wins for all players currently on scoreboard
+            for avId, row in self.scoreboard.rows.items():
+                if avId in self.tournamentStandings:
+                    tournamentWins = self.tournamentStandings[avId]['matchWins']
+                    row.roundWins = tournamentWins
+                    row.updateRoundWins(tournamentWins)
+    
+    def declareTournamentWinner(self, winnerId):
+        """
+        Receive tournament winner announcement from server.
+        
+        Args:
+            winnerId: Avatar ID of tournament winner
+        """
+        winner = self.cr.getDo(winnerId)
+        winnerName = winner.getName() if winner else "Unknown"
+        
+        self.notify.info(f"Tournament winner: {winnerName} ({winnerId})")
+        
+        # Show big announcement
+        self.__displayOverlayText(f"TOURNAMENT WINNER:\n{winnerName}!", (1, 0.8, 0, 1), scale=0.15)
+        
+        # Hide after a few seconds
+        taskMgr.doMethodLater(5, lambda task: self.__hideOverlayText(), 
+                              self.uniqueName('hide-tournament-winner'))
+    
+    def __showTournamentProgress(self):
+        """Show tournament progress label"""
+        if self.tournamentProgressLabel is None:
+            self.tournamentProgressLabel = DirectLabel(
+                text="Tournament: Match 1/1",
+                text_scale=0.05,
+                text_fg=(1, 1, 1, 1),
+                text_shadow=(0, 0, 0, 1),
+                text_font=ToontownGlobals.getInterfaceFont(),
+                relief=None,
+                pos=(-1.35, 0, 0.92),  # Top left corner
+                parent=aspect2d
+            )
+        self.tournamentProgressLabel.show()
+    
+    def __hideTournamentProgress(self):
+        """Hide tournament progress label"""
+        if self.tournamentProgressLabel:
+            self.tournamentProgressLabel.hide()
+    
+    def __toggleScoreboardView(self):
+        """Toggle between showing only active players or all tournament participants"""
+        if not self.tournamentActive:
+            return
+        
+        self.scoreboardShowAllParticipants = not self.scoreboardShowAllParticipants
+        self.__updateTournamentScoreboard()
+        
+
+    
+    def __updateTournamentScoreboard(self):
+        """Update scoreboard to show appropriate players during tournament"""
+        if not hasattr(self, 'scoreboard') or not self.scoreboard:
+            return
+        
+        # Store current scores and data before clearing (for current match points)
+        savedScores = {}
+        savedData = {}
+        if hasattr(self.scoreboard, 'rows'):
+            for avId, row in self.scoreboard.rows.items():
+                savedScores[avId] = row.points  # Current match points
+                savedData[avId] = {
+                    'damage': row.damage,
+                    'stuns': row.stuns,
+                    'stomps': row.stomps
+                }
+        
+        # Save spectating state before clearing
+        spectatedAvId = self.scoreboard.saveSpectatingState() if hasattr(self.scoreboard, 'saveSpectatingState') else None
+        wasSpectating = spectatedAvId is not None
+        
+        # Clear current scoreboard - preserve spectating if we were spectating
+        self.scoreboard.clearToons(preserveSpectating=wasSpectating)
+        
+        # Determine which players to show and in what order
+        # IMPORTANT: Only show tournament participants
+        # Tournament participants not in current match are spectators, but we can still show them on scoreboard
+        # The scoreboard is just a display - it doesn't affect spectator status
+        if self.scoreboardShowAllParticipants:
+            # Show all tournament participants, active players first
+            # Active = in current match (playing)
+            # Inactive = tournament participant but not in current match (spectating this match)
+            activePlayers = [avId for avId in self.tournamentParticipants 
+                           if avId in self.tournamentCurrentMatchPlayers]
+            inactivePlayers = [avId for avId in self.tournamentParticipants 
+                             if avId not in self.tournamentCurrentMatchPlayers]
+            playersToShow = activePlayers + inactivePlayers  # Active at top, inactive at bottom
+        else:
+            # Show only current match players (who are tournament participants)
+            playersToShow = [avId for avId in self.tournamentCurrentMatchPlayers 
+                           if avId in self.tournamentParticipants]
+        
+        # Add players in order
+        # Only add tournament participants - don't add non-tournament participants (they should remain spectators)
+        for avId in playersToShow:
+            # Only add if they're tournament participants
+            if avId not in self.tournamentParticipants:
+                continue
+                
+            # Add to scoreboard - this is just for display, doesn't affect spectator status
+            self.scoreboard.addToon(avId)
+            row = self.scoreboard.rows.get(avId)
+            if row:
+                # Points: Always show CURRENT MATCH points, not tournament total
+                if avId in savedScores:
+                    # Restore current match points
+                    row.points = savedScores[avId]
+                    row.points_text.setText(str(savedScores[avId]))
+                else:
+                    # No saved score yet (new match), start at 0
+                    row.points = 0
+                    row.points_text.setText("0")
+                
+                # Restore other stats
+                if avId in savedData:
+                    row.damage = savedData[avId]['damage']
+                    row.stuns = savedData[avId]['stuns']
+                    row.stomps = savedData[avId]['stomps']
+                
+                # Wins: Always show TOURNAMENT MATCH WINS (total across all matches)
+                if hasattr(self, 'tournamentStandings') and avId in self.tournamentStandings:
+                    tournamentWins = self.tournamentStandings[avId]['matchWins']
+                    row.roundWins = tournamentWins
+                    row.updateRoundWins(tournamentWins)
+                    row.round_wins_text.show()  # Make sure wins column is visible
+                else:
+                    # If no tournament standings yet, show 0 wins
+                    row.roundWins = 0
+                    row.updateRoundWins(0)
+                    row.round_wins_text.show()
+                
+                # Grey out non-active players
+                if self.scoreboardShowAllParticipants and avId not in self.tournamentCurrentMatchPlayers:
+                    row.frame.setColorScale(0.6, 0.6, 0.6, 0.7)
+                else:
+                    row.frame.setColorScale(1, 1, 1, 1)  # Fully visible
+        
+        # Update scoreboard sorting - sort by current match points (for active players) or tournament wins (for inactive)
+        rows = list(self.scoreboard.rows.values())
+        if rows:
+            def sortKey(row):
+                avId = row.avId
+                isActive = avId in self.tournamentCurrentMatchPlayers
+                
+                if isActive:
+                    # Active players: sort by current match points (descending)
+                    return (-row.points, 0)
+                else:
+                    # Inactive players: sort by tournament wins, then total points (descending)
+                    if hasattr(self, 'tournamentStandings') and avId in self.tournamentStandings:
+                        wins = self.tournamentStandings[avId]['matchWins']
+                        totalPoints = self.tournamentStandings[avId]['totalPoints']
+                        return (1, -wins, -totalPoints)  # 1 to put inactive after active
+                    return (1, 0, 0)
+            
+            rows.sort(key=sortKey)
+            # Update positions
+            for i, r in enumerate(rows):
+                r.place = i
+                r.updatePosition()
+        
+        # Restore spectating state if we were spectating before AND we're still a spectator
+        # This ensures that pressing F2 doesn't break spectating for spectators
+        if wasSpectating and self.localToonSpectating():
+            # First, enable spectating on all the new rows so they can be clicked (but don't auto-spectate first row)
+            self.scoreboard.enableSpectating(autoSpectateFirst=False)
+            # Then restore spectating to the specific player
+            if hasattr(self.scoreboard, 'restoreSpectatingState'):
+                self.scoreboard.restoreSpectatingState(spectatedAvId, autoSpectate=False)
+    
