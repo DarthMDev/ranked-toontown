@@ -225,6 +225,14 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     def __hitBoss(self, entry):
         if (self.state == 'Dropped' or self.state == 'LocalDropped') and self.craneId != self.boss.doId:
             
+            # Safety check: if crane doesn't exist or is not a real crane (e.g., it's the boss), skip this collision
+            # This can happen when helmet is dropped by stun drone with craneId=0 or boss.doId
+            if not hasattr(self, 'crane') or not self.crane:
+                return
+            if not hasattr(self.crane, 'root'):
+                # crane is not a real crane (might be the boss), skip collision
+                return
+            
             #get the velocity of the object, relative to the crane
             speed = max(self.speeds)
             vel = max(self.velocities)

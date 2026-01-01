@@ -143,7 +143,9 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
                 self.request('Stunned')
                 
                 # Set up collision for safe detection (can be destroyed by safes)
-                self.setupSafeCollision()
+                # Skip if drone type doesn't want safe collision (e.g., stun drone when growing)
+                if not hasattr(self, 'skipSafeCollision') or not self.skipSafeCollision:
+                    self.setupSafeCollision()
                 
                 # Set up as disabled goon (collapsed animation)
                 self.loop('collapse')
@@ -426,8 +428,10 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
             self.propeller.cleanup()
             self.propeller.removeNode()
             self.propeller = None
-        if hasattr(self, 'droneCollisionNodePath'):
-            self.droneCollisionNodePath.removeNode()
+        if hasattr(self, 'droneCollisionNodePath') and self.droneCollisionNodePath:
+            if not self.droneCollisionNodePath.isEmpty():
+                self.droneCollisionNodePath.removeNode()
+            self.droneCollisionNodePath = None
         
         # Clean up DistributedGoon tasks and animations
         taskMgr.remove(self.taskName('resumeWalk'))
