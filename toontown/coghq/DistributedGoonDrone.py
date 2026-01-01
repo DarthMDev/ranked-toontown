@@ -6,7 +6,8 @@ from direct.distributed import DistributedObject
 from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import DistributedGoon
-from toontown.coghq import DistributedCrushableEntity, CraneLeagueGlobals
+from toontown.coghq import DistributedCrushableEntity
+from toontown.minigame.craning import CraneLeagueGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
 from panda3d.core import Vec2, Vec3
