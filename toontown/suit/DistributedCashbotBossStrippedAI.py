@@ -1043,7 +1043,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             droneType = self.game.getDroneTypeForToon(toonId)
         
         # Default to laser if no type specified
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         if droneType is None:
             droneType = CraneLeagueGlobals.DroneType.LASER
         

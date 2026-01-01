@@ -1835,7 +1835,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 return
         
         # Get selected drone type for this slot
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         droneType = self.getDroneTypeForToon(avId, slotIndex)
         if droneType is None:
             # Default to laser if no type selected
@@ -1852,7 +1852,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def getDroneTypeForToon(self, avId, slotIndex=0):
         """Get the selected drone type for a toon's slot."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         if avId not in self.selectedDroneTypes:
             # Default: all slots are laser
             return CraneLeagueGlobals.DroneType.LASER
@@ -1863,7 +1863,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
         """Set the selected drone type for a toon's slot."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         if avId not in self.selectedDroneTypes:
             # Initialize with default (Laser, Heal, Explosive)
             self.selectedDroneTypes[avId] = [

@@ -5,7 +5,7 @@ from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedObjectAI
 from toontown.suit import DistributedGoonAI
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneLeagueGlobals
 import math
 
 class DistributedGoonDroneAI(DistributedGoonAI.DistributedGoonAI):

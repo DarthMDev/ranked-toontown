@@ -1321,7 +1321,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __createDroneSelectionUI(self):
         """Create the drone selection UI with 3 slots at the bottom of the screen."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         
         # Initialize selected drone types for local toon (default: Laser, Heal, Explosive)
         localAvId = base.localAvatar.doId
@@ -1454,7 +1454,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __openDroneSelectionDialog(self, slotIndex):
         """Open dialog to select drone type for a slot."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         
         # Clean up existing dialog
         if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
@@ -1552,7 +1552,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __selectDroneType(self, slotIndex, droneType):
         """Select a drone type for a slot. Prevents duplicates by swapping."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         
         localAvId = base.localAvatar.doId
         if localAvId not in self.selectedDroneTypes:
@@ -1605,7 +1605,7 @@ class DistributedCraneGame(DistributedMinigame):
         if hasattr(base.localAvatar, 'droneSetup') and base.localAvatar.droneSetup:
             savedSetup = base.localAvatar.droneSetup
             if len(savedSetup) == 3:
-                from toontown.coghq import CraneLeagueGlobals
+                from toontown.minigame.craning import CraneLeagueGlobals
                 localAvId = base.localAvatar.doId
                 # Convert uint8 values to DroneType enums
                 self.selectedDroneTypes[localAvId] = [
@@ -1674,7 +1674,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __updateDroneSlotUI(self, slotIndex):
         """Update the UI for a specific drone slot."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         
         if slotIndex >= len(self.droneSelectionSlots):
             return
@@ -1700,7 +1700,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
         """Receive drone type update from server."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneLeagueGlobals
         
         droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
         
