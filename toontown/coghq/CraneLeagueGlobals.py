@@ -1619,17 +1619,17 @@ class DroneType(Enum):
     def getName(self):
         """Get the display name for this drone type."""
         if self == DroneType.LASER:
-            return "Laser Drone"
+            return "Pewpew"
         elif self == DroneType.HEAL:
-            return "Heal Drone"
+            return "Nurse"
         elif self == DroneType.EXPLODEY:
-            return "Explodey Drone"
+            return "Xplodey"
         elif self == DroneType.STUN:
-            return "Stun Drone"
+            return "Stunna"
         elif self == DroneType.SHIELD:
-            return "Shield Drone"
+            return "Michael"
         elif self == DroneType.GHOSTY:
-            return "Ghosty Drone"
+            return "Poofy"
         return "Unknown Drone"
 
 

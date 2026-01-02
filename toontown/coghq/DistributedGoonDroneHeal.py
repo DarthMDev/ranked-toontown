@@ -28,6 +28,7 @@ class DistributedGoonDroneHeal(DistributedGoonDroneBase):
         DistributedGoonDroneBase.__init__(self, cr)
         self.healingParticles = None
         self.healingSound = None
+        self.nurseSharkSound = None
         self.healingTask = None
     
     def getDroneType(self):
@@ -186,7 +187,7 @@ class DistributedGoonDroneHeal(DistributedGoonDroneBase):
         self.healingEffectNode.setTransparency(1)
     
     def playHealingSound(self):
-        """Play pixie dust healing sound effect."""
+        """Play pixie dust healing sound effect and Nurse Shark sound effect."""
         try:
             # Load pixie dust sound effect
             self.healingSound = base.loader.loadSfx('phase_5/audio/sfx/AA_heal_pixiedust.ogg')
@@ -203,12 +204,25 @@ class DistributedGoonDroneHeal(DistributedGoonDroneBase):
                     self.healingSound.play()
             except:
                 pass
+        
+        # Play Nurse Shark sound effect
+        try:
+            self.nurseSharkSound = base.loader.loadSfx('phase_4/audio/sfx/Nurse_Shark.ogg')
+            if self.nurseSharkSound:
+                # Play Nurse Shark sound (not looped, just once)
+                self.nurseSharkSound.play()
+        except:
+            pass
     
     def stopHealingParticles(self):
         """Stop the healing particle effect."""
         if self.healingSound:
             self.healingSound.stop()
             self.healingSound = None
+        
+        if self.nurseSharkSound:
+            self.nurseSharkSound.stop()
+            self.nurseSharkSound = None
         
         if self.healingParticles:
             try:
