@@ -1,8 +1,9 @@
 """
 Visual effect for the WINDED status effect.
 
-Creates animated wind with leaf-like particles swirling around the object.
-Features light green, natural-looking leaves fluttering in the wind.
+Creates animated wind with white/greyish wind streams and green leaflets
+spiraling around the object. Features a beautiful swirling effect with
+reduced leaf frequency for better visual clarity.
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
 from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
@@ -18,10 +19,9 @@ class WindedEffectVisual(StatusEffectVisualBase):
     Visual for the WINDED status effect.
     
     Creates a particle effect with:
-    - Leaf-like particles swirling in the wind
-    - Light green color palette (natural leaf tones)
-    - Small leaf wisps floating around
-    - Gentle air turbulence with leaf undertones
+    - White/greyish wind streams swirling around the object
+    - Green leaf particles spiraling in orbital motion
+    - Reduced leaf frequency for cleaner visuals
     - Scaled appropriately to object size
     """
     
@@ -94,66 +94,57 @@ class WindedEffectVisual(StatusEffectVisualBase):
         centerOffset = center.getZ()
         self.particlePos = Point3(0, 0, centerOffset)
         
-        # ===== LAYER 1: WIND STREAMS (Swirling leaf particles) =====
+        # ===== LAYER 1: WIND STREAMS (White/greyish wind particles) =====
         self.windStreams = Particles.Particles('windStreams')
         self.windStreams.setFactory('PointParticleFactory')
         self.windStreams.setRenderer('SpriteParticleRenderer')
         self.windStreams.setEmitter('SphereVolumeEmitter')
         self.particleEffect.addParticles(self.windStreams)
         
-        # ===== LAYER 2: WIND WISPS (Small floating leaf particles) =====
-        self.windWisps = Particles.Particles('windWisps')
-        self.windWisps.setFactory('PointParticleFactory')
-        self.windWisps.setRenderer('SpriteParticleRenderer')
-        self.windWisps.setEmitter('SphereVolumeEmitter')
-        self.particleEffect.addParticles(self.windWisps)
-        
-        # ===== LAYER 3: AIR TURBULENCE (Gentle air with leaf undertones) =====
-        self.airTurbulence = Particles.Particles('airTurbulence')
-        self.airTurbulence.setFactory('PointParticleFactory')
-        self.airTurbulence.setRenderer('SpriteParticleRenderer')
-        self.airTurbulence.setEmitter('SphereVolumeEmitter')
-        self.particleEffect.addParticles(self.airTurbulence)
+        # ===== LAYER 2: GREEN LEAVES (Leaflets spiraling around) =====
+        self.greenLeaves = Particles.Particles('greenLeaves')
+        self.greenLeaves.setFactory('PointParticleFactory')
+        self.greenLeaves.setRenderer('SpriteParticleRenderer')
+        self.greenLeaves.setEmitter('SphereVolumeEmitter')
+        self.particleEffect.addParticles(self.greenLeaves)
         
         # Calculate emitter settings
         if isCFOBoss:
             emitterRadius = max(2.0, avgWidth / 2.0 * 0.8)
             amplitude = 2.0 * baseScale
             spiralForceZ = 3.0 * baseScale  # Upward spiral force
-            turbulenceRiseZ = 1.5 * baseScale
         else:
             # Wider spread for safes to ensure wind circles around them
             emitterRadius = max(0.8, (maxPt.getX() - minPt.getX()) / 2.0) * 1.2
             amplitude = 1.5 * baseScale
             spiralForceZ = 2.5 * baseScale
-            turbulenceRiseZ = 1.0 * baseScale
         
-        # ===== CONFIGURE WIND STREAMS (Swirling leaf particles) =====
+        # ===== CONFIGURE WIND STREAMS (White/greyish wind particles) =====
         if isCFOBoss:
-            streamPoolSize = int(100 * baseScale)
-            streamBirthRate = 0.02
-            streamLitterSize = 4
-            streamLifespan = 0.8 * baseScale
-            streamScale = max(0.15, 0.25 * baseScale)
+            streamPoolSize = int(120 * baseScale)
+            streamBirthRate = 0.015
+            streamLitterSize = 3
+            streamLifespan = 1.0 * baseScale
+            streamScale = max(0.2, 0.3 * baseScale)
         else:
-            streamPoolSize = int(50 * baseScale)
-            streamBirthRate = 0.03
+            streamPoolSize = int(60 * baseScale)
+            streamBirthRate = 0.02
             streamLitterSize = 2
-            streamLifespan = 0.6 * baseScale
-            streamScale = max(0.08, 0.15 * baseScale)
+            streamLifespan = 0.8 * baseScale
+            streamScale = max(0.1, 0.18 * baseScale)
         
         self.windStreams.setPoolSize(streamPoolSize)
         self.windStreams.setBirthRate(streamBirthRate)
         self.windStreams.setLitterSize(streamLitterSize)
-        self.windStreams.setLitterSpread(2)
+        self.windStreams.setLitterSpread(1)
         self.windStreams.factory.setLifespanBase(streamLifespan)
-        self.windStreams.factory.setLifespanSpread(0.3)  # More variation for natural leaf movement
-        self.windStreams.factory.setMassBase(0.4)  # Very light like leaves
-        self.windStreams.factory.setMassSpread(0.2)  # Varied weight for natural flutter
-        self.windStreams.factory.setTerminalVelocityBase(450.0)  # Medium-fast for leaf flutter
-        self.windStreams.factory.setTerminalVelocitySpread(180.0)  # More variation
+        self.windStreams.factory.setLifespanSpread(0.25)
+        self.windStreams.factory.setMassBase(0.3)  # Light like air
+        self.windStreams.factory.setMassSpread(0.15)
+        self.windStreams.factory.setTerminalVelocityBase(500.0)  # Fast wind movement
+        self.windStreams.factory.setTerminalVelocitySpread(150.0)
         
-        # Wind streams renderer - bright greenish-white
+        # Wind streams renderer - white/greyish
         self.windStreams.renderer.setAlphaMode(3)  # PRALPHANONE
         self.windStreams.renderer.setUserAlpha(1.0)
         self.windStreams.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
@@ -161,187 +152,128 @@ class WindedEffectVisual(StatusEffectVisualBase):
         self.windStreams.renderer.setAnimAngleFlag(1)  # Animated for wind
         self.windStreams.renderer.setNonanimatedTheta(0.0)
         
-        # Load texture for wind streams
+        # Load texture for wind streams - use white glow for airy effect
         try:
-            # Try to use spark texture for wind streaks
-            self.windStreams.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/spark")
+            windModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
+            if not windModel.isEmpty():
+                windTemplate = windModel.find('**/tt_t_efx_ext_particleWhiteGlow')
+                if not windTemplate.isEmpty():
+                    self.windStreams.renderer.setFromNode(windTemplate)
         except:
-            try:
-                # Fallback to white glow
-                windModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-                if not windModel.isEmpty():
-                    windTemplate = windModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-                    if not windTemplate.isEmpty():
-                        self.windStreams.renderer.setFromNode(windTemplate)
-            except:
-                pass
+            pass
         
-        # Light green color for leaf-like wind streams
-        # Softer, more natural leaf color
-        self.windStreams.renderer.setColor(Vec4(0.6, 0.95, 0.5, 0.85))  # Light leaf green
-        # Leaf-shaped particles - slightly elongated but not streaks
-        self.windStreams.renderer.setInitialXScale(streamScale * 0.7)  # Wider for leaf shape
-        self.windStreams.renderer.setFinalXScale(streamScale * 0.6)  # Shrink slightly
-        self.windStreams.renderer.setInitialYScale(streamScale * 1.2)  # Slightly elongated leaf
-        self.windStreams.renderer.setFinalYScale(streamScale * 1.0)  # Tumble/shrink
+        # White/greyish color for wind - soft, airy appearance
+        self.windStreams.renderer.setColor(Vec4(0.9, 0.9, 0.95, 0.7))  # Soft white-grey
+        # Wind particles - elongated streaks
+        self.windStreams.renderer.setInitialXScale(streamScale * 0.5)
+        self.windStreams.renderer.setFinalXScale(streamScale * 0.4)  # Fade out
+        self.windStreams.renderer.setInitialYScale(streamScale * 1.5)  # Elongated wind streaks
+        self.windStreams.renderer.setFinalYScale(streamScale * 1.2)
         self.windStreams.renderer.setXScaleFlag(True)
         self.windStreams.renderer.setYScaleFlag(True)
         self.windStreams.renderer.setIgnoreScale(False)
         
-        # Wind streams emitter - circular emission for spiral effect
-        self.windStreams.emitter.setEmissionType(1)  # ETRADIATE
+        # Wind streams emitter - radial emission for orbital motion
+        self.windStreams.emitter.setEmissionType(1)  # ETRADIATE - radial emission creates initial orbital velocity
         self.windStreams.emitter.setRadius(emitterRadius)
-        self.windStreams.emitter.setAmplitude(amplitude * 1.2)  # Strong radial velocity for spiral
-        self.windStreams.emitter.setAmplitudeSpread(0.6)
-        # Wind spirals upward
-        self.windStreams.emitter.setOffsetForce(Vec3(0.0, 0.0, spiralForceZ))
+        self.windStreams.emitter.setAmplitude(amplitude * 1.5)  # Strong radial velocity for visible orbit
+        self.windStreams.emitter.setAmplitudeSpread(0.4)  # Less spread for more consistent orbits
+        # Set radiate origin to center (relative to particle effect position)
+        self.windStreams.emitter.setRadiateOrigin(Point3(0, 0, 0))
+        # Minimal vertical offset - let forces handle the spiral
+        self.windStreams.emitter.setOffsetForce(Vec3(0.0, 0.0, spiralForceZ * 0.2))
         
-        # ===== CONFIGURE WIND WISPS (Small floating leaf particles) =====
+        # ===== CONFIGURE GREEN LEAVES (Leaflets spiraling around) =====
         if isCFOBoss:
-            wispPoolSize = int(80 * baseScale)
-            wispBirthRate = 0.03
-            wispLitterSize = 3
-            wispLifespan = 1.0 * baseScale
-            wispScale = max(0.2, 0.35 * baseScale)
+            leafPoolSize = int(40 * baseScale)
+            leafBirthRate = 0.08  # Reduced frequency - leaves spawn less often
+            leafLitterSize = 1
+            leafLifespan = 2.0 * baseScale  # Longer lifespan for visible spiral
+            leafScale = max(0.15, 0.25 * baseScale)
         else:
-            wispPoolSize = int(40 * baseScale)
-            wispBirthRate = 0.045
-            wispLitterSize = 2
-            wispLifespan = 0.8 * baseScale
-            wispScale = max(0.12, 0.25 * baseScale)
+            leafPoolSize = int(20 * baseScale)
+            leafBirthRate = 0.12  # Reduced frequency - much less frequent than before
+            leafLitterSize = 1
+            leafLifespan = 1.5 * baseScale
+            leafScale = max(0.1, 0.18 * baseScale)
         
-        self.windWisps.setPoolSize(wispPoolSize)
-        self.windWisps.setBirthRate(wispBirthRate)
-        self.windWisps.setLitterSize(wispLitterSize)
-        self.windWisps.setLitterSpread(1)
-        self.windWisps.factory.setLifespanBase(wispLifespan)
-        self.windWisps.factory.setLifespanSpread(0.4)  # More variation for natural floating
-        self.windWisps.factory.setMassBase(0.25)  # Very light like small leaves
-        self.windWisps.factory.setMassSpread(0.15)  # Varied weight
-        self.windWisps.factory.setTerminalVelocityBase(320.0)  # Gentle floating
-        self.windWisps.factory.setTerminalVelocitySpread(140.0)  # More variation for flutter
+        self.greenLeaves.setPoolSize(leafPoolSize)
+        self.greenLeaves.setBirthRate(leafBirthRate)
+        self.greenLeaves.setLitterSize(leafLitterSize)
+        self.greenLeaves.setLitterSpread(0)
+        self.greenLeaves.factory.setLifespanBase(leafLifespan)
+        self.greenLeaves.factory.setLifespanSpread(0.3)
+        self.greenLeaves.factory.setMassBase(0.2)  # Very light like leaves
+        self.greenLeaves.factory.setMassSpread(0.1)
+        self.greenLeaves.factory.setTerminalVelocityBase(300.0)  # Moderate speed for visible spiral
+        self.greenLeaves.factory.setTerminalVelocitySpread(100.0)
         
-        # Wind wisps renderer - lighter green-white
-        self.windWisps.renderer.setAlphaMode(3)  # PRALPHANONE
-        self.windWisps.renderer.setUserAlpha(1.0)
-        self.windWisps.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
-        self.windWisps.renderer.setAlphaDisable(0)
-        self.windWisps.renderer.setAnimAngleFlag(1)
-        self.windWisps.renderer.setNonanimatedTheta(0.0)
+        # Green leaves renderer - vibrant green
+        self.greenLeaves.renderer.setAlphaMode(3)  # PRALPHANONE
+        self.greenLeaves.renderer.setUserAlpha(1.0)
+        self.greenLeaves.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
+        self.greenLeaves.renderer.setAlphaDisable(0)
+        self.greenLeaves.renderer.setAnimAngleFlag(1)  # Animated for tumbling
+        self.greenLeaves.renderer.setNonanimatedTheta(0.0)
         
-        # Load texture for wisps
+        # Load texture for leaves - try spark or white glow
         try:
-            # Use white glow for soft wisps
-            wispModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            if not wispModel.isEmpty():
-                wispTemplate = wispModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-                if not wispTemplate.isEmpty():
-                    self.windWisps.renderer.setFromNode(wispTemplate)
+            # Try spark texture for leaf-like appearance
+            self.greenLeaves.renderer.setTextureFromNode("phase_3.5/models/props/suit-particles", "**/spark")
         except:
-            pass
+            try:
+                # Fallback to white glow
+                leafModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
+                if not leafModel.isEmpty():
+                    leafTemplate = leafModel.find('**/tt_t_efx_ext_particleWhiteGlow')
+                    if not leafTemplate.isEmpty():
+                        self.greenLeaves.renderer.setFromNode(leafTemplate)
+            except:
+                pass
         
-        # Softer, lighter leaf green for wisps
-        self.windWisps.renderer.setColor(Vec4(0.7, 1.0, 0.65, 0.65))  # Light leaf green, more transparent
-        # Smaller leaf particles
-        self.windWisps.renderer.setInitialXScale(wispScale * 0.9)
-        self.windWisps.renderer.setFinalXScale(wispScale * 1.0)  # Slight grow while floating
-        self.windWisps.renderer.setInitialYScale(wispScale * 1.1)  # Slightly oval like small leaves
-        self.windWisps.renderer.setFinalYScale(wispScale * 1.15)
-        self.windWisps.renderer.setXScaleFlag(True)
-        self.windWisps.renderer.setYScaleFlag(True)
-        self.windWisps.renderer.setIgnoreScale(False)
+        # Vibrant green color for leaves
+        self.greenLeaves.renderer.setColor(Vec4(0.3, 0.85, 0.4, 0.9))  # Bright green
+        # Leaf-shaped particles - wider than tall
+        self.greenLeaves.renderer.setInitialXScale(leafScale * 1.2)  # Wider for leaf shape
+        self.greenLeaves.renderer.setFinalXScale(leafScale * 1.0)  # Slight shrink
+        self.greenLeaves.renderer.setInitialYScale(leafScale * 0.8)  # Slightly shorter
+        self.greenLeaves.renderer.setFinalYScale(leafScale * 0.7)  # Tumble/shrink
+        self.greenLeaves.renderer.setXScaleFlag(True)
+        self.greenLeaves.renderer.setYScaleFlag(True)
+        self.greenLeaves.renderer.setIgnoreScale(False)
         
-        # Wisps emitter - wider spread
-        self.windWisps.emitter.setEmissionType(1)  # ETRADIATE
-        self.windWisps.emitter.setRadius(emitterRadius * 1.1)
-        self.windWisps.emitter.setAmplitude(amplitude * 0.8)
-        self.windWisps.emitter.setAmplitudeSpread(0.9)  # More random
-        # Wisps drift upward gently
-        self.windWisps.emitter.setOffsetForce(Vec3(0.0, 0.0, spiralForceZ * 0.6))
-        
-        # ===== CONFIGURE AIR TURBULENCE (Gentle air puffs with leaf tint) =====
-        if isCFOBoss:
-            turbulencePoolSize = int(60 * baseScale)
-            turbulenceBirthRate = 0.06
-            turbulenceLitterSize = 2
-            turbulenceLifespan = 1.5 * baseScale
-            turbulenceScale = max(0.35, 0.55 * baseScale)
-        else:
-            turbulencePoolSize = int(30 * baseScale)
-            turbulenceBirthRate = 0.08
-            turbulenceLitterSize = 1
-            turbulenceLifespan = 1.2 * baseScale
-            turbulenceScale = max(0.25, 0.4 * baseScale)
-        
-        self.airTurbulence.setPoolSize(turbulencePoolSize)
-        self.airTurbulence.setBirthRate(turbulenceBirthRate)
-        self.airTurbulence.setLitterSize(turbulenceLitterSize)
-        self.airTurbulence.setLitterSpread(1)
-        self.airTurbulence.factory.setLifespanBase(turbulenceLifespan)
-        self.airTurbulence.factory.setLifespanSpread(0.5)
-        self.airTurbulence.factory.setMassBase(0.25)  # Very light
-        self.airTurbulence.factory.setMassSpread(0.1)
-        self.airTurbulence.factory.setTerminalVelocityBase(200.0)  # Slow drift
-        self.airTurbulence.factory.setTerminalVelocitySpread(60.0)
-        
-        # Turbulence renderer - very soft white with hint of green
-        self.airTurbulence.renderer.setAlphaMode(3)  # PRALPHANONE
-        self.airTurbulence.renderer.setUserAlpha(1.0)
-        self.airTurbulence.renderer.setAlphaBlendMethod(0)  # PPBLENDLINEAR
-        self.airTurbulence.renderer.setAlphaDisable(0)
-        self.airTurbulence.renderer.setAnimAngleFlag(1)
-        self.airTurbulence.renderer.setNonanimatedTheta(0.0)
-        
-        # Load texture for turbulence
-        try:
-            turbulenceModel = loader.loadModel('phase_4/models/props/tt_m_efx_ext_particleCards')
-            if not turbulenceModel.isEmpty():
-                turbulenceTemplate = turbulenceModel.find('**/tt_t_efx_ext_particleWhiteGlow')
-                if not turbulenceTemplate.isEmpty():
-                    self.airTurbulence.renderer.setFromNode(turbulenceTemplate)
-        except:
-            pass
-        
-        # Very soft light green - gentle leaf undertone
-        self.airTurbulence.renderer.setColor(Vec4(0.85, 1.0, 0.8, 0.45))  # Pale leaf green, very transparent
-        # Turbulence puffs grow as they dissipate
-        self.airTurbulence.renderer.setInitialXScale(turbulenceScale * 0.6)
-        self.airTurbulence.renderer.setFinalXScale(turbulenceScale * 2.0)  # Expand significantly
-        self.airTurbulence.renderer.setInitialYScale(turbulenceScale * 0.6)
-        self.airTurbulence.renderer.setFinalYScale(turbulenceScale * 2.0)
-        self.airTurbulence.renderer.setXScaleFlag(True)
-        self.airTurbulence.renderer.setYScaleFlag(True)
-        self.airTurbulence.renderer.setIgnoreScale(False)
-        
-        # Turbulence emitter - around the object
-        self.airTurbulence.emitter.setEmissionType(1)  # ETRADIATE
-        self.airTurbulence.emitter.setRadius(emitterRadius * 0.9)
-        self.airTurbulence.emitter.setAmplitude(amplitude * 0.4)  # Gentle
-        self.airTurbulence.emitter.setAmplitudeSpread(1.0)  # Very random
-        # Turbulence drifts slowly
-        self.airTurbulence.emitter.setOffsetForce(Vec3(0.0, 0.0, turbulenceRiseZ))
+        # Green leaves emitter - radial emission for orbital motion
+        self.greenLeaves.emitter.setEmissionType(1)  # ETRADIATE - radial emission creates initial orbital velocity
+        self.greenLeaves.emitter.setRadius(emitterRadius * 1.2)  # Slightly wider spread
+        self.greenLeaves.emitter.setAmplitude(amplitude * 1.2)  # Good radial velocity for visible orbit
+        self.greenLeaves.emitter.setAmplitudeSpread(0.3)  # Less spread for more consistent orbits
+        # Set radiate origin to center (relative to particle effect position)
+        self.greenLeaves.emitter.setRadiateOrigin(Point3(0, 0, 0))
+        # Minimal vertical offset - let forces handle the spiral
+        self.greenLeaves.emitter.setOffsetForce(Vec3(0.0, 0.0, spiralForceZ * 0.1))
         
         # ===== ADD FORCES FOR ALL LAYERS =====
-        # Strong spiral force for wind streams (creates circular motion)
-        spiralForceGroup = ForceGroup.ForceGroup('windSpiral')
-        spiralUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, spiralForceZ * 1.5), 1.0, 0)
-        spiralUpwardForce.setActive(True)
-        spiralForceGroup.addForce(spiralUpwardForce)
-        self.particleEffect.addForceGroup(spiralForceGroup)
+        # Spiral force for wind streams - use radial emission + gentle upward force
+        # The emitter's ETRADIATE type gives particles radial velocity, creating circular motion
+        # Combined with upward force, this creates a natural spiral around the object
+        windForceGroup = ForceGroup.ForceGroup('windSpiral')
         
-        # Gentle upward drift for wisps
-        wispForceGroup = ForceGroup.ForceGroup('windWispDrift')
-        wispUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, spiralForceZ * 0.7), 0.6, 0)
-        wispUpwardForce.setActive(True)
-        wispForceGroup.addForce(wispUpwardForce)
-        self.particleEffect.addForceGroup(wispForceGroup)
+        # Upward component for spiral ascent - gentle to let radial motion dominate
+        windUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, spiralForceZ * 0.6), 0.7, 0)
+        windUpwardForce.setActive(True)
+        windForceGroup.addForce(windUpwardForce)
         
-        # Very gentle drift for turbulence
-        turbulenceForceGroup = ForceGroup.ForceGroup('airTurbulenceDrift')
-        turbulenceUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, turbulenceRiseZ * 0.5), 0.3, 0)
-        turbulenceUpwardForce.setActive(True)
-        turbulenceForceGroup.addForce(turbulenceUpwardForce)
-        self.particleEffect.addForceGroup(turbulenceForceGroup)
+        self.particleEffect.addForceGroup(windForceGroup)
+        
+        # Spiral force for green leaves - radial emission + upward force creates beautiful spiral
+        leafSpiralForceGroup = ForceGroup.ForceGroup('leafSpiral')
+        
+        # Upward component for spiral ascent - gentle to let radial motion dominate
+        leafUpwardForce = LinearVectorForce(Vec3(0.0, 0.0, spiralForceZ * 0.3), 0.4, 0)
+        leafUpwardForce.setActive(True)
+        leafSpiralForceGroup.addForce(leafUpwardForce)
+        
+        self.particleEffect.addForceGroup(leafSpiralForceGroup)
         
         # Store particles reference for cleanup
         self.particles = self.windStreams  # Keep for compatibility with existing code
@@ -487,7 +419,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         
         # Stop spawning new particles but let existing ones fade out
         # Set birth rate to very high value to effectively stop spawning
-        for particleLayer in ['windStreams', 'windWisps', 'airTurbulence', 'particles']:
+        for particleLayer in ['windStreams', 'greenLeaves', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -512,7 +444,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         maxLifespan = 1.0  # Maximum expected particle lifespan
         
         # Check all wind particle layers
-        for particleLayer in ['windStreams', 'windWisps', 'airTurbulence', 'particles']:
+        for particleLayer in ['windStreams', 'greenLeaves', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -547,7 +479,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
             self.particleEffect = None
         
         # Clean up all particle layer references
-        for particleLayer in ['windStreams', 'windWisps', 'airTurbulence', 'particles']:
+        for particleLayer in ['windStreams', 'greenLeaves', 'particles']:
             if hasattr(self, particleLayer):
                 setattr(self, particleLayer, None)
         
@@ -672,7 +604,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         self._restoreSafeColor()
         
         # Stop all wind particle layers from spawning
-        for particleLayer in ['windStreams', 'windWisps', 'airTurbulence', 'particles']:
+        for particleLayer in ['windStreams', 'greenLeaves', 'particles']:
             if hasattr(self, particleLayer):
                 particles = getattr(self, particleLayer)
                 if particles:
@@ -729,43 +661,32 @@ class WindedEffectVisual(StatusEffectVisualBase):
         # Update wind streams
         if hasattr(self, 'windStreams') and self.windStreams:
             try:
-                baseStreamBirthRate = 0.03
+                baseStreamBirthRate = 0.02
                 self.windStreams.setBirthRate(baseStreamBirthRate * intensityMultiplier)
                 if stackCount >= 2:
-                    # Brighter, more intense leaf green for more stacks
-                    self.windStreams.renderer.setColor(Vec4(0.55, 1.0, 0.45, 0.95))  # Brighter light leaf green
+                    # Brighter white-grey for more stacks
+                    self.windStreams.renderer.setColor(Vec4(1.0, 1.0, 1.0, 0.85))  # Brighter white
             except:
                 pass
         
-        # Update wind wisps
-        if hasattr(self, 'windWisps') and self.windWisps:
+        # Update green leaves
+        if hasattr(self, 'greenLeaves') and self.greenLeaves:
             try:
-                baseWispBirthRate = 0.045
-                self.windWisps.setBirthRate(baseWispBirthRate * intensityMultiplier)
+                baseLeafBirthRate = 0.12
+                self.greenLeaves.setBirthRate(baseLeafBirthRate * intensityMultiplier)
                 if stackCount >= 2:
-                    # More visible leaf wisps for more stacks
-                    self.windWisps.renderer.setColor(Vec4(0.65, 1.0, 0.6, 0.75))  # Slightly more opaque leaf green
-            except:
-                pass
-        
-        # Update air turbulence
-        if hasattr(self, 'airTurbulence') and self.airTurbulence:
-            try:
-                baseTurbulenceBirthRate = 0.08
-                self.airTurbulence.setBirthRate(baseTurbulenceBirthRate * intensityMultiplier)
-                if stackCount >= 2:
-                    # More visible turbulence with light leaf tint for more stacks
-                    self.airTurbulence.renderer.setColor(Vec4(0.8, 1.0, 0.75, 0.55))  # Slightly more visible leaf tint
+                    # More vibrant green for more stacks
+                    self.greenLeaves.renderer.setColor(Vec4(0.25, 0.9, 0.35, 0.95))  # Brighter green
             except:
                 pass
         
         # Legacy support for self.particles (which points to windStreams)
         if hasattr(self, 'particles') and self.particles:
             try:
-                baseBirthRate = 0.03
+                baseBirthRate = 0.02
                 self.particles.setBirthRate(baseBirthRate * intensityMultiplier)
                 if stackCount >= 2:
-                    self.particles.renderer.setColor(Vec4(0.55, 1.0, 0.45, 0.95))  # Brighter light leaf green
+                    self.particles.renderer.setColor(Vec4(1.0, 1.0, 1.0, 0.85))  # Brighter white
             except:
                 pass
 
