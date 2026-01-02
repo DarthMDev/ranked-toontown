@@ -408,6 +408,24 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
                     owner._shieldIframeTrack.finish()
                 owner._shieldIframeTrack = silentIframeTrack
         
+        # Clear any lingering i-frame state when shield breaks/expires (important for natural expiration)
+        if not grantIframes:
+            # Natural expiration or safe hit - clear any lingering i-frame state
+            if owner:
+                # Clear isStunned if it was set
+                if hasattr(owner, 'isStunned') and owner.isStunned:
+                    owner.isStunned = 0
+                    if owner == base.localAvatar:
+                        messenger.send('toonStunned-' + str(owner.doId), [0])
+                
+                # Clean up any lingering i-frame track
+                if hasattr(owner, '_shieldIframeTrack') and owner._shieldIframeTrack:
+                    try:
+                        owner._shieldIframeTrack.finish()
+                    except:
+                        pass
+                    owner._shieldIframeTrack = None
+        
         # Create shield break visual effect (only if shield still exists)
         if self.shieldBubble and not self.shieldBubble.isEmpty():
             self.createShieldBreakEffect(grantIframes)
@@ -427,24 +445,9 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         if not owner:
             return
         
-        # Different effect based on whether i-frames are granted
-        if grantIframes:
-            # Enemy hit - crack then shatter
-            self.createCrackEffect()
-        else:
-            # Safe hit - violent explosion shatter
-            self.createExplosionShatterEffect()
-        
-        # Play break sound (handled in createExplosionShatterEffect for safe hits)
-        # Only play sound here for enemy hits
-        if grantIframes:
-            try:
-                # Enemy hit - use breaking apart sound
-                breakSound = base.loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
-                if breakSound:
-                    breakSound.play()
-            except:
-                pass
+        # Use shattering effect for both enemy hits and safe hits
+        # Enemy hits grant i-frames, safe hits don't
+        self.createExplosionShatterEffect()
     
     def createCrackEffect(self):
         """Create crack lines on shield before shattering."""
@@ -618,13 +621,32 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         if owner and hasattr(owner, '_shieldActive'):
             owner._shieldActive = False
         
-        # Fade out shield
+        # Clear any lingering i-frame state (shouldn't exist on natural expiration, but clean up just in case)
+        if owner:
+            # Clear isStunned if it was set
+            if hasattr(owner, 'isStunned') and owner.isStunned:
+                owner.isStunned = 0
+                if owner == base.localAvatar:
+                    messenger.send('toonStunned-' + str(owner.doId), [0])
+            
+            # Clean up any lingering i-frame track
+            if hasattr(owner, '_shieldIframeTrack') and owner._shieldIframeTrack:
+                try:
+                    owner._shieldIframeTrack.finish()
+                except:
+                    pass
+                owner._shieldIframeTrack = None
+        
+        # Fade out shield smoothly (no shattering effect on natural expiration)
         if self.shieldBubble and not self.shieldBubble.isEmpty():
             fadeSequence = Sequence(
                 LerpColorScaleInterval(self.shieldBubble, 1.0, (1.0, 1.0, 1.0, 0.0)),
                 Func(self.removeShieldBubble)
             )
             fadeSequence.start()
+        else:
+            # Shield already removed, just clean up
+            self.removeShieldBubble()
         
         # Drone should already be vanished after 1 second of activation
         # Shield cleanup is handled by removeShieldBubble above
@@ -636,6 +658,22 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         """Remove the shield bubble and cleanup."""
         # Get owner first
         owner = base.cr.doId2do.get(self.ownerId) if hasattr(self, 'ownerId') else None
+        
+        # Clear any lingering i-frame state (important for natural expiration)
+        if owner:
+            # Clear isStunned if it was set (shouldn't be set on natural expiration, but clean up just in case)
+            if hasattr(owner, 'isStunned') and owner.isStunned:
+                owner.isStunned = 0
+                if owner == base.localAvatar:
+                    messenger.send('toonStunned-' + str(owner.doId), [0])
+            
+            # Clean up any lingering i-frame track
+            if hasattr(owner, '_shieldIframeTrack') and owner._shieldIframeTrack:
+                try:
+                    owner._shieldIframeTrack.finish()
+                except:
+                    pass
+                owner._shieldIframeTrack = None
         
         if self.pulseTask:
             taskMgr.remove(self.pulseTask)

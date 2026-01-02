@@ -19,6 +19,7 @@ from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
 from toontown.coghq.DistributedGoonDroneExplodey import DistributedGoonDroneExplodey
 from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
 from toontown.coghq.DistributedGoonDroneShield import DistributedGoonDroneShield
+from toontown.coghq.DistributedGoonDroneGhosty import DistributedGoonDroneGhosty
 
 # For backwards compatibility, map the old class name to Laser drone
 # (since Laser was the default/original type)

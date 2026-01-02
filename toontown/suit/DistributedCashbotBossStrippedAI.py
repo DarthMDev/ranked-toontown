@@ -1099,6 +1099,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         elif droneType == CraneLeagueGlobals.DroneType.SHIELD:
             from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
             drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.GHOSTY:
+            from toontown.coghq.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
+            drone = DistributedGoonDroneGhostyAI(self.air, self, toonId)
         else:
             self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
             from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
