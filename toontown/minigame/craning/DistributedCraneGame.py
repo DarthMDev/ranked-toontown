@@ -1439,14 +1439,16 @@ class DistributedCraneGame(DistributedMinigame):
             slotKey = slotKeys[i]
             self.droneSlotKeybinds.append(slotKey)
             
-            # Create slot frame
-            slotFrame = DirectFrame(
+            # Create slot button (was a frame before but redundant)
+            slotButton = DirectButton(
                 relief=DGG.RAISED,
                 frameSize=(-0.12, 0.12, -0.08, 0.08),
                 frameColor=(0.2, 0.2, 0.2, 0.8),
                 borderWidth=(0.01, 0.01),
                 parent=self.droneSelectionFrame,
-                pos=(-0.25 + i * slotSpacing, 0, 0)
+                pos=(-0.25 + i * slotSpacing, 0, 0),
+                command = self.__handleDroneSlotClick,
+                extraArgs = [i]
             )
             
             # Keybind label (top right)
@@ -1456,18 +1458,18 @@ class DistributedCraneGame(DistributedMinigame):
                 scale=0.04,
                 fg=(1, 1, 1, 0.7),
                 align=TextNode.ARight,
-                parent=slotFrame,
+                parent=slotButton,
                 mayChange=True  # Allow changes if keybind updates
             )
             
             # Drone icon/name (center)
             droneName = OnscreenText(
                 text=slotType.getName(),
-                pos=(0, -0.02),
+                pos=(0, -0.01),
                 scale=0.03,
                 fg=slotType.getHatColor(),
                 align=TextNode.ACenter,
-                parent=slotFrame,
+                parent=slotButton,
                 mayChange=True
             )
             
@@ -1478,21 +1480,11 @@ class DistributedCraneGame(DistributedMinigame):
                 scale=0.025,
                 fg=(0.3, 1.0, 0.3, 1),
                 align=TextNode.ACenter,
-                parent=slotFrame,
+                parent=slotButton,
                 mayChange=True
             )
             
-            # Clickable button overlay - behavior depends on game state
-            slotButton = DirectButton(
-                parent=slotFrame,
-                relief=None,
-                frameSize=(-0.12, 0.12, -0.08, 0.08),
-                command=self.__handleDroneSlotClick,
-                extraArgs=[i]
-            )
-            
             slotData = {
-                'frame': slotFrame,
                 'keybindText': keybindText,
                 'droneName': droneName,
                 'cooldownText': cooldownText,
