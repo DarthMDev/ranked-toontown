@@ -1057,6 +1057,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         if self.isSpectating(toon.getDoId()):
             return
+        
+        # Check if toon has active shield
+        if hasattr(self, 'activeShields') and toon.getDoId() in self.activeShields:
+            shield = self.activeShields[toon.getDoId()]
+            if shield.isShieldActive():
+                # Shield absorbs the hit, grant i-frames
+                shield.breakShield(grantIframes=True)
+                return  # No damage applied
 
         toon.takeDamage(deduction)
 

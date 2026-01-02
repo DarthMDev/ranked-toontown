@@ -163,6 +163,15 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
             self.sendUpdate('destroyedGoon', [])
             # Clean up the set after a delay to prevent memory leaks
             taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoons.discard(gId), self.uniqueName('cleanupDestroyedGoon'))
+    
+    def doHitShield(self, shieldDrone, shieldOwnerId):
+        """Called when this safe hits an opponent's shield."""
+        # Break the shield without granting i-frames (safe hit counterplay)
+        if shieldDrone and hasattr(shieldDrone, 'breakShield'):
+            # Send to AI to break the shield with grantIframes=False (safe hit, no i-frames)
+            # breakShield has clsend flag, so it will notify the AI
+            shieldDrone.sendUpdate('breakShield', [0])  # 0 = no i-frames
+            self.notify.debug(f'Safe {self.doId} broke shield of toon {shieldOwnerId}')
 
     def resetToInitialPosition(self):
         posHpr = CraneLeagueGlobals.SAFE_POSHPR[self.index]

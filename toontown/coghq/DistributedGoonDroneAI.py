@@ -41,6 +41,9 @@ def create_drone_ai(air, boss, ownerId, droneType=None):
     elif droneType == CraneLeagueGlobals.DroneType.STUN:
         from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
         return DistributedGoonDroneStunAI(air, boss, ownerId)
+    elif droneType == CraneLeagueGlobals.DroneType.SHIELD:
+        from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
+        return DistributedGoonDroneShieldAI(air, boss, ownerId)
     else:
         # Default to laser for unknown types
         from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI

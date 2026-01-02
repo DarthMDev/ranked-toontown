@@ -28,6 +28,11 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
         self.laserShots = []
         self.hitToons = set()  # Track toons hit to prevent multiple hits bypassing iframes
         self.flyTask = None
+        # Load laser sound effect
+        try:
+            self.laserPewSfx = base.loader.loadSfx('phase_10/audio/sfx/laser_drone_pew.ogg')
+        except:
+            self.laserPewSfx = None
     
     def getDroneType(self):
         return CraneLeagueGlobals.DroneType.LASER
@@ -236,6 +241,10 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
         
         targetPos = target.getPos(render)
         
+        # Play laser sound effect
+        if self.laserPewSfx:
+            self.laserPewSfx.play()
+        
         # Create laser visual effect
         self.createLaserEffect(eyePos, targetPos, target)
         
@@ -387,6 +396,14 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
         # Mark this toon as checked immediately
         self.hitToons.add(toon.doId)
         
+        # Check if toon has active shield BEFORE any effects
+        hasShield = self._checkToonHasShield(toon.doId)
+        if hasShield:
+            # Shield will absorb the hit - skip all effects but still send damage request
+            # The AI will handle breaking the shield
+            self.sendUpdate('requestLaserHit', [toon.doId])
+            return  # Shield protects from visual effects and crane knockoff
+        
         # Check iframes
         if toon.isStunned:
             return
@@ -403,6 +420,18 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
         # Knock toon off crane if they're on one
         if toon == base.localAvatar:
             messenger.send('exitCrane')
+    
+    def _checkToonHasShield(self, toonId):
+        """Check if a toon has an active shield drone."""
+        from toontown.coghq import CraneLeagueGlobals
+        # Check all drones in the scene to see if any are shield drones for this toon
+        for obj in base.cr.doId2do.values():
+            if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
+                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                    if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
+                        if hasattr(obj, 'shieldActive') and obj.shieldActive:
+                            return True
+        return False
     
     def disable(self):
         """Clean up laser-specific resources."""

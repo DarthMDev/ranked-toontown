@@ -203,6 +203,7 @@ from toontown.coghq import DistributedGoonDroneLaser/AI
 from toontown.coghq import DistributedGoonDroneHeal/AI
 from toontown.coghq import DistributedGoonDroneExplodey/AI
 from toontown.coghq import DistributedGoonDroneStun/AI
+from toontown.coghq import DistributedGoonDroneShield/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -3144,6 +3145,10 @@ dclass DistributedGoonDroneExplodey : DistributedGoonDrone {
 };
 
 dclass DistributedGoonDroneStun : DistributedGoonDrone {
+};
+
+dclass DistributedGoonDroneShield : DistributedGoonDrone {
+  breakShield(uint8) broadcast clsend airecv;
 };
 
 dclass DistributedGridGoon : DistributedGoon {

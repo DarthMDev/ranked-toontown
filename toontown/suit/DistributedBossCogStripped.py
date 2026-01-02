@@ -448,6 +448,31 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
             pass
         elif (self.attackCode in ToontownGlobals.BossCogDizzyStates):
             return
+        
+        # Check if local toon has active shield BEFORE triggering animations
+        hasShield = self._checkToonHasShield(localAvatar.doId)
+        if hasShield:
+            # Shield will absorb the hit - skip animations but still send zapToon for damage calculation
+            # The shield will break and grant i-frames without visual effects
+            pos = localAvatar.getPos()
+            hpr = localAvatar.getHpr()
+            bossRelativePos = localAvatar.getPos(self.getGeomNode())
+            bp2d = Vec2(bossRelativePos[0], bossRelativePos[1])
+            bp2d.normalize()
+            timestamp = globalClockDelta.getFrameNetworkTime()
+            self.sendUpdate('zapToon', [pos[0],
+                                        pos[1],
+                                        pos[2],
+                                        hpr[0] % 360.0,
+                                        hpr[1],
+                                        hpr[2],
+                                        bp2d[0],
+                                        bp2d[1],
+                                        attackCode,
+                                        timestamp])
+            # Don't call stunToon() or doZapToon() - shield will handle i-frames
+            return
+        
         messenger.send('interrupt-pie')
         toon = localAvatar
         fling = 1
@@ -480,10 +505,29 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
         toon.stunToon()
         self.doZapToon(toon, fling=fling, shake=shake)
         return
+    
+    def _checkToonHasShield(self, toonId):
+        """Check if a toon has an active shield drone."""
+        from toontown.coghq import CraneLeagueGlobals
+        # Check all drones in the scene to see if any are shield drones for this toon
+        for obj in base.cr.doId2do.values():
+            if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
+                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                    if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
+                        if hasattr(obj, 'shieldActive') and obj.shieldActive:
+                            return True
+        return False
 
     def showZapToon(self, toonId, x, y, z, h, p, r, attackCode, timestamp):
         if toonId == localAvatar.doId:
             return
+        
+        # Check if toon has active shield BEFORE triggering animations
+        hasShield = self._checkToonHasShield(toonId)
+        if hasShield:
+            # Shield will absorb the hit - don't show zap animation
+            return
+        
         ts = globalClockDelta.localElapsedTime(timestamp)
         pos = Point3(x, y, z)
         hpr = VBase3(h, p, r)

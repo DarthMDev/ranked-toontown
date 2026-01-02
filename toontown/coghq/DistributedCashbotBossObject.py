@@ -172,6 +172,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.accept(self.collideName + '-goon', self.__hitGoon)
             self.acceptOnce(self.collideName + '-headTarget', self.__hitBoss)
             self.accept(self.collideName + '-dropPlane', self.__hitDropPlane)
+            self.accept(self.collideName + '-shield', self.__hitShield)
 
     def deactivatePhysics(self):
         if self.physicsActivated:
@@ -213,6 +214,34 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     def doHitGoon(self, goon):
         # Override in a derived class to do something if the object is
         # dropped on a goon.
+        pass
+    
+    def __hitShield(self, entry):
+        """Called when safe hits a shield."""
+        if self.state in ('Dropped', 'LocalDropped', 'Falling'):
+            # Get the shield owner ID from the collision node tag
+            shieldNodePath = entry.getIntoNodePath()
+            if shieldNodePath and not shieldNodePath.isEmpty():
+                shieldOwnerIdStr = shieldNodePath.getNetTag('shieldOwnerId')
+                droneIdStr = shieldNodePath.getNetTag('droneId')
+                
+                if shieldOwnerIdStr and droneIdStr:
+                    try:
+                        shieldOwnerId = int(shieldOwnerIdStr)
+                        droneId = int(droneIdStr)
+                        
+                        # Get the shield drone
+                        shieldDrone = self.cr.doId2do.get(droneId)
+                        if shieldDrone and hasattr(shieldDrone, 'shieldActive') and shieldDrone.shieldActive:
+                            # Only break shield if it's not our own shield
+                            if shieldOwnerId != self.avId:
+                                # Break the shield without granting i-frames (safe hit)
+                                self.doHitShield(shieldDrone, shieldOwnerId)
+                    except (ValueError, TypeError):
+                        pass
+    
+    def doHitShield(self, shieldDrone, shieldOwnerId):
+        """Override in a derived class to handle shield hits."""
         pass
 
     def doHitFloor(self):

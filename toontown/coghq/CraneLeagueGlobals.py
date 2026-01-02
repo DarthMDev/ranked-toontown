@@ -1597,6 +1597,7 @@ class DroneType(Enum):
     HEAL = 1   # Green hat - heals deployer to full laff
     EXPLODEY = 2  # Orange hat - flies to CFO, explodes, deals damage
     STUN = 3  # Blue hat - sends out a shockwave and stomps all goons currently active in the room
+    SHIELD = 4  # Cyan hat - creates a protective shield that absorbs one hit
     
     def getHatColor(self):
         """Get the hat color for this drone type."""
@@ -1608,6 +1609,8 @@ class DroneType(Enum):
             return (1.0, 0.6, 0.2, 1.0)  # Orange
         elif self == DroneType.STUN:
             return 0.2, 0.2, 1.0, 1.0  # Blue
+        elif self == DroneType.SHIELD:
+            return (0.0, 0.8, 1.0, 1.0)  # Cyan
         return (0.5, 0.5, 0.5, 1.0)  # Default gray
     
     def getName(self):
@@ -1620,6 +1623,8 @@ class DroneType(Enum):
             return "Explodey Drone"
         elif self == DroneType.STUN:
             return "Stun Drone"
+        elif self == DroneType.SHIELD:
+            return "Shield Drone"
         return "Unknown Drone"
 
 

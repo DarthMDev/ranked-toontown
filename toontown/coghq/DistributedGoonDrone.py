@@ -18,6 +18,7 @@ from toontown.coghq.DistributedGoonDroneLaser import DistributedGoonDroneLaser
 from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
 from toontown.coghq.DistributedGoonDroneExplodey import DistributedGoonDroneExplodey
 from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
+from toontown.coghq.DistributedGoonDroneShield import DistributedGoonDroneShield
 
 # For backwards compatibility, map the old class name to Laser drone
 # (since Laser was the default/original type)
@@ -43,6 +44,11 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         self.laserShots = []
         self.behaviorSequence = None
         self.hitToons = set()  # Track toons hit by this drone's lasers to prevent multiple hits bypassing iframes
+        # Load laser sound effect
+        try:
+            self.laserPewSfx = base.loader.loadSfx('phase_3.5/audio/sfx/laser_drone_pew.ogg')
+        except:
+            self.laserPewSfx = None
         
     def setOwnerId(self, ownerId):
         """Set the owner ID (received from AI)."""
@@ -590,6 +596,10 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         
         targetPos = target.getPos(render)
         
+        # Play laser sound effect
+        if hasattr(self, 'laserPewSfx') and self.laserPewSfx:
+            self.laserPewSfx.play()
+        
         # Create laser visual effect
         self.createLaserEffect(eyePos, targetPos, target)
         
@@ -759,6 +769,14 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         # This prevents ANY laser in this volley from hitting them, regardless of iframes
         self.hitToons.add(toon.doId)
         
+        # Check if toon has active shield BEFORE any effects
+        hasShield = self._checkToonHasShield(toon.doId)
+        if hasShield:
+            # Shield will absorb the hit - skip all effects but still send damage request
+            # The AI will handle breaking the shield
+            self.sendUpdate('requestLaserHit', [toon.doId])
+            return  # Shield protects from visual effects and crane knockoff
+        
         # NOW check iframes - if toon has iframes, skip damage entirely
         # We DON'T remove from hitToons, so subsequent lasers in this volley also skip
         if toon.isStunned:
@@ -778,6 +796,18 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         # Knock toon off crane if they're on one - same as goons do
         if toon == base.localAvatar:
             messenger.send('exitCrane')
+    
+    def _checkToonHasShield(self, toonId):
+        """Check if a toon has an active shield drone."""
+        from toontown.coghq import CraneLeagueGlobals
+        # Check all drones in the scene to see if any are shield drones for this toon
+        for obj in base.cr.doId2do.values():
+            if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
+                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                    if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
+                        if hasattr(obj, 'shieldActive') and obj.shieldActive:
+                            return True
+        return False
         
     def startHovering(self):
         """Start hovering behavior for heal drone - just hovers above owner."""

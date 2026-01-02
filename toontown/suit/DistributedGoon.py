@@ -411,8 +411,26 @@ class DistributedGoon(DistributedCrushableEntity.DistributedCrushableEntity, Goo
         self.notify.debug('stunToon(%s)' % avId)
         av = base.cr.doId2do.get(avId)
         if av != None:
+            # Check if toon has active shield BEFORE calling stunToon
+            hasShield = self._checkToonHasShield(avId)
+            if hasShield:
+                # Shield will absorb the hit - don't trigger stun animation
+                # The shield will break and grant i-frames without visual effects
+                return
             av.stunToon()
         return
+    
+    def _checkToonHasShield(self, toonId):
+        """Check if a toon has an active shield drone."""
+        from toontown.coghq import CraneLeagueGlobals
+        # Check all drones in the scene to see if any are shield drones for this toon
+        for obj in base.cr.doId2do.values():
+            if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
+                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                    if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
+                        if hasattr(obj, 'shieldActive') and obj.shieldActive:
+                            return True
+        return False
 
     def isLocalToon(self, avId):
         if avId == base.localAvatar.doId:

@@ -209,13 +209,24 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         if not toon:
             return
 
+        # Check if toon has active shield BEFORE triggering visual effects
+        hasShield = False
+        if hasattr(self.game, 'activeShields') and toon.getDoId() in self.game.activeShields:
+            shield = self.game.activeShields[toon.getDoId()]
+            if shield.isShieldActive():
+                hasShield = True
+                # Shield will absorb the hit - don't trigger visual effects
+                # We'll still calculate damage to break the shield, but skip animations
+
         # Is the cfo stunned?
         isStunned = self.attackCode == ToontownGlobals.BossCogDizzy
         # Are we setting to swat?
         if isStunned and attackCode == ToontownGlobals.BossCogElectricFence:
             self.game.addScore(avId, self.game.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneLeagueGlobals.UNSTUN)
 
-        self.d_showZapToon(avId, x, y, z, h, p, r, attackCode, timestamp)
+        # Only show zap animation if toon doesn't have shield
+        if not hasShield:
+            self.d_showZapToon(avId, x, y, z, h, p, r, attackCode, timestamp)
 
         damage = self.ruleset.CFO_ATTACKS_BASE_DAMAGE.get(attackCode)
         if damage == None:
@@ -1050,7 +1061,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         if droneType is None:
             droneType = CraneLeagueGlobals.DroneType.LASER
         
-        # For heal and explodey drones, we don't need opponents check
+        # For heal, explodey, stun, and shield drones, we don't need opponents check
         if droneType == CraneLeagueGlobals.DroneType.LASER:
             # Check if there are any opponents (toons other than the owner)
             if not self.game:
@@ -1085,6 +1096,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         elif droneType == CraneLeagueGlobals.DroneType.STUN:
             from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
             drone = DistributedGoonDroneStunAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.SHIELD:
+            from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
+            drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
         else:
             self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
             from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI

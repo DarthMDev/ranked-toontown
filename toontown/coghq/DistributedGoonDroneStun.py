@@ -3,6 +3,7 @@ Stun Drone - Goes high above CFO, grows while rotating, then launches down to st
 """
 
 from panda3d.core import *
+from panda3d.physics import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
@@ -277,16 +278,127 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
             return
         
         from toontown.suit import GoonDeath
+        from toontown.battle import BattleParticles
+        from direct.interval.ParticleInterval import ParticleInterval
         import random
         
-        goonPos = self.getPos()
+        # Load particles if not already loaded
+        BattleParticles.loadParticles()
+        
+        goonPos = self.getPos(render)
         baseScale = self.scale if hasattr(self, 'scale') and self.scale > 0 else 1.0
 
+        # Get CFO position at ground level for shockwave
+        cfoPos = None
+        if self.boss:
+            cfoPos = self.boss.getPos(render)
+            # Position at ground level (Z = 0 or CFO's base) - ensure it's at ground, not inside CFO
+            if hasattr(self.boss, 'getGeomNode'):
+                try:
+                    cfoBase = self.boss.getGeomNode().getPos(render)
+                    # Use CFO base Z, but ensure it's at ground level (not negative)
+                    groundZ = max(0, cfoBase.getZ())
+                    cfoPos = Point3(cfoPos.getX(), cfoPos.getY(), groundZ)
+                except:
+                    cfoPos = Point3(cfoPos.getX(), cfoPos.getY(), 0)
+            else:
+                cfoPos = Point3(cfoPos.getX(), cfoPos.getY(), 0)
+        else:
+            # Fallback to drone position at ground
+            dronePos = self.getPos(render)
+            cfoPos = Point3(dronePos.getX(), dronePos.getY(), 0)
+        
+        # Create sequential horizontal shockwave rings (like boss ground slam)
+        # Each ring is a single expanding circle on the ground plane
+        numRings = 3  # Number of sequential shockwave rings
+        ringDelay = 0.4  # Delay between each ring (seconds)
+        ringDuration = 2.0  # How long each ring expands
+        startRadius = 0.5  # Starting radius (small)
+        endRadius = 50.0  # Ending radius (expands twice as far - doubled from 25.0)
+        shockwaveHeight = 0.5  # Height above ground for visibility
+        
+        # Helper function to create a single horizontal shockwave ring
+        def createShockwaveRing(ringIndex):
+            # Create a horizontal ring on the ground plane
+            # In Toontown: X and Y are horizontal, Z is vertical (like shield rings)
+            lines = LineSegs('shockwaveRing%d' % ringIndex)
+            lines.setColor(1.0, 1.0, 1.0, 0.8)  # White
+            lines.setThickness(5.0)  # Thick line for visibility
+            
+            # Draw a horizontal circle (ring slightly above ground)
+            # X and Y form the circle, Z is slightly above ground for visibility
+            numSegments = 64  # Smooth circle
+            for j in range(numSegments + 1):
+                angle = (2 * math.pi / numSegments) * j
+                # Horizontal ring: x and y form the circle, z is slightly above ground
+                x = math.cos(angle) * startRadius
+                y = math.sin(angle) * startRadius
+                z = shockwaveHeight  # Slightly above ground
+                if j == 0:
+                    lines.moveTo(x, y, z)
+                else:
+                    lines.drawTo(x, y, z)
+            
+            # Create the ring node
+            ringNode = render.attachNewNode(lines.create())
+            ringNode.setPos(render, cfoPos)
+            ringNode.setLightOff()
+            ringNode.setFogOff()
+            ringNode.setDepthWrite(True)
+            ringNode.setDepthTest(True)
+            ringNode.setTransparency(TransparencyAttrib.MAlpha)
+            ringNode.setBin('default', 0)
+            
+            return ringNode
+        
+        # Create all rings
+        ringNodes = []
+        for i in range(numRings):
+            ringNode = createShockwaveRing(i)
+            ringNodes.append(ringNode)
+        
         # Large explosion - similar to explodey drone
         sx = random.uniform(0.9, 1.5) * baseScale * 3.5
         sz = random.uniform(0.9, 1.5) * baseScale * 3.5
+        
+        # Create sequential expanding shockwave rings
+        shockwaveTracks = []
+        for i, ringNode in enumerate(ringNodes):
+            startDelay = i * ringDelay
+            
+            # Scale and fade animation for each ring
+            # Scale X and Y (the horizontal circle), keep Z at 1.0 (vertical)
+            scaleTrack = LerpScaleInterval(
+                ringNode,
+                ringDuration,
+                Vec3(endRadius / startRadius, endRadius / startRadius, 1.0),
+                startScale=Vec3(1.0, 1.0, 1.0),
+                blendType='easeOut'
+            )
+            
+            fadeTrack = LerpColorScaleInterval(
+                ringNode,
+                ringDuration,
+                Vec4(1.0, 1.0, 1.0, 0.0),  # Fade to transparent
+                startColorScale=Vec4(1.0, 1.0, 1.0, 1.0),
+                blendType='easeIn'
+            )
+            
+            # Combine scale and fade, then remove the node
+            ringTrack = Sequence(
+                Wait(startDelay),
+                Parallel(scaleTrack, fadeTrack),
+                Func(ringNode.removeNode)
+            )
+            
+            shockwaveTracks.append(ringTrack)
+        
+        # Combine explosion with sequential shockwave rings
         crushTrack = Sequence(
-            GoonDeath.createGoonExplosion(self.getParent(), goonPos, VBase3(sx, 1, sz)),
+            Parallel(
+                GoonDeath.createGoonExplosion(self.getParent(), goonPos, VBase3(sx, 1, sz)),
+                *shockwaveTracks  # All shockwave rings
+            ),
             name=self.uniqueName('crushTrack'),
             autoFinish=1
         )

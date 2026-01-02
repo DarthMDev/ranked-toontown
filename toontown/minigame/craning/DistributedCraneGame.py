@@ -1549,13 +1549,8 @@ class DistributedCraneGame(DistributedMinigame):
                           buttons.find('**/CloseBtn_DN'), 
                           buttons.find('**/CloseBtn_Rllvr'))
         
-        # Create buttons for each drone type
-        droneTypes = [
-            CraneLeagueGlobals.DroneType.LASER,
-            CraneLeagueGlobals.DroneType.HEAL,
-            CraneLeagueGlobals.DroneType.EXPLODEY,
-            CraneLeagueGlobals.DroneType.STUN
-        ]
+        # Create buttons for each drone type - dynamically get all drone types from enum
+        droneTypes = list(CraneLeagueGlobals.DroneType)
 
         for i, droneType in enumerate(droneTypes):
             currentY = i // 4 * -.15 + .1
