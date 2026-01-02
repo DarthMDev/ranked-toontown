@@ -1498,8 +1498,8 @@ class DistributedCraneGame(DistributedMinigame):
         """Clean up the drone selection UI."""
         if hasattr(self, 'droneSelectionSlots'):
             for slot in self.droneSelectionSlots:
-                if slot.get('frame'):
-                    slot['frame'].destroy()
+                if slot.get('button'):
+                    slot['button'].destroy()
             self.droneSelectionSlots = []
         
         if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
@@ -1970,16 +1970,22 @@ class DistributedCraneGame(DistributedMinigame):
             
             if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
                 # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
-                # Position drone UI to the right of it with more spacing
+                # Laff meter width ~0.15, so it extends to ~0.283 (non-monkey) or ~0.303 (monkey)
+                # Position drone UI to the right of it with sufficient spacing to avoid overlap
+                # First slot is at framePos - 0.25 relative to frame, and slot width is 0.24 (from -0.12 to +0.12),
+                # so first slot extends from framePos - 0.37 to framePos - 0.13 in world space.
+                # To avoid overlap with laff meter ending at ~0.303, we need framePos - 0.37 >= 0.35,
+                # which means framePos >= 0.72. Using 0.72 to provide comfortable spacing.
                 self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
-                # Adjust position: laff meter width ~0.15, so start further right at ~0.5 to avoid overlap
-                self.droneSelectionFrame.setPos(0.4, 0.0, 0.13)
+                self.droneSelectionFrame.setPos(0.72, 0.0, 0.13)
                 # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
                 slotSpacing = 0.25
                 if hasattr(self, 'droneSelectionSlots'):
                     for i, slot in enumerate(self.droneSelectionSlots):
-                        if slot.get('frame'):
-                            slot['frame'].setPos(i * slotSpacing, 0, 0)
+                        if slot.get('button'):
+                            # Slots are already positioned correctly relative to frame during creation
+                            # No need to reposition them here
+                            pass
                 # Show the UI
                 self.droneSelectionFrame.show()
             
