@@ -11,6 +11,7 @@ from toontown.minigame.statuseffects.BurnedEffectVisual import BurnedEffectVisua
 from toontown.minigame.statuseffects.DrenchedEffectVisual import DrenchedEffectVisual
 from toontown.minigame.statuseffects.GroundedEffectVisual import GroundedEffectVisual
 from toontown.minigame.statuseffects.WindedEffectVisual import WindedEffectVisual
+from toontown.minigame.statuseffects.ExplosionEffectVisual import ExplosionEffectVisual
 
 class DistributedStatusEffectSystem(DistributedObject):
     notify = DirectNotifyGlobal.directNotify.newCategory('StatusEffectSystem')
@@ -33,9 +34,10 @@ class DistributedStatusEffectSystem(DistributedObject):
             StatusEffect.DRENCHED: DrenchedEffectVisual,
             StatusEffect.WINDED: WindedEffectVisual,
             StatusEffect.GROUNDED: GroundedEffectVisual,
+            StatusEffect.EXPLODE: ExplosionEffectVisual,
             # Add more as they're implemented:
             # StatusEffect.FROZEN: FrozenEffectVisual,
-            # etc.
+            # StatusEffect.SHATTERED: ShatteredEffectVisual,
         }
         return visualMap.get(effect)
     
