@@ -380,7 +380,13 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
     # Called from client when a safe destroys a goon
     def destroyedGoon(self):
         avId = self.air.getAvatarIdFromSender()
-        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+        # Prevent duplicate point awards - use a simple flag that resets after a short delay
+        # This prevents rapid duplicate calls for the same destruction
+        if not hasattr(self, '_goonDestroyed') or not self._goonDestroyed:
+            self._goonDestroyed = True
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+            # Reset flag after 0.5 seconds to allow for new destructions
+            taskMgr.doMethodLater(0.5, lambda task: setattr(self, '_goonDestroyed', False), self.uniqueName('resetGoonDestroyed'))
 
     def cleanup(self):
         """Clean up collision system and node paths to prevent memory leaks"""

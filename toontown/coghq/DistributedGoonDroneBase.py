@@ -266,6 +266,11 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
     
     def destroyDrone(self):
         """Destroy the drone visually (called from AI broadcast)."""
+        # Prevent duplicate destruction
+        if hasattr(self, '_isDestroyed') and self._isDestroyed:
+            return
+        self._isDestroyed = True
+        
         if not self.isEmpty():
             # Use the same crush effect as regular goons
             self.playCrushMovie(None, None)

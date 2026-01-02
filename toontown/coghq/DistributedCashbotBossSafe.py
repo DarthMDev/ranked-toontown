@@ -120,6 +120,11 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
             return self.boss.ruleset.MIN_SAFE_IMPACT
 
     def doHitGoon(self, goon):
+        # Prevent duplicate destruction calls for the same goon
+        goonId = goon.doId if hasattr(goon, 'doId') else id(goon)
+        if not hasattr(self, '_destroyedGoons'):
+            self._destroyedGoons = set()
+        
         # Check if this is a drone and if it belongs to the safe's controller or a teammate
         if hasattr(goon, 'ownerId') and goon.ownerId:
             # This is a drone - check for friendly fire
@@ -133,13 +138,31 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
                 # If both the safe controller and drone owner are participants, they're teammates
                 if self.avId in participants and goon.ownerId in participants:
                     return
+            
+            # Check if this is a stun drone that's growing (invulnerable)
+            if hasattr(goon, 'isGrowing') and goon.isGrowing:
+                # Stun drone is invulnerable during growth phase - can collide but not destroy
+                return
+        
+        # Check if we already destroyed this goon (prevent duplicates)
+        if goonId in self._destroyedGoons:
+            return
         
         # Should we disable or destroy?
+        destroyed = False
         if self.boss.ruleset.SAFES_STUN_GOONS:
             goon.doLocalStun()
+            destroyed = True
         else:
             goon.b_destroyGoon()
+            destroyed = True
+        
+        # Only send destroyedGoon if we actually destroyed it (not friendly fire, not invulnerable)
+        if destroyed:
+            self._destroyedGoons.add(goonId)
             self.sendUpdate('destroyedGoon', [])
+            # Clean up the set after a delay to prevent memory leaks
+            taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoons.discard(gId), self.uniqueName('cleanupDestroyedGoon'))
 
     def resetToInitialPosition(self):
         posHpr = CraneLeagueGlobals.SAFE_POSHPR[self.index]

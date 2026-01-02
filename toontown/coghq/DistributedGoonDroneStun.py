@@ -33,9 +33,9 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         self.collisionHandler = None
         self.isGrowing = False  # Flag to track if we're growing (invulnerable)
         self.originalScale = None
-        # Flag to prevent base class collision from being set up
-        # Stun drone becomes invulnerable when growing, so no safe collision needed
-        self.skipSafeCollision = True
+        # Don't skip collision setup - we need collision node for safes to collide
+        # We'll just make it invulnerable when growing (doHitGoon checks isGrowing)
+        self.skipSafeCollision = False
     
     def getDroneType(self):
         return CraneLeagueGlobals.DroneType.STUN
@@ -114,17 +114,9 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         self.originalScale = self.getScale()
         
         # Mark as growing (invulnerable)
+        # Keep collision node active so safes can still collide with it
+        # but doHitGoon will check isGrowing and not destroy it
         self.isGrowing = True
-        
-        # Disable collision with safes (make invulnerable)
-        # Remove base collision node completely to prevent any collision events
-        # Also stash it to ensure it can't generate any events
-        if hasattr(self, 'droneCollisionNodePath') and self.droneCollisionNodePath:
-            base.cTrav.removeCollider(self.droneCollisionNodePath)
-            self.droneCollisionNodePath.stash()  # Stash it to prevent any collision detection
-            if not self.droneCollisionNodePath.isEmpty():
-                self.droneCollisionNodePath.removeNode()
-            self.droneCollisionNodePath = None
         
         # Ascend to high position, then grow and rotate while moving up more
         ascendDuration = 1.0  # Time to reach high position
@@ -196,13 +188,8 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         distance = direction.length()
         direction.normalize()
         
-        # Ensure base collision node is completely removed (no collision events)
-        # This prevents triggering the CFO's collision handler
-        if hasattr(self, 'droneCollisionNodePath') and self.droneCollisionNodePath:
-            base.cTrav.removeCollider(self.droneCollisionNodePath)
-            if not self.droneCollisionNodePath.isEmpty():
-                self.droneCollisionNodePath.removeNode()
-            self.droneCollisionNodePath = None
+        # Keep collision node active - safes can still collide but won't destroy
+        # (doHitGoon checks isGrowing and returns early)
         
         # Launch at VERY high speed
         launchSpeed = 200.0  # Units per second

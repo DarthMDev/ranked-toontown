@@ -143,6 +143,11 @@ class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
     
     def destroyDrone(self):
         """Destroy the drone (called when hit by safe)."""
+        # Prevent duplicate destruction
+        if hasattr(self, '_isDestroyed') and self._isDestroyed:
+            return
+        self._isDestroyed = True
+        
         self.sendUpdate('destroyDrone', [])
         self.requestDelete()
     
