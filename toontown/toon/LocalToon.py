@@ -17,21 +17,10 @@ from otp.avatar import PositionExaminer
 from otp.otpbase import OTPGlobals
 from otp.avatar import DistributedPlayer
 from toontown.shtiker import ShtikerBook
-from toontown.shtiker import InventoryPage
-from toontown.shtiker import MapPage
 from toontown.shtiker import OptionsPage
-from toontown.shtiker import QuestPage
-from toontown.shtiker import KartPage
-from toontown.shtiker import GardenPage
-from toontown.shtiker import GolfPage
-from toontown.shtiker import SuitPage
 from toontown.shtiker import DisguisePage
-from toontown.shtiker import PhotoAlbumPage
 from toontown.shtiker import FishPage
-from toontown.shtiker import NPCFriendPage
 from toontown.shtiker import NametagPage
-from toontown.shtiker import EventsPage
-from toontown.shtiker import TIPPage
 from toontown.quest import QuestParser
 from toontown.toonbase.ToontownGlobals import *
 from toontown.toonbase import ToontownGlobals
@@ -56,11 +45,6 @@ from ..groups.DistributedGroupManager import DistributedGroupManager
 from ..shtiker.LeaderboardPage import LeaderboardPage
 from ..shtiker.ShtikerPage import ShtikerPage
 
-WantNewsPage = base.config.GetBool('want-news-page', ToontownGlobals.DefaultWantNewsPageSetting)
-from toontown.toontowngui import NewsPageButtonManager
-if WantNewsPage:
-    from toontown.shtiker import NewsPage
-AdjustmentForNewsButton = -0.275
 ClaraBaseXPos = 0.116667
 if (__debug__):
     import pdb
@@ -93,8 +77,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             friendsButtonPressed = friendsGui.find('**/FriendsBox_Rollover')
             friendsButtonRollover = friendsGui.find('**/FriendsBox_Rollover')
             newScale = oldScale = 0.8
-            if WantNewsPage:
-                newScale = oldScale * ToontownGlobals.NewsPageScaleAdjust
             self.bFriendsList = DirectButton(image=(friendsButtonNormal, friendsButtonPressed, friendsButtonRollover), relief=None, pos=(-0.141, 0, -0.125), parent=base.a2dTopRight, scale=newScale, text=('', TTLocalizer.FriendsListLabel, TTLocalizer.FriendsListLabel), text_scale=0.09, text_fg=Vec4(1, 1, 1, 1), text_shadow=Vec4(0, 0, 0, 1), text_pos=(0, -0.18), text_font=ToontownGlobals.getInterfaceFont(), sortOrder=100, command=self.sendFriendsListEvent)
             self.bFriendsList.hide()
             self.friendsListButtonActive = 0
@@ -109,7 +91,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.furnitureDirector = None
             self.gotCatalogNotify = 0
             self.__catalogNotifyDialog = None
-            self.accept('phaseComplete-5.5', self.loadPhase55Stuff)
             Toon.loadDialog()
             self.isIt = 0
             self.cantLeaveGame = 0
@@ -271,7 +252,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         if hasattr(self, 'purchaseButton'):
             self.purchaseButton.destroy()
             del self.purchaseButton
-        self.newsButtonMgr.request('Off')
         base.whiteList.unload()
         self.book.unload()
         del self.optionsPage
@@ -342,8 +322,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         return
 
     def initInterface(self):
-        self.newsButtonMgr = NewsPageButtonManager.NewsPageButtonManager()
-        self.newsButtonMgr.request('Hidden')
         self.book = ShtikerBook.ShtikerBook('bookDone')
         self.book.load()
         self.book.hideButton()
@@ -365,10 +343,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         # self.suitPage = SuitPage.SuitPage()
         # self.suitPage.load()
         # self.book.addPage(self.suitPage, pageName=TTLocalizer.SuitPageTitle)
-        if base.config.GetBool('want-photo-album', 0):
-            self.photoAlbumPage = PhotoAlbumPage.PhotoAlbumPage()
-            self.photoAlbumPage.load()
-            self.book.addPage(self.photoAlbumPage, pageName=TTLocalizer.PhotoPageTitle)
+
         self.fishPage = FishPage.FishPage()
         self.fishPage.setAvatar(self)
         self.fishPage.load()
@@ -384,8 +359,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         # if self.gardenStarted:
         #     self.loadGardenPages()
         # self.addGolfPage()
-        if WantNewsPage:
-            self.addNewsPage()
         self.wordPage = WordPage.WordPage()
         self.wordPage.load()
         self.book.addPage(self.wordPage, pageName=TTLocalizer.SpellbookPageTitle)
@@ -464,35 +437,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         self.disguisePage.load()
         self.book.addPage(self.disguisePage, pageName=TTLocalizer.DisguisePageTitle)
         self.loadSosPages()
-        return
-
-    def loadSosPages(self):
-        if self.sosPage != None:
-            return
-        self.sosPage = NPCFriendPage.NPCFriendPage()
-        self.sosPage.load()
-        self.book.addPage(self.sosPage, pageName=TTLocalizer.NPCFriendPageTitle)
-        return
-
-    def loadGardenPages(self):
-        if self.gardenPage != None:
-            return
-        if not launcher.getPhaseComplete(5.5):
-            self.acceptOnce('phaseComplete-5.5', self.loadPhase55Stuff)
-            return
-        self.gardenPage = GardenPage.GardenPage()
-        self.gardenPage.load()
-        self.book.addPage(self.gardenPage, pageName=TTLocalizer.GardenPageTitle)
-        return
-
-    def loadPhase55Stuff(self):
-        if self.gardenPage == None:
-            self.gardenPage = GardenPage.GardenPage()
-            self.gardenPage.load()
-            self.book.addPage(self.gardenPage, pageName=TTLocalizer.GardenPageTitle)
-        elif not launcher.getPhaseComplete(5.5):
-            self.acceptOnce('phaseComplete-5.5', self.loadPhase55Stuff)
-        self.refreshOnscreenButtons()
         return
 
     def setAsGM(self, state):
@@ -967,31 +911,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         whisper.manage(base.marginManager)
         base.playSfx(sfx)
         return
-
-    def clickedWhisper(self, doId, isPlayer = None):
-        if doId > 0:
-            LocalAvatar.LocalAvatar.clickedWhisper(self, doId, isPlayer)
-        else:
-            foundCanStart = False
-            for partyInfo in self.hostedParties:
-                if partyInfo.status == PartyGlobals.PartyStatus.CanStart:
-                    foundCanStart = True
-                    break
-
-            if base.cr and base.cr.playGame and base.cr.playGame.getPlace() and base.cr.playGame.getPlace().fsm:
-                fsm = base.cr.playGame.getPlace().fsm
-                curState = fsm.getCurrentState().getName()
-                if curState == 'walk':
-                    if hasattr(self, 'eventsPage'):
-                        desiredMode = -1
-                        if doId == -1:
-                            desiredMode = EventsPage.EventsPage_Invited
-                        elif foundCanStart:
-                            desiredMode = EventsPage.EventsPage_Host
-                        if desiredMode >= 0:
-                            self.book.setPage(self.eventsPage)
-                            self.eventsPage.setMode(desiredMode)
-                            fsm.request('stickerBook')
 
     def loadFurnitureGui(self):
         if self.__furnitureGui:
@@ -1879,28 +1798,10 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
     def sbFriendRemove(self, id):
         print('sbFriendRemove')
 
-    def addGolfPage(self):
-        if self.hasPlayedGolf():
-            if hasattr(self, 'golfPage') and self.golfPage != None:
-                return
-            if not launcher.getPhaseComplete(6):
-                self.acceptOnce('phaseComplete-6', self.addGolfPage)
-                return
-            self.golfPage = GolfPage.GolfPage()
-            self.golfPage.setAvatar(self)
-            self.golfPage.load()
-            self.book.addPage(self.golfPage, pageName=TTLocalizer.GolfPageTitle)
-        return
-
     def addNewsPage(self):
         self.newsPage = NewsPage.NewsPage()
         self.newsPage.load()
         self.book.addPage(self.newsPage, pageName=TTLocalizer.NewsPageName)
-
-    def addTIPPage(self):
-        self.tipPage = TIPPage.TIPPage()
-        self.tipPage.load()
-        self.book.addPage(self.tipPage, pageName=TTLocalizer.TIPPageTitle)
 
     def setPinkSlips(self, pinkSlips):
         DistributedToon.DistributedToon.setPinkSlips(self, pinkSlips)

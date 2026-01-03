@@ -5,8 +5,6 @@ from direct.task import Task
 from direct.directnotify import DirectNotifyGlobal
 from math import *
 from direct.distributed.ClockDelta import *
-from toontown.golf import GolfGlobals
-from toontown.shtiker.GolfPage import GolfTrophy
 
 class GolfRewardDialog:
     notify = directNotify.newCategory('GolfRewardDialog')
