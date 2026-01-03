@@ -22,14 +22,13 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.pageTabFrame = DirectFrame(parent=self, relief=None, pos=(0.93, 1, 0.575), scale=1.25)
         self.pageTabFrame.hide()
         self.currPageIndex: int = 0
-        self.pageBeforeNews = None
         self.entered = 0
         self.safeMode = 0
         self.__obscured = 0
         self.__shown = 0
         self.__isOpen = 0
         self.hide()
-        self.setPos(0, 0, 0.1)
+        self.setPos(0, 0, 0)
         self.pageOrder = [TTLocalizer.OptionsPageTitle,
          TTLocalizer.LeaderboardPageTitle,
          TTLocalizer.FishPageTitle,
@@ -48,7 +47,7 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.entered = 1
         messenger.send('releaseDirector')
         messenger.send('stickerBookEntered')
-        base.render.setColorScale(.25, .25, .25, 1)
+        base.render.setColorScale(0.5, 0.5, 0.5, 1) #used if we want to dim background while in stickerbook
         base.playSfx(self.openSound)
         base.disableMouse()
         base.setBackgroundColor(0.05, 0.15, 0.4)
@@ -60,7 +59,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.__isOpen = 1
         self.__setButtonVisibility()
         self.show()
-        self.showPageArrows()
         if not self.safeMode:
             self.accept('shtiker-page-done', self.__pageDone)
             self.accept(ToontownGlobals.StickerBookHotkey, self.__close)
@@ -111,8 +109,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.bookCloseButton = DirectButton(image=(bookModel.find('**/BookIcon_OPEN'), bookModel.find('**/BookIcon_CLSD'), bookModel.find('**/BookIcon_RLVR2')), relief=None, pos=(-0.158, 0, 0.17), parent=base.a2dBottomRight, scale=0.305, command=self.__close)
         self.bookOpenButton.hide()
         self.bookCloseButton.hide()
-        self.nextArrow = DirectButton(parent=self, relief=None, image=(bookModel.find('**/arrow_button'), bookModel.find('**/arrow_down'), bookModel.find('**/arrow_rollover')), scale=(0.1, 0.1, 0.1), pos=(0.838, 0, -0.661), command=self.__pageChange, extraArgs=[1])
-        self.prevArrow = DirectButton(parent=self, relief=None, image=(bookModel.find('**/arrow_button'), bookModel.find('**/arrow_down'), bookModel.find('**/arrow_rollover')), scale=(-0.1, 0.1, 0.1), pos=(-0.838, 0, -0.661), command=self.__pageChange, extraArgs=[-1])
         bookModel.removeNode()
         self.openSound = base.loader.loadSfx('phase_3.5/audio/sfx/GUI_stickerbook_open.ogg')
         self.closeSound = base.loader.loadSfx('phase_3.5/audio/sfx/GUI_stickerbook_delete.ogg')
@@ -126,10 +122,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         del self.bookOpenButton
         self.bookCloseButton.destroy()
         del self.bookCloseButton
-        self.nextArrow.destroy()
-        del self.nextArrow
-        self.prevArrow.destroy()
-        del self.prevArrow
         for page in self.pages:
             page.unload()
 
@@ -147,18 +139,10 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         if pageName not in self.pageOrder:
             self.notify.error('Trying to add page %s in the ShtickerBook. Page not listed in the order.' % pageName)
             return
-        pageIndex = 0
         if len(self.pages):
             newIndex = len(self.pages)
-            prevIndex = newIndex - 1
-            if self.pages[prevIndex].pageName == TTLocalizer.NewsPageName:
-                self.pages.insert(prevIndex, page)
-                pageIndex = prevIndex
-                if self.currPageIndex >= pageIndex:
-                    self.currPageIndex += 1
-            else:
-                self.pages.append(page)
-                pageIndex = len(self.pages) - 1
+            self.pages.append(page)
+            pageIndex = len(self.pages) - 1
         else:
             self.pages.append(page)
             pageIndex = len(self.pages) - 1
@@ -168,7 +152,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.addPageTab(page, pageIndex, pageName)
 
     def addPageTab(self, page, pageIndex, pageName = 'Page'):
-        tabIndex = len(self.pageTabs)
 
         def goToPage():
             messenger.send('wakeup')
@@ -225,14 +208,8 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.currPageIndex = self.pages.index(page)
         self.setPageTabIndex(self.currPageIndex)
         if enterPage:
-            self.showPageArrows()
             page.enter()
         return
-
-    def setPageBeforeNews(self, enterPage = True):
-        self.setPage(self.pageBeforeNews, enterPage)
-        self.accept(ToontownGlobals.StickerBookHotkey, self.__close)
-        self.accept(ToontownGlobals.OptionsPageHotkey, self.__close)
 
     def setPageTabIndex(self, pageTabIndex):
         if self.currPageTabIndex is not None and pageTabIndex != self.currPageTabIndex:
@@ -319,21 +296,8 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.currPageIndex = max(self.currPageIndex, 0)
         self.currPageIndex = min(self.currPageIndex, len(self.pages) - 1)
         self.setPageTabIndex(self.currPageIndex)
-        self.showPageArrows()
         page = self.pages[self.currPageIndex]
         page.enter()
-        self.pageBeforeNews = page
-
-    def showPageArrows(self):
-        if self.currPageIndex == len(self.pages) - 1:
-            self.prevArrow.show()
-            self.nextArrow.hide()
-        else:
-            self.prevArrow.show()
-            self.nextArrow.show()
-        if self.currPageIndex == 0:
-            self.prevArrow.hide()
-            self.nextArrow.show()
 
     def disableBookCloseButton(self):
         if self.bookCloseButton:
