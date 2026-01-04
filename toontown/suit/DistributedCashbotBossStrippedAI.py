@@ -343,6 +343,45 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
         self.toonsWon = False
 
+    def pieHitBoss(self):
+        """Called when a pie hits the CFO's head"""
+        print('[CFO] pieHitBoss called!')
+        avId = self.air.getAvatarIdFromSender()
+        print('[CFO] pieHitBoss: avId=%s, participants=%s' % (avId, self.game.getParticipants()))
+        
+        if not self.validate(avId, avId in self.game.getParticipants(), 'pieHitBoss from unknown avatar'):
+            print('[CFO] pieHitBoss: Invalid avatar %s' % avId)
+            return
+        
+        # Don't process if the game is not in play state (same check as recordHit)
+        gameState = self.game.gameFSM.getCurrentState().getName() if hasattr(self.game, 'gameFSM') else None
+        print('[CFO] pieHitBoss: gameState=%s' % gameState)
+        if gameState != 'play':
+            print('[CFO] pieHitBoss: Game not in play state, current state: %s' % gameState)
+            return
+        
+        # Don't cancel existing stun - if already stunned, just return
+        print('[CFO] pieHitBoss: attackCode=%s' % self.attackCode)
+        if self.attackCode == ToontownGlobals.BossCogDizzy or self.attackCode == ToontownGlobals.BossCogDizzyNow:
+            print('[CFO] pieHitBoss: CFO already stunned, ignoring')
+            return
+        
+        print('[CFO] pieHitBoss: Processing pie hit from avatar %s, attackCode=%s, calling recordHit' % (avId, self.attackCode))
+        
+        # Record hit with 0 damage and forceStun=True to stun the CFO
+        # This will cause flinch animation and stun, similar to goons
+        self.game.recordHit(
+            0,  # 0 damage
+            impact=0.99,  # High impact for visual effect
+            craneId=-1,  # No crane
+            objId=0,  # No object
+            isGoon=False,
+            isDOT=False,
+            avIdOverride=avId,
+            forceStun=True  # Force stun regardless of damage threshold
+        )
+        print('[CFO] pieHitBoss: recordHit called')
+    
     def cleanupBossBattle(self):
         self.stopAttacks()
         self.stopHelmets()

@@ -55,6 +55,7 @@ from toontown.coghq import DistributedCashbotBossSafe/AI
 from toontown.coghq import DistributedCashbotBossCrane/AI
 from toontown.coghq import DistributedCashbotBossSideCrane/AI
 from toontown.coghq import DistributedCashbotBossHeavyCrane/AI
+from toontown.coghq import DistributedCFOPieStand/AI
 from toontown.suit import DistributedCashbotBossGoon/AI
 from toontown.battle import DistributedBattleBase/AI
 from toontown.battle import DistributedBattle/AI
@@ -1342,6 +1343,7 @@ dclass DistributedCashbotBossStripped: DistributedBossCogStripped {
   setAttackCode(uint8, uint32, uint32) broadcast;
   setAnimationSpeed(int16/100) broadcast;
   setFrozenState(bool) broadcast;
+  pieHitBoss() clsend airecv;
 };
 
 dclass DistributedLawbotBossStripped: DistributedBossCogStripped {
@@ -1521,6 +1523,11 @@ dclass DistributedCashbotBossSideCrane : DistributedCashbotBossCrane {
 };
 
 dclass DistributedCashbotBossHeavyCrane : DistributedCashbotBossCrane {
+};
+
+dclass DistributedCFOPieStand : DistributedObject {
+  setIndex(uint8) required broadcast ram;
+  touchPieStand() airecv clsend;
 };
 
 dclass DistributedCashbotBossObject : DistributedSmoothNode {

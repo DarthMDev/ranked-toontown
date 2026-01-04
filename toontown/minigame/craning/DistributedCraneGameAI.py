@@ -15,6 +15,7 @@ from toontown.coghq.DistributedCashbotBossHeavyCraneAI import DistributedCashbot
 from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.coghq.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
+from toontown.coghq.DistributedCFOPieStandAI import DistributedCFOPieStandAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
@@ -46,6 +47,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.goons = []
         self.treasures = {}
         self.grabbingTreasures = {}
+        self.pieStands = []  # List to hold pie stand objects
         self.recycledTreasures = []
         self.boss = None
 
@@ -438,6 +440,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
                 ind += 1
+        # Generate pie stands if wanted (alternative to side cranes)
+        elif self.ruleset.WANT_PIE_STANDS:
+            for pieStandIndex, _ in enumerate(CraneLeagueGlobals.SIDE_CRANE_POSHPR):
+                pieStand = DistributedCFOPieStandAI(self.air, self, pieStandIndex)
+                pieStand.generateWithRequired(self.zoneId)
+                pieStand.b_setIndex(pieStandIndex)
+                self.pieStands.append(pieStand)
 
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
@@ -475,6 +484,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             safe.request('Off')
             safe.requestDelete()
         self.safes.clear()
+
+        # Clean up pie stands
+        for pieStand in self.pieStands:
+            pieStand.requestDelete()
+        self.pieStands.clear()
 
         for goon in self.goons:
             goon.request('Off')
@@ -1114,14 +1128,25 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
 
         # The CFO is already dizzy, OR the crane is None, so get outta here
+        # But if forceStun is True, we should still process the stun even if crane is None
         if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         self.boss.stopHelmets()
 
         # Is the damage high enough to stun? or did a side crane hit a high impact hit?
-        hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
+        # For forceStun, we don't need to check considerStun - just check if CFO is not already stunned
+        if forceStun:
+            # Check if CFO is not already in any stun state
+            hitMeetsStunRequirements = (self.boss.attackCode != ToontownGlobals.BossCogDizzy and 
+                                        self.boss.attackCode != ToontownGlobals.BossCogDizzyNow)
+            print('[CraneGame] recordHit: forceStun=True, attackCode=%s, hitMeetsStunRequirements=%s' % (self.boss.attackCode, hitMeetsStunRequirements))
+        else:
+            hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
+        
+        print('[CraneGame] recordHit: hitMeetsStunRequirements=%s, about to check if stun' % hitMeetsStunRequirements)
         if hitMeetsStunRequirements:
+            print('[CraneGame] recordHit: STUNNING CFO!')
             # A particularly good hit (when he's not already
             # dizzy) will make the boss dizzy for a little while.
             delayTime = self.progressValue(20, 5)

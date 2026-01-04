@@ -52,6 +52,9 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         targetNode.addSolid(target)
         targetNode.setCollideMask(ToontownGlobals.PieBitmask)
         self.headTarget = self.neck.attachNewNode(targetNode)
+        # Set pieCode tag so pies know to hit the CFO
+        self.headTarget.setTag('pieCode', str(ToontownGlobals.PieCodeBossCog))
+        print('[CFO Client] headTarget created with pieCode=%s, tag=%s' % (ToontownGlobals.PieCodeBossCog, self.headTarget.getTag('pieCode')))
         # self.headTarget.show()
 
         # And he gets a big bubble around his torso, just to keep
@@ -99,6 +102,13 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
                     self.doAnimate('hit', now=1)
 
                 self.showHpText(-delta, scale=5)
+            elif bossDamage == self.bossDamage and not isDOT and not isGoon and avId != 0:
+                # Handle 0-damage hits (like pies) - still trigger flinch if CFO should flinch
+                # This allows pies to trigger flinch animation even though they do 0 damage
+                # Only trigger if avId is non-zero (actual hit, not a damage reset)
+                if self.ruleset.CFO_FLINCHES_ON_HIT:
+                    self.flashRed()
+                    self.doAnimate('hit', now=1)
 
         if objId in self.myHits:
             self.myHits.remove(objId)
@@ -133,6 +143,10 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.bossHealthBar.initialize(self.ruleset.CFO_MAX_HP - self.bossDamage, self.ruleset.CFO_MAX_HP)
         if self.ruleset.CFO_MAX_HP > 999_999 and self.ruleset.TIMER_MODE:
             self.bossHealthBar.hide()
+        
+        # Accept pie hit events
+        self.accept('pieSplat', self.__pieSplat)
+        self.accept('localPieSplat', self.__localPieSplat)
 
     def cleanupBossBattle(self):
         self.cleanupIntervals()
@@ -140,6 +154,10 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.cleanupAttacks()
         self.setDizzy(0)
         self.removeHealthBar()
+        
+        # Ignore pie hit events
+        self.ignore('pieSplat')
+        self.ignore('localPieSplat')
     
     def cleanupAttacks(self):
         """Clean up any ongoing gear attacks"""
@@ -414,3 +432,27 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
                                                         self.pelvis.hprInterval(0.2, VBase3(0, 0, 0))),
                                                Sequence(throwAnim, neutral2Anim)))
             self.doAnimate(seq, now=1, raised=1)
+    
+    def __pieSplat(self, toon, pieCode):
+        """Handle pie splat event from other toons"""
+        if pieCode == ToontownGlobals.PieCodeBossCog:
+            # Pie hit the CFO's head - just send update to server
+            # The flinch will be triggered by setBossDamage when server confirms
+            pass
+    
+    def __localPieSplat(self, pieCode, entry):
+        """Handle local pie splat event (when local toon throws pie)"""
+        print('[CFO Client] __localPieSplat: pieCode=%s' % pieCode)
+        if pieCode == ToontownGlobals.PieCodeBossCog:
+            print('[CFO Client] Pie hit CFO head!')
+            # Local toon's pie hit the CFO's head
+            # Send update to AI to process stun
+            # The flinch will be triggered by setBossDamage when server confirms
+            print('[CFO Client] Sending d_pieHitBoss to AI')
+            self.d_pieHitBoss()
+        else:
+            print('[CFO Client] pieCode mismatch: got %s, expected %s' % (pieCode, ToontownGlobals.PieCodeBossCog))
+    
+    def d_pieHitBoss(self):
+        """Send update to AI that a pie hit the CFO"""
+        self.sendUpdate('pieHitBoss', [])

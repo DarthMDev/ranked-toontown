@@ -133,6 +133,7 @@ class CraneGameRuleset:
 
         self.WANT_BACKWALL = False
         self.WANT_SIDECRANES = True
+        self.WANT_PIE_STANDS = False
         self.WANT_HEAVY_CRANES = False
 
         # Set to true to allow toons to "un-stun" the CFO by bumping into him.
@@ -1536,7 +1537,9 @@ class ModifierSideCranesEnabler(CFORulesetModifierBase):
         return -1  # Helpful modifier, reduces difficulty
     
     def apply(self, cfoRuleset):
+        # Pie stands and side cranes are mutually exclusive peripherals
         cfoRuleset.WANT_SIDECRANES = True
+        cfoRuleset.WANT_PIE_STANDS = False
 
 
 class ModifierBackWallEnabler(CFORulesetModifierBase):
@@ -1558,6 +1561,29 @@ class ModifierBackWallEnabler(CFORulesetModifierBase):
     
     def apply(self, cfoRuleset):
         cfoRuleset.WANT_BACKWALL = True
+
+
+class ModifierPieStandsEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 37
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Pie Stands'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sPie Stands%(color_end)s that grant cream pies!'
+    
+    def getHeat(self):
+        return -1  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        # Pie stands and side cranes are mutually exclusive peripherals
+        cfoRuleset.WANT_SIDECRANES = False
+        cfoRuleset.WANT_PIE_STANDS = True
 
 
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point
