@@ -7,6 +7,7 @@ from libotp import CFSpeech, CFTimeout
 from toontown.friends.OnlineToon import OnlineToon
 from toontown.groups import GroupGlobals
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
+from toontown.toonbase import ToontownGlobals
 
 if typing.TYPE_CHECKING:
     from toontown.groups.DistributedGroup import DistributedGroup
@@ -65,6 +66,7 @@ class GroupInterface(DirectFrame):
 
         # Create any other elements that should be on this frame immediately when it is created.
         self.gameSettingsButton = DirectButton(parent=self, text='Crane Game', text_pos=(0, -.12), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(GroupInterface.GAME_OPTIONS_BUTTON_TEXT_SCALE / GroupInterface.GAME_OPTIONS_BUTTON_STRETCH_FACTOR, GroupInterface.GAME_OPTIONS_BUTTON_TEXT_SCALE), text_align=TextNode.ABoxedCenter, scale=(.115*GroupInterface.GAME_OPTIONS_BUTTON_STRETCH_FACTOR, .115, .115), relief=None, pos=(0, 0, -.294),image=selectGameTexture, command=self.__onGameSettingsClicked)
+        self.__updateMinigameLabel()
         self.leaveButton = DirectButton(parent=self, scale=.115, relief=None, pos=(.16, 0, -.413), image=leaveTexture, command=self.__onLeaveClicked)
         self.startButton = DirectButton(parent=self, text='Start!', text_pos=(0, -.15), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(GroupInterface.START_BUTTON_TEXT_SCALE / GroupInterface.START_BUTTON_STRETCH_FACTOR, GroupInterface.START_BUTTON_TEXT_SCALE), text_align=TextNode.ABoxedCenter, scale=(.115 * GroupInterface.START_BUTTON_STRETCH_FACTOR, .115, .115), relief=None, pos=(-.06, 0, -.413), image=playGameTexture, command=self.__onPlayClicked)
         self.rows: list[GroupInterfaceMemberButton] = []
@@ -79,6 +81,8 @@ class GroupInterface(DirectFrame):
 
         # Cleanup.
         model.removeNode()
+
+        self.accept(self.group.uniqueName('minigame-updated'), self.__updateMinigameLabel)
 
     def updateMembers(self, members: list[GroupMemberStruct]):
         self.clearMembers()
@@ -99,8 +103,18 @@ class GroupInterface(DirectFrame):
     Button Handlers
     """
 
+    def __updateMinigameLabel(self):
+        self.gameSettingsButton.setText(ToontownGlobals.MinigameId2Name.get(self.group.minigameType, "???"))
+
     def __onGameSettingsClicked(self):
-        base.localAvatar.setChatAbsolute("I WANT TO CHANGE THE GAME!!!", CFSpeech | CFTimeout)
+        try:
+            _index = ToontownGlobals.ValidMinigameIds.index(self.group.minigameType)
+        except ValueError:
+            _index = -1
+        _index += 1
+        if _index >= len(ToontownGlobals.ValidMinigameIds):
+            _index = 0
+        base.localAvatar.getGroupManager().requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
 
     def __onLeaveClicked(self):
         """
@@ -134,6 +148,7 @@ class GroupInterface(DirectFrame):
         for button in self.rows:
             button.destroy()
         self.rows.clear()
+        self.ignoreAll()
 
 
 class GroupInterfaceMemberButton(DirectButton):

@@ -15,6 +15,7 @@ class DistributedGroup(DistributedObject, GroupBase):
         DistributedObject.__init__(self, cr)
         GroupBase.__init__(self, GroupBase.NoLeader)
 
+        self.minigameType: int = ToontownGlobals.CraneGameId
         self.interface: GroupInterface | None = None
         self.going_text: DirectLabel | None = None
 
@@ -132,3 +133,7 @@ class DistributedGroup(DistributedObject, GroupBase):
         # Next, in 3 seconds we should teleport to where we need to go.
         taskMgr.doMethodLater(3, __teleportToMinigame, self.uniqueName('teleportToMinigame'))
         __updateText(3)
+
+    def setMinigameType(self, minigameType):
+        self.minigameType = minigameType
+        messenger.send(self.uniqueName('minigame-updated'))

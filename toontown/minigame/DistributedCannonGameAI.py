@@ -11,6 +11,7 @@ class DistributedCannonGameAI(DistributedMinigameAI):
         DistributedMinigameAI.__init__(self, air, minigameId)
         self.gameFSM = ClassicFSM.ClassicFSM('DistributedCannonGameAI', [State.State('inactive', self.enterInactive, self.exitInactive, ['play']), State.State('play', self.enterPlay, self.exitPlay, ['cleanup']), State.State('cleanup', self.enterCleanup, self.exitCleanup, ['inactive'])], 'inactive', 'inactive')
         self.addChildGameFSM(self.gameFSM)
+        self._toons_landed: set[int] = set()
 
     def delete(self):
         self.notify.debug('delete')
@@ -102,16 +103,17 @@ class DistributedCannonGameAI(DistributedMinigameAI):
             return
         senderAvId = self.air.getAvatarIdFromSender()
         score = CannonGameGlobals.calcScore(landTime)
-        for avId in self.avIdList:
-            self.scoreDict[avId] = score
-
+        self.getScoringContext().get_round(0).add_score(senderAvId, score)
         self.notify.debug('setToonWillLandInWater: time=%s, score=%s' % (landTime, score))
-        taskMgr.remove(self.taskName('gameTimer'))
-        delay = max(0, landTime - self.getCurrentGameTime())
-        taskMgr.doMethodLater(delay, self.toonLandedInWater, self.taskName('game-over'))
         self.sendUpdate('announceToonWillLandInWater', [senderAvId, landTime])
 
-    def toonLandedInWater(self, task):
+        self._toons_landed.add(senderAvId)
+        if len(self._toons_landed) >= len(self.getParticipantIdsNotSpectating()):
+            taskMgr.remove(self.taskName('gameTimer'))
+            delay = max(0, landTime - self.getCurrentGameTime())
+            taskMgr.doMethodLater(delay, self.__allToonsLandedInWater, self.taskName('game-over'))
+
+    def __allToonsLandedInWater(self, task):
         self.notify.debug('toonLandedInWater')
         if self.__playing():
             self.gameOver()

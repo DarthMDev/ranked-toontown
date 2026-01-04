@@ -6,6 +6,7 @@ from toontown.groups import GroupGlobals
 from toontown.groups.GroupBase import GroupBase
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
 from toontown.toon.DistributedToonAI import DistributedToonAI
+from toontown.toonbase import ToontownGlobals
 
 
 class DistributedGroupAI(DistributedObjectAI, GroupBase):
@@ -14,6 +15,7 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
         DistributedObjectAI.__init__(self, air)
         GroupBase.__init__(self, leader.getDoId())
         self.activityStartCooldown = 0
+        self.desiredMinigame = ToontownGlobals.CraneGameId
 
     def getToons(self):
         """
@@ -50,7 +52,7 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
 
         self.announce("Activity starting...")
         self.activityStartCooldown = time.time() + 6
-        minigame = self.air.minigameMgr.createMinigame(self.getMemberIds(), self.zoneId, hostId=self.getLeader(), spectatorIds=self.getSpectators())
+        minigame = self.air.minigameMgr.createMinigame(self.getMemberIds(), self.zoneId, hostId=self.getLeader(), spectatorIds=self.getSpectators(), desiredNextGame=self.desiredMinigame)
         self.d_setMinigameZone(minigame)
 
     """
@@ -91,3 +93,10 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
             if member.status == GroupGlobals.STATUS_UNREADY:
                 notReady += 1
         return notReady
+
+    def b_setMinigameType(self, minigameId):
+        self.desiredMinigame = minigameId
+        self.d_setMinigameType(minigameId)
+
+    def d_setMinigameType(self, minigameId: int):
+        self.sendUpdate('setMinigameType', [minigameId])

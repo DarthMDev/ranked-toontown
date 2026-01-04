@@ -89,7 +89,8 @@ class DistributedGolfGreenGameAI(DistributedMinigameAI):
         self.notify.debug("enterPlay")
 
         # reset scores
-        self.scoreDict = {avId: 0 for avId in self.avIdList}
+        for avId in self.avIdList:
+            self.getScoringContext().get_round(0).set_score(avId, 0)
 
         for avId in self.avIdList:
             self.d_startBoard(avId)
@@ -119,7 +120,7 @@ class DistributedGolfGreenGameAI(DistributedMinigameAI):
         senderId = self.air.getAvatarIdFromSender()
 
         if win:
-            self.scoreDict[senderId] += 1
+            self.getScoringContext().get_round(0).add_score(senderId, 1)
             self.sendScoreData()
 
             if GolfGreenConstants.WANT_GIFTS:
@@ -149,4 +150,7 @@ class DistributedGolfGreenGameAI(DistributedMinigameAI):
         self.sendUpdateToAvatarId(avId, 'startBoard', [x, attackPattern])
 
     def sendScoreData(self):
-        self.sendUpdate('scoreData', [list(self.scoreDict.items())])
+        scores = []
+        for avId in self.avIdList:
+            scores.append([avId, self.getScoringContext().get_round(0).get_score(avId)])
+        self.sendUpdate('scoreData', [scores])

@@ -1260,6 +1260,7 @@ dclass DistributedGroupManager : DistributedObject {
   requestPromote(uint32 avId) airecv clsend;
   requestStart() airecv clsend;
   requestTeamSwap(uint32 avId) airecv clsend;
+  requestMinigameSwitch(uint32 minigameId) airecv clsend;
   updateStatus(uint8 code) airecv clsend;
   setCurrentGroup(int32 groupId);
 };
@@ -1268,6 +1269,7 @@ dclass DistributedGroup : DistributedObject {
   setMembers(GroupMember[]) required broadcast ram;
   setCapacity(int32) required broadcast ram;
   setMinigameZone(uint32, uint16);
+  setMinigameType(uint32) broadcast ram;
   announce(string) broadcast;
 };
 
@@ -3998,6 +4000,7 @@ dclass DistributedPieGame: DistributedMinigame {
   toonDied(uint32) broadcast;
   revivedToon(uint32 avId) broadcast;
   restart() broadcast ram;
+  avHealed(uint32 avId, uint32) broadcast;
 };
 
 dclass DistributedCraneGame: DistributedMinigame {
@@ -4077,6 +4080,7 @@ dclass DistributedScaleGame: DistributedMinigame {
   enteredBonusState() broadcast;
   lawyerDisabled(uint32 avid) broadcast;
   stunBonus(uint32 avId, uint32) broadcast;
+  avHealed(uint32 avId, uint32) broadcast;
 };
 
 dclass DistributedSeltzerGame: DistributedMinigame {

@@ -103,6 +103,10 @@ class DistributedGroupManager(DistributedObject):
         if self.getCurrentGroup() is not None:
             self.d_requestStart()
 
+    def requestGameSwitch(self, minigameId: int):
+        if self.getCurrentGroup() is not None and self.getCurrentGroup().getLeader() == base.localAvatar.getDoId():
+            self.d_requestMinigameSwitch(minigameId)
+
     def updateStatus(self, code: int):
 
         # Don't send codes unless they are ready/unready codes.
@@ -139,6 +143,9 @@ class DistributedGroupManager(DistributedObject):
 
     def d_setStatus(self, code):
         self.sendUpdate('updateStatus', [code])
+
+    def d_requestMinigameSwitch(self, minigameId: int):
+        self.sendUpdate('requestMinigameSwitch', [minigameId])
 
     def setCurrentGroup(self, groupId: int):
         """

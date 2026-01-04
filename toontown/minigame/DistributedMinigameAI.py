@@ -93,7 +93,7 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
         Is this minigame going to affect ELO/SR ratings upon completion?
         Override and set to True if you would like to automatically apply ranked calculations.
         """
-        return self.skillProfileKey is not None
+        return self.skillProfileKey is not None and len(self.getParticipantIdsNotSpectating()) > 1
 
     def getSkillProfileKey(self) -> str:
         """
@@ -473,6 +473,14 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
         profiles = {}
         for av in self.getParticipantsNotSpectating():
             profiles[av.getDoId()] = av.getOrCreateSkillProfile(self.getSkillProfileKey())
+
+        if len(profiles) == 0:
+            self.notify.warning(f"Trolley game with {self.getParticipants()} avIds had no skill profiles for minigame {self.minigameId}, aborting ELO adjustment")
+            return OpenSkillMatchDeltaResults()
+
+        if len(profiles) == 1:
+            self.notify.warning(f"Trolley game with {self.getParticipants()} avIds had only one participant and tried adjusting ELO in game {self.minigameId}, aborting ELO adjustment")
+            return OpenSkillMatchDeltaResults()
 
         _model = self.skillProfileKey.get_model()
 

@@ -225,7 +225,7 @@ class PurchaseManagerAI(DistributedObjectAI.DistributedObjectAI):
             for oldSpec in self.spectators:
                 if oldSpec in playAgainList:
                     newSpecList.append(oldSpec)
-            self.air.minigameMgr.createMinigame(playAgainList, self.trolleyZone, minigameZone=self.zoneId, hostId=self.previousHost, previousGameId=self.previousMinigameId, desiredNextGame=self.desiredNextGame, spectatorIds=newSpecList)
+            self.air.minigameMgr.createMinigame(playAgainList, self.trolleyZone, minigameZone=self.zoneId, hostId=self.previousHost, previousGameId=self.previousMinigameId, desiredNextGame=self.previousMinigameId, spectatorIds=newSpecList)
         else:
             self.air.minigameMgr.releaseMinigameZone(self.zoneId)
         self.requestDelete()
