@@ -4045,6 +4045,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   setRequestForfeit(uint32 requesterAvId) broadcast ram;
   setUpdateForfeitConsents(uint32[]) broadcast ram;
   setCancelForfeit() broadcast ram;
+  setCleanupForfeitDialogs() broadcast ram;
   requestRestart() airecv clsend;
   confirmRestart() airecv clsend;
   rejectRestart() airecv clsend;
@@ -4052,6 +4053,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   setRequestRestart(uint32 requesterAvId) broadcast ram;
   setUpdateRestartConsents(uint32[]) broadcast ram;
   setCancelRestart() broadcast ram;
+  setCleanupRestartDialogs() broadcast ram;
 };
 
 dclass DistributedScaleGame: DistributedMinigame {
