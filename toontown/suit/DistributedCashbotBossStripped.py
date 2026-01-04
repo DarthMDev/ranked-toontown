@@ -319,7 +319,7 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         return super().doAnimate(anim, now, queueNeutral, raised, forward, happy)
     
     def doDirectedAttack(self, avId, attackCode):
-        """Gear throw attack similar to CEO's implementation"""
+        """Gear throw attack with adjustable speed and distance"""
         from direct.showbase import PythonUtil
         from direct.task import Task
         from panda3d.core import BoundingSphere
@@ -327,7 +327,22 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         
         toon = base.cr.doId2do.get(avId)
         if toon:
-            distance = toon.getDistance(self)
+            # Gear throw parameters - adjust these to control speed/distance
+            USE_FIXED_DISTANCE = False  # If True, uses fixedDistance; if False, uses actual toon distance
+            fixedDistance = 50  # Fixed distance (original base class behavior)
+            referenceDistance = 50  # Reference distance for speed calculation
+            referenceTravelTime = 1.0  # Time to travel referenceDistance (speed = referenceDistance / referenceTravelTime)
+            gearDelay = 0.15  # Delay between each gear launch
+            
+            # Calculate throw distance
+            if USE_FIXED_DISTANCE:
+                throwDistance = fixedDistance
+            else:
+                throwDistance = toon.getDistance(self)
+            
+            # Calculate travel time to maintain same speed as reference distance
+            travelTime = (throwDistance / referenceDistance) * referenceTravelTime
+            
             gearRoot = self.rotateNode.attachNewNode('gearRoot-atk%d' % globalClock.getFrameTime())
             gearRoot.setZ(10)
             gearRoot.setTag('attackCode', str(attackCode))
@@ -359,7 +374,7 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
                         node.detachNode()
                     return Task.done
 
-                def detachNodeLater(node=node):
+                def detachNodeLater(node=node, distance=throwDistance):
                     if node.isEmpty():
                         return
                     center = node.node().getBounds().getCenter()
@@ -368,9 +383,9 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
                     self.doMethodLater(0.005, detachNode, 'detach-%s-%s' % (gearRoot.getName(), node.getName()),
                                        extraArgs=[node])
 
-                gearTrack.append(Sequence(Wait(i * 0.15), Func(node.show),
-                                          Parallel(node.posInterval(1, Point3(x, distance, z), fluid=1),
-                                                   node.hprInterval(1, VBase3(h, 0, 0), fluid=1)),
+                gearTrack.append(Sequence(Wait(i * gearDelay), Func(node.show),
+                                          Parallel(node.posInterval(travelTime, Point3(x, throwDistance, z), fluid=1),
+                                                   node.hprInterval(travelTime, VBase3(h, 0, 0), fluid=1)),
                                           Func(detachNodeLater)))
 
             if not self.raised:
