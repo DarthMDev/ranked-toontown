@@ -5,7 +5,6 @@ from direct.interval.IntervalGlobal import *
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.racing import RaceGlobals
-from toontown.shtiker.KartPage import RacingTrophy
 from toontown.racing import RaceGlobals
 
 class RaceResultsPanel(DirectFrame):

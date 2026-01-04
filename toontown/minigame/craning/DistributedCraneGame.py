@@ -3120,6 +3120,19 @@ class DistributedCraneGame(DistributedMinigame):
         
         base.localAvatar.setSystemMessage(0, "Forfeit request has been cancelled.")
     
+    def setCleanupForfeitDialogs(self):
+        """Clean up forfeit dialogs without showing cancellation message (used when forfeit is executed)"""
+        self.pendingForfeitRequester = None
+        self.forfeitConsents.clear()
+        
+        # Clean up dialogs without showing message
+        if self.forfeitDialog:
+            self.forfeitDialog.cleanup()
+            self.forfeitDialog = None
+        if self.forfeitRequesterDialog:
+            self.forfeitRequesterDialog.cleanup()
+            self.forfeitRequesterDialog = None
+    
     def __handleForfeitDialog(self, value):
         """Handle forfeit dialog button click (for non-requesters)"""
         from direct.gui.DirectGui import DGG
@@ -3291,6 +3304,19 @@ class DistributedCraneGame(DistributedMinigame):
             self.restartRequesterDialog = None
         
         base.localAvatar.setSystemMessage(0, "Restart request has been cancelled.")
+    
+    def setCleanupRestartDialogs(self):
+        """Clean up restart dialogs without showing cancellation message (used when restart is executed)"""
+        self.pendingRestartRequester = None
+        self.restartConsents.clear()
+        
+        # Clean up dialogs without showing message
+        if self.restartDialog:
+            self.restartDialog.cleanup()
+            self.restartDialog = None
+        if self.restartRequesterDialog:
+            self.restartRequesterDialog.cleanup()
+            self.restartRequesterDialog = None
     
     def __handleRestartDialog(self, value):
         """Handle restart dialog button click (for non-requesters)"""

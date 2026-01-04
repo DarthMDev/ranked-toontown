@@ -1970,18 +1970,14 @@ class EndCFO(MagicWord):
         # Start a new forfeit request (requires all players to confirm)
         participants = craneGame.getParticipantIdsNotSpectating()
         if len(participants) == 1:
-            # Single player game - forfeit immediately
-            context = craneGame.getScoringContext()
-            _round = context.get_round(craneGame.currentRound)
-            score = _round.get_score(invoker.doId)
-            craneGame.addScore(invoker.doId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
-            craneGame.gameFSM.request('victory')
+            # Single player game - forfeit immediately using executeForfeit to ensure proper handling
+            craneGame.executeForfeit(invoker.doId)
             return f"Forfeiting crane round - {toon.getName()} will be placed in last place."
         
         # Multi-player game - require consent from all players
         craneGame.requestForfeit()
         numParticipants = len(participants)
-        return f"Forfeit requested! All {numParticipants} players must confirm using ~ff confirm. The requester can cancel with ~ff cancel."
+        return f"Forfeit requested! All {numParticipants} players must respond to proceed with the forfeit."
 
 
 class RestartCraneRound(MagicWord):

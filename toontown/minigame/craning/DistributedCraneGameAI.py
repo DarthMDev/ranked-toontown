@@ -1661,8 +1661,18 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         highest_scorers = self.getHighestScorers()
 
-        # If nobody is in the lead (?) then go next round.
+        # If nobody is in the lead, check if this is a single-player forfeit
         if len(highest_scorers) == 0:
+            participants = self.getParticipantIdsNotSpectating()
+            # If there's only one participant, they should be declared the victor (even if they forfeited)
+            if len(participants) == 1:
+                victorId = participants[0]
+                self.sendUpdate("declareVictor", [victorId])
+                self.getScoringContext().get_round(self.currentRound).set_winners([victorId])
+                # Single round match - end the game
+                taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+                return
+            # Otherwise, go to next round (shouldn't normally happen)
             self.sendUpdate("declareVictor", [0])
             taskMgr.doMethodLater(5, self.__startNextRound, self.uniqueName("craneGameNextRound"), extraArgs=[])
             return
@@ -2044,19 +2054,24 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         score = _round.get_score(forfeiterAvId)
         num_players = len(self.getParticipantsNotSpectating())
         
-        # Ensure all participants at least have a point
-        for toon in self.getParticipantsNotSpectating():
-            if toon.getDoId() != forfeiterAvId or num_players == 1:
-                self.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
-        
-        self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+        if num_players == 1:
+            # Single player game - just subtract their score to put them at 0 or negative
+            # No need to give bonus points since they're the only player
+            self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+        else:
+            # Multi-player game - ensure all other participants have points so forfeiter is last
+            for toon in self.getParticipantsNotSpectating():
+                if toon.getDoId() != forfeiterAvId:
+                    self.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+            
+            self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
         
         # Clear forfeit request state
         self.pendingForfeitRequest = None
         self.forfeitConsents.clear()
         
-        # Notify clients to clean up forfeit dialogs
-        self.d_cancelForfeit()
+        # Notify clients to clean up forfeit dialogs (without showing cancellation message)
+        self.d_cleanupForfeitDialogs()
         
         # End the game
         self.gameFSM.request('victory')
@@ -2074,6 +2089,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_cancelForfeit(self):
         """Notify clients that forfeit request was cancelled"""
         self.sendUpdate('setCancelForfeit', [])
+    
+    def d_cleanupForfeitDialogs(self):
+        """Clean up forfeit dialogs without showing cancellation message (used when forfeit is executed)"""
+        self.sendUpdate('setCleanupForfeitDialogs', [])
     
     def requestRestart(self):
         """Handle restart request from a player"""
@@ -2165,8 +2184,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.pendingRestartRequest = None
         self.restartConsents.clear()
         
-        # Notify clients to clean up restart dialogs
-        self.d_cancelRestart()
+        # Notify clients to clean up restart dialogs (without showing cancellation message)
+        self.d_cleanupRestartDialogs()
         
         # Restart the game
         self.gameFSM.request("cleanup")
@@ -2185,6 +2204,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_cancelRestart(self):
         """Notify clients that restart request was cancelled"""
         self.sendUpdate('setCancelRestart', [])
+    
+    def d_cleanupRestartDialogs(self):
+        """Clean up restart dialogs without showing cancellation message (used when restart is executed)"""
+        self.sendUpdate('setCleanupRestartDialogs', [])
     
     # ============================================
     # Tournament System Methods

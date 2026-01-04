@@ -810,22 +810,3 @@ class ToontownMagicWordManager(MagicWordManager.MagicWordManager):
         if response:
             self.setMagicWordResponse(response)
         return
-
-    def doNews(self, word, av, zoneId):
-        args = word.split()
-        response = None
-        action = None
-        if len(args) == 1:
-            return
-        action = args[1]
-        if action == 'frame':
-            NametagGlobals.setMasterArrowsOn(0)
-            from toontown.shtiker import InGameNewsFrame
-            base.newsFrame = InGameNewsFrame.InGameNewsFrame()
-            base.newsFrame.activate()
-            response = 'putting in game news direct frame up'
-        elif action == 'snapshot':
-            response = localAvatar.newsPage.doSnapshot()
-        if response is not None:
-            self.setMagicWordResponse(response)
-        return
