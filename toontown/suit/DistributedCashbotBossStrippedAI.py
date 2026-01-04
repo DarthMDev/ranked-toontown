@@ -471,8 +471,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         damage = 3
         appliedByAvId = burnData['appliedByAvId']
         
+        # Use recordHitWithAttribution to ensure damage is attributed to the correct player
         # Use isDOT=True to prevent flinching and combo credit
-        self.game.recordHit(damage, impact=0, craneId=0, objId=0, isGoon=False, isDOT=True)
+        self.game.recordHitWithAttribution(damage, appliedByAvId, impact=0, craneId=0, objId=0, isGoon=False, isDOT=True)
         
         burnData['ticksRemaining'] -= 1
         
