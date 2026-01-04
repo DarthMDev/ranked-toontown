@@ -30,7 +30,6 @@ import toontown.archipelago.util.global_text_properties as global_text_propertie
 from .ErrorTrackingService import ErrorTrackingService, ServiceType, BasicErrorTrackingService
 from ..settings.Settings import Settings, ControlSettings
 from ..settings.DedicatedServerSettings import DedicatedServerSettings
-from .WindowAntiFreeze import install_window_anti_freeze
 
 if typing.TYPE_CHECKING:
     from toontown.toonbase.ToonBaseGlobals import *

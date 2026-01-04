@@ -20,7 +20,6 @@ from ..archipelago.definitions import color_profile
 from ..archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart
 from ..matchmaking.rank import Rank
 from ..toon.DistributedToon import DistributedToon
-from toontown.toonbase.WindowAntiFreeze import activate_window_anti_freeze, deactivate_window_anti_freeze
 
 
 class DistributedMinigame(DistributedObject.DistributedObject):
@@ -441,9 +440,6 @@ class DistributedMinigame(DistributedObject.DistributedObject):
             toon.setColorProfile(colorProfile)
 
     def setGameReady(self):
-        # Activate window anti-freeze protection to prevent collision detection exploit
-        activate_window_anti_freeze()
-
         if not self.hasLocalToon:
             return
         self.notify.debug('BASE: setGameReady: Ready for game with avatars: %s' % self.avIdList)
@@ -612,9 +608,6 @@ class DistributedMinigame(DistributedObject.DistributedObject):
             self.frameworkFSM.request('frameworkCleanup')
 
     def setGameExit(self):
-        # Deactivate window anti-freeze protection when exiting game
-        deactivate_window_anti_freeze()
-
         if not self.hasLocalToon:
             return
         self.notify.debug('BASE: setGameExit: now safe to exit game')
