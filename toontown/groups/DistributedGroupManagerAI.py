@@ -4,6 +4,7 @@ from toontown.groups import GroupGlobals
 from toontown.groups.DistributedGroupAI import DistributedGroupAI
 from toontown.groups.GroupOperationResult import GroupOperationResult
 from toontown.toon.DistributedToonAI import DistributedToonAI
+from toontown.toonbase import ToontownGlobals
 
 
 class DistributedGroupManagerAI(DistributedObjectAI):
@@ -398,3 +399,29 @@ class DistributedGroupManagerAI(DistributedObjectAI):
 
         if shouldUpdate:
             group.d_setMembers(group.getMembers())
+
+    def requestMinigameSwitch(self, minigameId: int):
+
+        requesterId = self.air.getAvatarIdFromSender()
+        requester = self.air.getDo(requesterId)
+        if requester is None:
+            return
+
+        group = self.getGroup(requester)
+        if group is None:
+            return
+
+        # Is this the group leader?
+        if group.getLeader() != requesterId:
+            return
+
+        # Valid minigame?
+        if minigameId not in ToontownGlobals.ValidMinigameIds:
+            return
+
+        # Already starting?
+        if group.onCooldown():
+            return
+
+        group.b_setMinigameType(minigameId)
+        group.announce(f"{requester.getName()} has changed to the {ToontownGlobals.MinigameId2Name.get(minigameId)} game!")

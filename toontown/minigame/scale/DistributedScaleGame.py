@@ -324,6 +324,8 @@ class DistributedScaleGame(DistributedMinigame):
             if avId in base.cr.doId2do:
                 self.scoreboard.addToon(avId)
 
+        self.scoreboard.show()
+
     def exitPlay(self):
         if self.boss is not None:
             self.boss.cleanupBossBattle()

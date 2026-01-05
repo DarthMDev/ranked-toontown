@@ -53,6 +53,7 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
         self.cutsceneSpeed = 1.0
         fileSystem = VirtualFileSystem.getGlobalPtr()
         self.musicJson = json.loads(fileSystem.readFile(ToontownGlobals.musicJsonFilePath, True))
+        self.boxCollNode = CollisionNode("box")
 
     def announceGenerate(self):
         DistributedAvatar.DistributedAvatar.announceGenerate(self)
@@ -110,9 +111,11 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
         tube1 = CollisionTube(6.5, -7.5, 2, 6.5, 7.5, 2, 2.5)
         tube2 = CollisionTube(-6.5, -7.5, 2, -6.5, 7.5, 2, 2.5)
         box = CollisionBox(Point3(0, 0, 2.75), 4.4, 7.1, 2.75)
+        self.attachNewNode(self.boxCollNode)
         self.collNode.addSolid(tube1)
         self.collNode.addSolid(tube2)
-        self.collNode.addSolid(box)
+        self.boxCollNode.addSolid(box)
+        self.boxCollNode.setIntoCollideMask(self.collNode.getIntoCollideMask() & ~ToontownGlobals.PieBitmask)
 
     def disable(self):
         DistributedAvatar.DistributedAvatar.disable(self)

@@ -122,7 +122,6 @@ class MinigameCreatorAI:
 
         minigameChoices = self.getMinigameChoices(len(playerArray), previousGameId=previousGameId, allowTrolleyTracks=False)
         mgId = random.choice(minigameChoices)
-        mgId = ToontownGlobals.CraneGameId  # Todo: Always choose crane game.
 
         # Check for a minigame override.
         if desiredNextGame is not None:

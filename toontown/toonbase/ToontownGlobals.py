@@ -374,6 +374,17 @@ PieGameId = 19
 ScaleGameId = 20
 SeltzerGameId = 21
 GolfGreenGameId = 22
+
+# Minigames that are allowed to be started.
+ValidMinigameIds = [
+    CraneGameId,
+    SeltzerGameId,
+    ScaleGameId,
+    PieGameId,
+    CrashBallGameId,
+    GolfGreenGameId,
+    CannonGameId,
+]
 TravelGameId = 100
 MinigameNames = {
     'race': RaceGameId,
@@ -403,6 +414,7 @@ MinigameNames = {
     'seltzer': SeltzerGameId,
     'golfgreen': GolfGreenGameId,
 }
+MinigameId2Name = {v: k for k, v in MinigameNames.items()}
 MinigameTemplateId = -1
 MinigameIDs = (
     RaceGameId,
@@ -1313,7 +1325,7 @@ LawbotBossWitnessEpiloguePosHpr = (-3,
  0,
  0)
 LawbotBossChanceForTaunt = 25
-LawbotBossBonusWaitTime = 15
+LawbotBossBonusWaitTime = 30
 LawbotBossBonusDuration = 20
 LawbotBossBonusToonup = 10
 LawbotBossBonusWeightMultiplier = 2

@@ -139,7 +139,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # Use base class check (skillProfileKey is not None) AND player count check
         # This ensures we don't try to adjust ratings if skillProfileKey is None
-        return super().isRanked() and len(self.getParticipantsNotSpectating()) > 1
+        return super().isRanked()
 
     def generate(self):
         self.notify.debug("generate")

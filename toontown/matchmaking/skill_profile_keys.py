@@ -9,6 +9,11 @@ class SkillProfileKey(Enum):
     MINIGAMES = "minigames"
     CRANING_SOLOS = "1v1_crane"
     CRANING_FFA = "craning"
+    SELTZER = "seltzer"
+    SCALE = "scale"
+    PIE = "pie"
+    CRASHBALL = "crashball"
+    COG_GOLF = "cog_golf"
 
     @classmethod
     def from_value(cls, value) -> SkillProfileKey | None:

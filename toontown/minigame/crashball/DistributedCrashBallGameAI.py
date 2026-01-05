@@ -7,6 +7,7 @@ from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.ode import OdeCollisionEntry, OdeGeom
 
 from toontown.golf import GolfGlobals
+from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.crashball.CrashBallConstants import InitialScore, GolfBallRadius, GolfBallDensity
 from toontown.minigame.crashball.CrashBallGamePhysicsWorld import CrashBallGamePhysicsWorld
@@ -67,6 +68,10 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
         self.accept(eventName, self.handleOdeCollision)
 
         self.ballSpawnTask = self.uniqueName("crashBall-spawnBalls")
+
+    def announceGenerate(self):
+        super().announceGenerate()
+        self.b_setProfileSkillKey(SkillProfileKey.CRASHBALL)
 
     def cleanup(self) -> None:
         for vehicle in self.vehicles.values():
@@ -172,8 +177,8 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
 
         if playerIndex < len(self.totalPlayerIdList):
             avId = self.totalPlayerIdList[playerIndex]
-            score = max(self.scoreDict[avId] - 1, 0)
-            self.scoreDict[avId] = score
+            score = max(self.getScoringContext().get_round(0).get_score(avId) - 1, 0)
+            self.getScoringContext().get_round(0).set_score(avId, score)
 
             # Remove the movement task.
             if score == 0:
@@ -194,13 +199,13 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
 
         # Handle lose condition for players.
         # This happens if there are Cogs with score left but all the player toons have been knocked out.
-        if all(self.scoreDict[playerId] == 0 for playerId in self.avIdList):
+        if all(score == 0 for score in self.getScoringContext().get_round(0).get_all_scores().values()):
             self.gameFSM.request("WinMovie", [0])
             return
 
         # Handle win condition for a single player.
         # This happens when the only one with a positive score amount is a player toon.
-        playersStillIn = [playerId for playerId in self.totalPlayerIdList if self.scoreDict[playerId] > 0]
+        playersStillIn = [playerId for playerId, score in self.getScoringContext().get_round(0).get_all_scores().items() if score > 0]
         if len(playersStillIn) == 1:
             self.gameFSM.request("WinMovie", [playersStillIn[0]])
             return
@@ -244,8 +249,8 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
     def enterPlay(self):
         self.notify.debug("enterPlay")
 
-        # reset scores
-        self.scoreDict = {avId: InitialScore for avId in self.totalPlayerIdList}
+        for avId in self.totalPlayerIdList:
+            self.getScoringContext().get_round(0).set_score(avId, InitialScore)
 
         # Spin up a task which will spawn the golf balls.
         taskMgr.doMethodLater(random.random(), self.__spawnBallTask, self.ballSpawnTask)

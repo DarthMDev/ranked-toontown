@@ -8,6 +8,7 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq.BossComboTrackerAI import BossComboTrackerAI
+from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
@@ -60,6 +61,10 @@ class DistributedPieGameAI(DistributedMinigameAI):
         self.boss.generateWithRequired(self.zoneId)
 
         super().generate()
+
+    def announceGenerate(self):
+        super().announceGenerate()
+        self.b_setProfileSkillKey(SkillProfileKey.PIE)
 
     def cleanup(self) -> None:
         if self.boss is not None:
@@ -157,7 +162,7 @@ class DistributedPieGameAI(DistributedMinigameAI):
         self.d_updateTimer(actualTime)
 
     def enterVictory(self):
-        victorId = max(self.scoreDict.items(), key=itemgetter(1))[0]
+        victorId = max(self.getScoringContext().get_total_points().items(), key=itemgetter(1))[0]
         self.sendUpdate("declareVictor", [victorId])
         taskMgr.doMethodLater(10, self.gameOver, self.uniqueName("pieGameVictory"), extraArgs=[])
 
@@ -186,15 +191,15 @@ class DistributedPieGameAI(DistributedMinigameAI):
         self.sendUpdate('awardCombo', [avId, comboLength, amount])
 
     def d_damageDealt(self, avId, dmg):
-        self.scoreDict[avId] += dmg
+        self.getScoringContext().get_round(0).add_score(avId, dmg)
         self.sendUpdate('updateDamageDealt', [avId, dmg])
 
     def d_stunBonus(self, avId, points):
-        self.scoreDict[avId] += points
+        self.getScoringContext().get_round(0).add_score(avId, points)
         self.sendUpdate('updateStunCount', [avId, points])
 
     def d_avHealed(self, avId, hp):
-        self.scoreDict[avId] += hp
+        self.getScoringContext().get_round(0).add_score(avId, hp)
         self.sendUpdate('avHealed', [avId, hp])
 
     def d_updateTimer(self, time):
