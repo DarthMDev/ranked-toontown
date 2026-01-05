@@ -101,7 +101,7 @@ class DistributedGoon(DistributedCrushableEntity.DistributedCrushableEntity, Goo
         self.sSphereNode.addSolid(self.sSphere)
         self.sSphereNodePath = self.head.attachNewNode(self.sSphereNode)
         self.sSphereNodePath.hide()
-        self.sSphereBitMask = ToontownGlobals.WallBitmask
+        self.sSphereBitMask = ToontownGlobals.WallBitmask | ToontownGlobals.TNTBitmask
         self.sSphereNode.setCollideMask(self.sSphereBitMask)
         self.sSphere.setTangible(1)
         

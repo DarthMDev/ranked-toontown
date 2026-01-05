@@ -55,7 +55,7 @@ from toontown.coghq import DistributedCashbotBossSafe/AI
 from toontown.coghq import DistributedCashbotBossCrane/AI
 from toontown.coghq import DistributedCashbotBossSideCrane/AI
 from toontown.coghq import DistributedCashbotBossHeavyCrane/AI
-from toontown.coghq import DistributedCFOPieStand/AI
+from toontown.coghq import DistributedCashbotBossBoomBarrow/AI
 from toontown.suit import DistributedCashbotBossGoon/AI
 from toontown.battle import DistributedBattleBase/AI
 from toontown.battle import DistributedBattle/AI
@@ -1525,9 +1525,10 @@ dclass DistributedCashbotBossSideCrane : DistributedCashbotBossCrane {
 dclass DistributedCashbotBossHeavyCrane : DistributedCashbotBossCrane {
 };
 
-dclass DistributedCFOPieStand : DistributedObject {
+dclass DistributedCashbotBossBoomBarrow : DistributedObject {
   setIndex(uint8) required broadcast ram;
-  touchPieStand() airecv clsend;
+  touchBoomBarrow() airecv clsend;
+  setCooldownState(bool, uint32) broadcast ram;
 };
 
 dclass DistributedCashbotBossObject : DistributedSmoothNode {

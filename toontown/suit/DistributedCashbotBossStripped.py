@@ -50,7 +50,8 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         target = CollisionSphere(2, 0, 0, 3)
         targetNode = CollisionNode('headTarget')
         targetNode.addSolid(target)
-        targetNode.setCollideMask(ToontownGlobals.PieBitmask)
+        # CFO head can be hit by both regular pies and TNT pies
+        targetNode.setCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         self.headTarget = self.neck.attachNewNode(targetNode)
         # Set pieCode tag so pies know to hit the CFO
         self.headTarget.setTag('pieCode', str(ToontownGlobals.PieCodeBossCog))
@@ -63,7 +64,8 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         shield = CollisionSphere(0, 0, 0.8, 7)
         shieldNode = CollisionNode('shield')
         shieldNode.addSolid(shield)
-        shieldNode.setCollideMask(ToontownGlobals.PieBitmask)
+        # CFO body can be hit by both regular pies and TNT pies
+        shieldNode.setCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         self.pelvis.attachNewNode(shieldNode)
 
         self.eyes = loader.loadModel('phase_10/models/cogHQ/CashBotBossEyes.bam')

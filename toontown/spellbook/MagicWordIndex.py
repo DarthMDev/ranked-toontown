@@ -2880,8 +2880,8 @@ class GivePies(MagicWord):
         if pieType == -1:
             toon.b_setNumPies(0)
             return "Removed %s's pies." % toon.getName()
-        if not 0 <= pieType <= 7:
-            return "You can only specify between pie types 0 and 7."
+        if not 0 <= pieType <= 8:
+            return "You can only specify between pie types 0 and 8."
         if numPies == -1:
             toon.b_setPieType(pieType)
             toon.b_setNumPies(ToontownGlobals.FullPies)

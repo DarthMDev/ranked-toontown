@@ -338,6 +338,12 @@ class DistributedCraneGame(DistributedMinigame):
         walls.detachNode()
         self.evWalls = self.replaceCollisionPolysWithPlanes(walls)
         self.evWalls.reparentTo(self.endVault)
+        
+        # Set up wall collision mask to accept both regular pies and TNT pies
+        wallsCollisionNode = self.evWalls.node()
+        if wallsCollisionNode:
+            backWallMask = BitMask32.lowerOn(3) << 21
+            wallsCollisionNode.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask | backWallMask)
 
         # Initially, these new planar walls are stashed, so they don't
         # cause us trouble in the intro movie or in battle one.  We
@@ -453,7 +459,7 @@ class DistributedCraneGame(DistributedMinigame):
                     return
             
             backWallMask = BitMask32.lowerOn(3) << 21
-            newMask = OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | backWallMask
+            newMask = OTPGlobals.WallBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask | backWallMask
             cn.setIntoCollideMask(newMask)
             self.notify.debug(f'[Crane League] Back wall enabled with mask: {newMask}')
         except Exception as e:

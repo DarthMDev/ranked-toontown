@@ -3157,10 +3157,74 @@ class Toon(Avatar.Avatar, ToonHead):
         fly = Track((14.0 / 24.0, SoundInterval(sound, node=self)), (16.0 / 24.0, Sequence(Func(flyPie.reparentTo, render), Func(flyPie.setScale, self.pieScale), Func(flyPie.setPosHpr, self, 0.52, 0.97, 2.24, 89.42, -10.56, 87.94), beginFlyIval, ProjectileInterval(flyPie, startVel=getVelocity, duration=3), Func(flyPie.detachNode))))
         return (toss, fly, flyPie)
 
-    def getPieSplatInterval(self, x, y, z, pieCode):
+    def getPieSplatInterval(self, x, y, z, pieCode, goonsDestroyed=False):
         from toontown.toonbase import ToontownBattleGlobals
         from toontown.battle import BattleProps
+        from toontown.suit import GoonDeath
+        from toontown.battle import BattleParticles
         pieName = ToontownBattleGlobals.pieNames[self.pieType]
+        
+        if pieName == 'tnt':
+            from toontown.battle import MovieUtil, BattleProps
+            explosionPoint = Point3(x, y, z)
+            
+            # Add kapow prop for KABLAM text (always shown)
+            kapow = BattleProps.globalPropPool.getProp('kapow')
+            kapow.setBillboardPointEye()
+            kapowTrack = Sequence(
+                Func(kapow.reparentTo, render),
+                Func(kapow.setPos, explosionPoint),
+                Func(kapow.setZ, explosionPoint.getZ() + 1),
+                Func(kapow.setScale, 0.11 * 1.1),  # Scale down to match explosion
+                ActorInterval(kapow, 'kapow'),
+                Func(MovieUtil.removeProp, kapow)
+            )
+            
+            # If goons were destroyed, only show KAPOW (no explosion effects)
+            if goonsDestroyed:
+                return kapowTrack
+            
+            # Otherwise, show full explosion with particles and sound
+            from toontown.suit import GoonDeath
+            from toontown.battle import BattleParticles
+            BattleParticles.loadParticles()
+            scale = VBase3(0.4, 0.4, 0.4)  # Smaller scale for TNT pies
+            particleScale = 0.8  # Scale for particles (smaller spread)
+            
+            # Create death node and scale it to reduce particle spread
+            deathNode = NodePath('tntDeath')
+            deathNode.setPos(explosionPoint)
+            deathNode.setScale(particleScale)  # Scale the node to reduce particle spread
+            
+            # Create explosion track (scaled model)
+            explosion = loader.loadModel('phase_3.5/models/props/explosion.bam')
+            explosion.getChild(0).setScale(scale)
+            explosion.reparentTo(deathNode)
+            explosion.setBillboardPointEye()
+            explosion.setPos(0, 0, 2)
+            explosionTrack = Sequence(
+                Func(deathNode.reparentTo, render),
+                Wait(0.6),
+                Func(deathNode.detachNode)
+            )
+            
+            # Create smaller particle effects (fewer particles)
+            smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=5)  # Reduced from 10
+            bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=1)  # Reduced from 30
+            deathSound = loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
+            
+            # Create particle intervals on scaled deathNode
+            particleTrack = Parallel(
+                explosionTrack,
+                SoundInterval(deathSound),
+                ParticleInterval(smallGearExplosion, deathNode, worldRelative=0, duration=4.3, cleanup=True),
+                ParticleInterval(bigGearExplosion, deathNode, worldRelative=0, duration=1.0, cleanup=True)
+            )
+            
+            # Combine all effects
+            ival = Parallel(particleTrack, kapowTrack)
+            return ival
+        
         splatName = 'splat-%s' % pieName
         if pieName == 'lawbook':
             splatName = 'dust'

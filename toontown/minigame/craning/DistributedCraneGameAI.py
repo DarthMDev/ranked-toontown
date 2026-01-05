@@ -15,7 +15,7 @@ from toontown.coghq.DistributedCashbotBossHeavyCraneAI import DistributedCashbot
 from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.coghq.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
-from toontown.coghq.DistributedCFOPieStandAI import DistributedCFOPieStandAI
+from toontown.coghq.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
@@ -47,7 +47,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.goons = []
         self.treasures = {}
         self.grabbingTreasures = {}
-        self.pieStands = []  # List to hold pie stand objects
+        self.boomBarrows = []  # List to hold boom barrow objects
         self.recycledTreasures = []
         self.boss = None
 
@@ -440,13 +440,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
                 ind += 1
-        # Generate pie stands if wanted (alternative to side cranes)
-        elif self.ruleset.WANT_PIE_STANDS:
-            for pieStandIndex, _ in enumerate(CraneLeagueGlobals.SIDE_CRANE_POSHPR):
-                pieStand = DistributedCFOPieStandAI(self.air, self, pieStandIndex)
-                pieStand.generateWithRequired(self.zoneId)
-                pieStand.b_setIndex(pieStandIndex)
-                self.pieStands.append(pieStand)
+        # Generate boom barrows if wanted (alternative to side cranes)
+        elif self.ruleset.WANT_BOOM_BARROWS:
+            for boomBarrowIndex, _ in enumerate(CraneLeagueGlobals.SIDE_CRANE_POSHPR):
+                boomBarrow = DistributedCashbotBossBoomBarrowAI(self.air, self, boomBarrowIndex)
+                boomBarrow.generateWithRequired(self.zoneId)
+                boomBarrow.b_setIndex(boomBarrowIndex)
+                self.boomBarrows.append(boomBarrow)
 
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
@@ -485,10 +485,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             safe.requestDelete()
         self.safes.clear()
 
-        # Clean up pie stands
-        for pieStand in self.pieStands:
-            pieStand.requestDelete()
-        self.pieStands.clear()
+        # Clean up boom barrows
+        for boomBarrow in self.boomBarrows:
+            boomBarrow.requestDelete()
+        self.boomBarrows.clear()
 
         for goon in self.goons:
             goon.request('Off')
@@ -968,7 +968,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.toonSpawnpointOrder = newOrder[:]
         self.customSpawnOrderSet = True
         self.d_setToonSpawnpointOrder()
-        self.notify.info(f"Spawn order updated by leader {senderId}: {self.toonSpawnpointOrder}")
 
     def setBestOf(self, value):
         """Handle best-of setting from the leader"""
@@ -1140,20 +1139,28 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             # Check if CFO is not already in any stun state
             hitMeetsStunRequirements = (self.boss.attackCode != ToontownGlobals.BossCogDizzy and 
                                         self.boss.attackCode != ToontownGlobals.BossCogDizzyNow)
-            print('[CraneGame] recordHit: forceStun=True, attackCode=%s, hitMeetsStunRequirements=%s' % (self.boss.attackCode, hitMeetsStunRequirements))
         else:
             hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
         
-        print('[CraneGame] recordHit: hitMeetsStunRequirements=%s, about to check if stun' % hitMeetsStunRequirements)
         if hitMeetsStunRequirements:
-            print('[CraneGame] recordHit: STUNNING CFO!')
             # A particularly good hit (when he's not already
             # dizzy) will make the boss dizzy for a little while.
             delayTime = self.progressValue(20, 5)
             self.boss.b_setAttackCode(ToontownGlobals.BossCogDizzy, delayTime=delayTime)
             isSideCrane = isinstance(crane, DistributedCashbotBossSideCraneAI)
             reason = CraneLeagueGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneLeagueGlobals.ScoreReason.STUN
-            points = crane.getPointsForStun() if crane is not None else self.ruleset.POINTS_STUN // 2
+            
+            # Determine points based on stun type
+            if crane is not None:
+                # Regular crane stun
+                points = crane.getPointsForStun()
+            elif forceStun and crane is None:
+                # Pie stun - give 30 points
+                points = 30
+            else:
+                # Fallback for other cases
+                points = self.ruleset.POINTS_STUN // 2
+            
             self.addScore(avId, points, reason=reason)
         else:
 
@@ -1653,6 +1660,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             toon.startToonUp(ToontownGlobals.PassiveHealFrequency)
             # Restore health.
             toon.b_setHp(toon.getMaxHp())
+            # Clear all TNT/pies when round ends or restarts
+            toon.b_setNumPies(0)
 
         if self.boss is not None:
             self.boss.cleanupBossBattle()
@@ -1832,7 +1841,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             self.desiredModifiers.append(modifier)
             
             self.applyModifier(modifier, updateClient=True)
-            self.notify.info(f"Added modifier {modifier.getName()} (tier {tier})")
         else:
             self.notify.warning(f"Unknown modifier enum: {modifierEnum}")
     
@@ -1862,7 +1870,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if removedMod:
             # Rebuild ruleset from scratch without the removed modifier
             self.__rebuildRuleset()
-            self.notify.info(f"Removed modifier {removedMod.getName()}")
         else:
             self.notify.warning(f"Modifier {modifierEnum} not found to remove")
     
@@ -2007,8 +2014,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # Send forfeit request to all players
         self.d_requestForfeit(avId)
-        
-        self.notify.info(f"Player {avId} requested forfeit. Waiting for all players to confirm.")
     
     def confirmForfeit(self):
         """Handle forfeit confirmation from a player"""
@@ -2051,7 +2056,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
         
         # Rejection cancels the forfeit immediately
-        self.notify.info(f"Player {avId} rejected the forfeit request. Cancelling forfeit.")
         self.pendingForfeitRequest = None
         self.forfeitConsents.clear()
         self.d_cancelForfeit()
@@ -2066,7 +2070,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
         
         if self.pendingForfeitRequest is not None:
-            self.notify.info(f"Cancelling forfeit request from {self.pendingForfeitRequest}")
             self.pendingForfeitRequest = None
             self.forfeitConsents.clear()
             self.d_cancelForfeit()
@@ -2100,8 +2103,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # End the game
         self.gameFSM.request('victory')
-        
-        self.notify.info(f"Forfeit executed - {forfeiterAvId} placed in last place")
     
     def d_requestForfeit(self, requesterAvId):
         """Send forfeit request to all clients"""
@@ -2139,8 +2140,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # Send restart request to all players
         self.d_requestRestart(avId)
-        
-        self.notify.info(f"Player {avId} requested restart. Waiting for all players to confirm.")
     
     def confirmRestart(self):
         """Handle restart confirmation from a player"""
@@ -2183,7 +2182,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
         
         # Rejection cancels the restart immediately
-        self.notify.info(f"Player {avId} rejected the restart request. Cancelling restart.")
         self.pendingRestartRequest = None
         self.restartConsents.clear()
         self.d_cancelRestart()
@@ -2198,7 +2196,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
         
         if self.pendingRestartRequest is not None:
-            self.notify.info(f"Cancelling restart request from {self.pendingRestartRequest}")
             self.pendingRestartRequest = None
             self.restartConsents.clear()
             self.d_cancelRestart()
@@ -2215,9 +2212,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Restart the game
         self.gameFSM.request("cleanup")
         self.gameFSM.request('prepare')
-        
-        self.notify.info(f"Restart executed - requested by {requesterAvId}")
-    
+            
     def d_requestRestart(self, requesterAvId):
         """Send restart request to all clients"""
         self.sendUpdate('setRequestRestart', [requesterAvId])
@@ -2286,7 +2281,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         success = self.tournamentManager.startTournament(tournamentType, stageConfig, stage2Type, participants)
         
         if success:
-            self.notify.info(f"Tournament started: type={tournamentType}, participants={participants}")
             # Notify clients that tournament has started
             self.d_setTournamentActive(tournamentType)
             # Update skill profile to None (tournaments are unranked)
@@ -2311,7 +2305,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
             
         if self.tournamentManager.isTournamentActive():
-            self.notify.info("Cancelling tournament")
             self.tournamentManager.cleanup()
             # Notify clients
             self.d_setTournamentActive(TournamentType.NONE)
@@ -2432,7 +2425,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         if hasMoreMatches:
             # More matches to play
-            self.notify.info("Tournament continues to next match")
             taskMgr.doMethodLater(3, self._startNextTournamentMatch, 
                                   self.uniqueName("nextTournamentMatch"))
         else:

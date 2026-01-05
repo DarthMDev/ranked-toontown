@@ -116,7 +116,8 @@ pieNames = ['tart',
             'creampie',
             'birthday-cake',
             'wedding-cake',
-            'lawbook']
+            'lawbook',
+            'tnt']
 AvProps = (('feather',
             'bullhorn',
             'lipstick',

@@ -18,6 +18,7 @@ MakeAToonCameraFov = 52.0
 CeilingBitmask = BitMask32(256)
 FloorEventBitmask = BitMask32(16)
 PieBitmask = BitMask32(256)
+TNTBitmask = BitMask32(2048)  # Separate bitmask for TNT pies to avoid conflicts
 PetBitmask = BitMask32(8)
 CatchGameBitmask = BitMask32(16)
 CashbotBossObjectBitmask = BitMask32(16)

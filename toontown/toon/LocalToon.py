@@ -745,6 +745,16 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
              timestamp32])
             if self.numPies != ToontownGlobals.FullPies:
                 self.setNumPies(self.numPies - 1)
+            # Update pie bubble collision mask based on pie type (TNT uses TNTBitmask)
+            from toontown.toonbase import ToontownBattleGlobals
+            pieName = ToontownBattleGlobals.pieNames[self.pieType]
+            if pieName == 'tnt':
+                # TNT pies use TNTBitmask and need to collide with walls, floors, goons, and CFO
+                from otp.otpbase import OTPGlobals
+                pieBubble.node().setFromCollideMask(ToontownGlobals.TNTBitmask | OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.CameraBitmask)
+            else:
+                # Regular pies use PieBitmask
+                pieBubble.node().setFromCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.CameraBitmask | ToontownGlobals.FloorBitmask)
             base.cTrav.addCollider(pieBubble, self.pieHandler)
 
         toss, pie, flyPie = self.getTossPieInterval(pos[0], pos[1], pos[2], hpr[0], hpr[1], hpr[2], power, beginFlyIval=Func(pieFlies))
@@ -784,7 +794,36 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         pieCodeStr = entry.getIntoNodePath().getNetTag('pieCode')
         if pieCodeStr:
             pieCode = int(pieCodeStr)
+        
+        # Check if this is a TNT pie hitting a goon's toonSphere
+        from toontown.toonbase import ToontownBattleGlobals
+        pieName = ToontownBattleGlobals.pieNames[self.pieType]
+        intoNode = entry.getIntoNodePath()
+        intoName = intoNode.getName() if not intoNode.isEmpty() else ''
+        
         pos = entry.getSurfacePoint(render)
+        
+        # If TNT pie hits a goon's toonSphere, destroy the goon
+        if pieName == 'tnt' and 'toonSphere' in intoName:
+            # Find the goon by traversing up the node path
+            goonNode = intoNode.getParent()
+            while goonNode and not goonNode.isEmpty():
+                if 'goon-' in goonNode.getName():
+                    # Found the goon - destroy it
+                    goon = base.cr.doId2do.get(int(goonNode.getName().split('-')[1]))
+                    if goon and hasattr(goon, 'b_destroyGoon'):
+                        goon.b_destroyGoon()
+                    break
+                goonNode = goonNode.getParent()
+        
+        # TNT explosion radius check - destroy all goons within 15 units
+        goonsDestroyed = False
+        if pieName == 'tnt':
+            goonsDestroyed = self.__checkTNTExplosionRadius(pos)
+            # Also check if we directly hit a goon
+            if 'toonSphere' in intoName:
+                goonsDestroyed = True
+        
         timestamp32 = globalClockDelta.getFrameNetworkTime(bits=32)
         self.sendUpdate('pieSplat', [pos[0],
          pos[1],
@@ -792,12 +831,63 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
          sequence,
          pieCode,
          timestamp32])
-        splat = self.getPieSplatInterval(pos[0], pos[1], pos[2], pieCode)
+        # Pass goonsDestroyed flag to splat interval for TNT
+        splat = self.getPieSplatInterval(pos[0], pos[1], pos[2], pieCode, goonsDestroyed=goonsDestroyed if pieName == 'tnt' else False)
         splat = Sequence(splat, Func(self.pieFinishedSplatting, sequence))
         self.splatTracks[sequence] = splat
         splat.start()
         messenger.send('pieSplat', [self, pieCode])
         messenger.send('localPieSplat', [pieCode, entry])
+
+    def __checkTNTExplosionRadius(self, explosionPos):
+        """Check for goons within 10 units of TNT explosion and destroy them."""
+        # Find the game to get goons list (goons are stored on the game, not the boss)
+        game = None
+        
+        # Try to get game from current minigame
+        if hasattr(base, 'curMinigame') and base.curMinigame:
+            game = base.curMinigame
+        
+        # Fallback: search for game in doId2do
+        if not game:
+            for obj in base.cr.doId2do.values():
+                if hasattr(obj, '__class__') and 'CraneGame' in obj.__class__.__name__ and 'AI' not in obj.__class__.__name__:
+                    game = obj
+                    break
+        
+        if not game:
+            return False
+        
+        if not hasattr(game, 'goons'):
+            return False
+        
+        # Check all goons within 10 units
+        explosionRadius = 10.0
+        goonsDestroyed = False
+        goonsChecked = 0
+        for goon in game.goons:
+            if not goon:
+                continue
+            if hasattr(goon, 'isEmpty') and goon.isEmpty():
+                continue
+            try:
+                goonPos = goon.getPos(render)
+                distance = (explosionPos - goonPos).length()
+                goonsChecked += 1
+                self.notify.debug('__checkTNTExplosionRadius: Goon at %s, distance=%.2f' % (goonPos, distance))
+                if distance <= explosionRadius:
+                    # Goon is within explosion radius - destroy it
+                    if hasattr(goon, 'b_destroyGoon'):
+                        self.notify.debug('__checkTNTExplosionRadius: Destroying goon at distance %.2f' % distance)
+                        goon.b_destroyGoon()
+                        goonsDestroyed = True
+            except Exception as e:
+                # Skip goon if there's an error getting position
+                self.notify.debug('__checkTNTExplosionRadius: Error checking goon: %s' % str(e))
+                continue
+        
+        self.notify.debug('__checkTNTExplosionRadius: Checked %d goons, destroyed=%s' % (goonsChecked, goonsDestroyed))
+        return goonsDestroyed
 
     def beginAllowPies(self):
         self.allowPies = 1
@@ -838,7 +928,16 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                 self.__pieButton = None
         if self.__pieButton == None:
             inv = self.inventory
-            if self.pieType >= len(inv.invModels[ToontownBattleGlobals.THROW_TRACK]):
+            if self.pieType == 8:
+                # TNT (pieType 8) uses the trap TNT icon
+                invModel = loader.loadModel('phase_3.5/models/gui/inventory_icons')
+                pieGui = invModel.find('**/inventory_tnt')
+                pieGui = pieGui.copyTo(NodePath('tntIcon'))  # Copy to a new NodePath so we can remove the model
+                invModel.removeNode()
+                pieScale = 0.85
+                gui = None
+            elif self.pieType >= len(inv.invModels[ToontownBattleGlobals.THROW_TRACK]):
+                # Lawbook (pieType 7) and other out-of-range types use summons icon
                 gui = loader.loadModel('phase_3.5/models/gui/stickerbook_gui')
                 pieGui = gui.find('**/summons')
                 pieScale = 0.1
