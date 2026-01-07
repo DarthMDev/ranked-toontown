@@ -126,6 +126,8 @@ BuildingNametagFont = None
 MinnieFont = None
 SuitFont = None
 CompetitionFont = None
+NewInterfaceFont1 = None
+NewInterfaceFont2 = None
 
 def getToonFont():
     global ToonFont
@@ -161,6 +163,20 @@ def getCompetitionFont():
         CompetitionFont = loader.loadFont(TTLocalizer.CompetitionFont)
 
     return CompetitionFont
+
+def getNewInterfaceFont1():
+    global NewInterfaceFont1
+    if NewInterfaceFont1 is None:
+        NewInterfaceFont1 = loader.loadFont(TTLocalizer.NewInterfaceFont1)
+
+    return NewInterfaceFont1
+
+def getNewInterfaceFont2():
+    global NewInterfaceFont2
+    if NewInterfaceFont2 is None:
+        NewInterfaceFont2 = loader.loadFont(TTLocalizer.NewInterfaceFont2)
+
+    return NewInterfaceFont2
 
 
 DonaldsDock = 1000
@@ -388,7 +404,7 @@ ValidMinigameIds = [
 TravelGameId = 100
 MinigameNames = {
     'race': RaceGameId,
-    'cannon': CannonGameId,
+    'Cannon': CannonGameId,
     'tag': TagGameId,
     'pattern': PatternGameId,
     'minnie': PatternGameId,
@@ -407,12 +423,12 @@ MinigameNames = {
     '2d': TwoDGameId,
     'photo': PhotoGameId,
     'travel': TravelGameId,
-    'crashball': CrashBallGameId,
-    'crane': CraneGameId,
-    'pie': PieGameId,
-    'scale': ScaleGameId,
-    'seltzer': SeltzerGameId,
-    'golfgreen': GolfGreenGameId,
+    'Crashball': CrashBallGameId,
+    'Crane': CraneGameId,
+    'Pie': PieGameId,
+    'Scale': ScaleGameId,
+    'Seltzer': SeltzerGameId,
+    'Golf\nPuzzles': GolfGreenGameId,
 }
 MinigameId2Name = {v: k for k, v in MinigameNames.items()}
 MinigameTemplateId = -1

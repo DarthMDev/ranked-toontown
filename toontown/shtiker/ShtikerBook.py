@@ -193,13 +193,12 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             iconModels.detachNode()
         if pageName == TTLocalizer.OptionsPageTitle:
             pageName = TTLocalizer.OptionsTabTitle
-        pageTab = DirectButton(parent=self.pageTabFrame, relief=DGG.RAISED, frameSize=(-0.575,
-         0.575,
-         -0.575,
-         0.575), borderWidth=(0.05, 0.05), text=('',
-         '',
-         pageName,
-         ''), text_align=TextNode.ALeft, text_pos=(1, -0.2), text_scale=TTLocalizer.SBpageTab, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), image=iconImage, image_scale=iconScale, geom=iconGeom, geom_scale=iconScale, geom_color=iconColor, pos=(0, 0, -yOffset), scale=0.06, command=buttonPressedCommand, extraArgs=extraArgs)
+        pageTab = DirectButton(parent=self.pageTabFrame, relief=DGG.RAISED, frameSize=(-0.575,0.575,-0.575,0.575),
+                               borderWidth=(0.05, 0.05), text=('','',pageName,''), text_align=TextNode.ALeft,
+                               text_pos=(1, -0.2), text_scale=TTLocalizer.SBpageTab, text_fg=(1, 1, 1, 1),
+                               text_shadow=(0, 0, 0, 1), image=iconImage, image_scale=iconScale, geom=iconGeom,
+                               geom_scale=iconScale, geom_color=iconColor, pos=(0, 0, -yOffset), scale=0.06,
+                               command=buttonPressedCommand, extraArgs=extraArgs)
         self.pageTabs.insert(pageIndex, pageTab)
         return
 

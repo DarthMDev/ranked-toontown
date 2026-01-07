@@ -4,6 +4,8 @@ from otp.otpbase import OTPLocalizer as OL
 
 commitmantst = 'kptmptest - removable'
 InterfaceFont = 'phase_3/models/fonts/ImpressBT.ttf'
+NewInterfaceFont1 = 'phase_3/models/fonts/TitilliumWeb-Bold.ttf'
+NewInterfaceFont2 = 'phase_3/models/fonts/Vipnagorgialla-Bd-It.ttf'
 ToonFont = 'phase_3/models/fonts/ImpressBT.ttf'
 SuitFont = 'phase_3/models/fonts/vtRemingtonPortable.ttf'
 SignFont = 'phase_3/models/fonts/MickeyFont'
