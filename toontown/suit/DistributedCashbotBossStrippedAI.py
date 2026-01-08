@@ -343,9 +343,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
         self.toonsWon = False
 
-    def pieHitBoss(self):
+    def pieHitBoss(self, pieType):
         """Called when a pie hits the CFO's head"""
-        print('[CFO] pieHitBoss called!')
+        print('[CFO] pieHitBoss called! pieType=%s' % pieType)
         avId = self.air.getAvatarIdFromSender()
         print('[CFO] pieHitBoss: avId=%s, participants=%s' % (avId, self.game.getParticipants()))
         
@@ -360,18 +360,39 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             print('[CFO] pieHitBoss: Game not in play state, current state: %s' % gameState)
             return
         
-        # Don't cancel existing stun - if already stunned, just return
-        print('[CFO] pieHitBoss: attackCode=%s' % self.attackCode)
-        if self.attackCode == ToontownGlobals.BossCogDizzy or self.attackCode == ToontownGlobals.BossCogDizzyNow:
-            print('[CFO] pieHitBoss: CFO already stunned, ignoring')
+        # Check if this is a TNT pie (pieType 8)
+        isTNT = (pieType == 8)
+        isAlreadyStunned = (self.attackCode == ToontownGlobals.BossCogDizzy or self.attackCode == ToontownGlobals.BossCogDizzyNow)
+        
+        print('[CFO] pieHitBoss: isTNT=%s, isAlreadyStunned=%s' % (isTNT, isAlreadyStunned))
+        
+        # If TNT, always deal 5 damage (even if already stunned)
+        if isTNT:
+            print('[CFO] pieHitBoss: TNT hit - dealing 5 damage')
+            self.game.recordHit(
+                10,  # 5 damage for TNT
+                impact=0.99,  # High impact for visual effect
+                craneId=-1,  # No crane
+                objId=0,  # No object
+                isGoon=False,
+                isDOT=False,
+                avIdOverride=avId,
+                forceStun=(not isAlreadyStunned)  # Stun if not already stunned
+            )
+            print('[CFO] pieHitBoss: TNT damage and stun recorded')
             return
         
-        print('[CFO] pieHitBoss: Processing pie hit from avatar %s, attackCode=%s, calling recordHit' % (avId, self.attackCode))
+        # For non-TNT pies, only stun if not already stunned
+        if isAlreadyStunned:
+            print('[CFO] pieHitBoss: CFO already stunned, ignoring non-TNT pie')
+            return
+        
+        print('[CFO] pieHitBoss: Processing non-TNT pie hit from avatar %s, calling recordHit for stun' % avId)
         
         # Record hit with 0 damage and forceStun=True to stun the CFO
         # This will cause flinch animation and stun, similar to goons
         self.game.recordHit(
-            0,  # 0 damage
+            0,  # 0 damage for non-TNT pies
             impact=0.99,  # High impact for visual effect
             craneId=-1,  # No crane
             objId=0,  # No object
@@ -380,7 +401,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             avIdOverride=avId,
             forceStun=True  # Force stun regardless of damage threshold
         )
-        print('[CFO] pieHitBoss: recordHit called')
+        print('[CFO] pieHitBoss: recordHit called for stun')
     
     def cleanupBossBattle(self):
         self.stopAttacks()

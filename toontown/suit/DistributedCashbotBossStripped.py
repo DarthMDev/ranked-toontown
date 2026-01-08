@@ -448,13 +448,15 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         if pieCode == ToontownGlobals.PieCodeBossCog:
             print('[CFO Client] Pie hit CFO head!')
             # Local toon's pie hit the CFO's head
-            # Send update to AI to process stun
+            # Get the pie type to determine if it's TNT
+            pieType = localAvatar.pieType if hasattr(localAvatar, 'pieType') else 0
+            # Send update to AI to process stun and damage
             # The flinch will be triggered by setBossDamage when server confirms
-            print('[CFO Client] Sending d_pieHitBoss to AI')
-            self.d_pieHitBoss()
+            print('[CFO Client] Sending d_pieHitBoss to AI with pieType=%s' % pieType)
+            self.d_pieHitBoss(pieType)
         else:
             print('[CFO Client] pieCode mismatch: got %s, expected %s' % (pieCode, ToontownGlobals.PieCodeBossCog))
     
-    def d_pieHitBoss(self):
+    def d_pieHitBoss(self, pieType):
         """Send update to AI that a pie hit the CFO"""
-        self.sendUpdate('pieHitBoss', [])
+        self.sendUpdate('pieHitBoss', [pieType])

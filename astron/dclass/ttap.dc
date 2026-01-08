@@ -1290,7 +1290,7 @@ dclass DistributedCashbotBossStripped: DistributedBossCogStripped {
   setAttackCode(uint8, uint32, uint32) broadcast;
   setAnimationSpeed(int16/100) broadcast;
   setFrozenState(bool) broadcast;
-  pieHitBoss() clsend airecv;
+  pieHitBoss(uint8) clsend airecv;
 };
 
 dclass DistributedLawbotBossStripped: DistributedBossCogStripped {
