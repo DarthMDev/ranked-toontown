@@ -4278,8 +4278,8 @@ dclass TTGameServicesManager : GameServicesManager {
 };
 
 dclass TTOffChatManager : DistributedObjectGlobal {
-  chatMessage(string(0-256)) clsend;
-  whisperMessage(string(0-256), uint32) clsend;
+  chatMessage(string(0-1024)) clsend;
+  whisperMessage(string(0-1024), uint32) clsend;
 };
 
 dclass DistributedPhaseEventMgr : DistributedObject {

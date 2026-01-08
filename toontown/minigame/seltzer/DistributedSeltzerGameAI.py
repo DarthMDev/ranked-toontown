@@ -279,6 +279,8 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         taskMgr.doMethodLater(5, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
 
     def reviveToon(self, toonId: int) -> None:
+        if not hasattr(self, 'air'):
+            return
         toon = self.air.getDo(toonId)
         if toon is None:
             return
