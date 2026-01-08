@@ -297,9 +297,9 @@ class LaffMeter(DirectFrame):
 
             # Flash when low hp but not when dead
             shouldFlash = False
-            if self.flashThreshold is None and self.hp <= self.maxHp * self.FRACTIONS[1]:
+            if self.hp <= self.maxHp * self.FRACTIONS[1]:
                 shouldFlash = True
-                
+
             # If we are dead we do not flash
             if self.hp <= 0:
                 shouldFlash = False
