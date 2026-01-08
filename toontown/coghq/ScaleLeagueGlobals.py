@@ -29,7 +29,7 @@ class CJRuleset:
         # TOON SETTINGS
         self.FORCE_MAX_LAFF = True  # Should we force a laff limit for this scale round?
         self.FORCE_MAX_LAFF_AMOUNT = 100  # The laff that we are going to force all toons participating to have
-        self.HEAL_TOONS_ON_START = False  # Should we set all toons to full laff when starting the round?
+        self.HEAL_TOONS_ON_START = True  # Should we set all toons to full laff when starting the round?
 
         self.WANT_LOW_LAFF_BONUS = True  # Should we award toons with low laff bonus points?
         self.LOW_LAFF_BONUS = .1  # How much will the bonus be worth? i.e. .1 = 10% bonus for ALL points
@@ -38,7 +38,7 @@ class CJRuleset:
 
         # note: When REVIVE_TOONS_UPON_DEATH is True, the only fail condition is if we run out of time
         self.RESTART_SCALE_ROUND_ON_FAIL = False  # Should we restart the scale round if all toons die?
-        self.REVIVE_TOONS_UPON_DEATH = False  # Should we revive a toon that dies after a certain amount of time? (essentially a stun)
+        self.REVIVE_TOONS_UPON_DEATH = True  # Should we revive a toon that dies after a certain amount of time? (essentially a stun)
         self.REVIVE_TOONS_TIME = 20  # Time in seconds to revive a toon after death
         self.REVIVE_TOONS_LAFF_PERCENTAGE = 0.50  # How much laff should we give back to the toon when revived?
 
