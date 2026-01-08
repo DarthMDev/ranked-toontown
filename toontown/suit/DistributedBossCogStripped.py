@@ -178,8 +178,8 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
             else:
                 ival.pause()
             if name in self.activeIntervals:
-                DelayDelete.cleanupDelayDeletes(ival)
                 del self.activeIntervals[name]
+                DelayDelete.cleanupDelayDeletes(ival)
         else:
             self.notify.debug('interval: %s already cleared' % name)
 
