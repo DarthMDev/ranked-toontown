@@ -419,10 +419,41 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
 
     def d_destroyGoon(self):
         self.sendUpdate('destroyGoon')
+    
+    def d_destroyedByTNT(self, avId):
+        """Called from client when goon is destroyed by TNT explosion"""
+        self.sendUpdate('destroyedByTNT', [avId])
 
     def b_destroyGoon(self):
         self.d_destroyGoon()
         self.destroyGoon()
+    
+    def destroyedByTNT(self, avId):
+        """Award points when goon is destroyed by TNT"""
+        self.notify.debug('destroyedByTNT: avId=%d, goon state=%s' % (avId, self.state))
+        
+        # Prevent duplicate awards - check if goon is already destroyed
+        if self.state == 'Off':
+            self.notify.debug('destroyedByTNT: Goon already destroyed, skipping')
+            return
+        
+        if not self.boss:
+            self.notify.warning('destroyedByTNT: No boss reference')
+            return
+        
+        if not hasattr(self.boss, 'avIdList'):
+            self.notify.warning('destroyedByTNT: Boss has no avIdList')
+            return
+        
+        if avId not in self.boss.avIdList:
+            self.notify.debug('destroyedByTNT: avId %d not in avIdList' % avId)
+            return
+        
+        # Award points for TNT goon destruction (same as safe destruction)
+        self.notify.debug('destroyedByTNT: Awarding points to avId %d' % avId)
+        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+        # Then destroy the goon
+        self.b_destroyGoon()
 
     def destroyGoon(self):
         # The client or AI informs the world that the goon has

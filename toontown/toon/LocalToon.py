@@ -720,16 +720,20 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         
         pos = entry.getSurfacePoint(render)
         
-        # If TNT pie hits a goon's toonSphere, destroy the goon
+        # If TNT pie hits a goon's toonSphere, destroy the goon and award points
         if pieName == 'tnt' and 'toonSphere' in intoName:
             # Find the goon by traversing up the node path
             goonNode = intoNode.getParent()
             while goonNode and not goonNode.isEmpty():
                 if 'goon-' in goonNode.getName():
-                    # Found the goon - destroy it
+                    # Found the goon - destroy it and award points
                     goon = base.cr.doId2do.get(int(goonNode.getName().split('-')[1]))
-                    if goon and hasattr(goon, 'b_destroyGoon'):
-                        goon.b_destroyGoon()
+                    if goon:
+                        if hasattr(goon, 'd_destroyedByTNT'):
+                            goon.d_destroyedByTNT(localAvatar.doId)
+                        elif hasattr(goon, 'b_destroyGoon'):
+                            # Fallback for goons that don't support TNT destruction points
+                            goon.b_destroyGoon()
                     break
                 goonNode = goonNode.getParent()
         
@@ -793,9 +797,14 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                 goonsChecked += 1
                 self.notify.debug('__checkTNTExplosionRadius: Goon at %s, distance=%.2f' % (goonPos, distance))
                 if distance <= explosionRadius:
-                    # Goon is within explosion radius - destroy it
-                    if hasattr(goon, 'b_destroyGoon'):
+                    # Goon is within explosion radius - destroy it and award points
+                    if hasattr(goon, 'd_destroyedByTNT'):
                         self.notify.debug('__checkTNTExplosionRadius: Destroying goon at distance %.2f' % distance)
+                        goon.d_destroyedByTNT(localAvatar.doId)
+                        goonsDestroyed = True
+                    elif hasattr(goon, 'b_destroyGoon'):
+                        # Fallback for goons that don't support TNT destruction points
+                        self.notify.debug('__checkTNTExplosionRadius: Destroying goon (no TNT points) at distance %.2f' % distance)
                         goon.b_destroyGoon()
                         goonsDestroyed = True
             except Exception as e:

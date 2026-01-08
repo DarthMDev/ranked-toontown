@@ -234,6 +234,10 @@ class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCas
 
     def d_destroyGoon(self):
         self.sendUpdate('destroyGoon')
+    
+    def d_destroyedByTNT(self, avId):
+        """Called from client when goon is destroyed by TNT explosion"""
+        self.sendUpdate('destroyedByTNT', [avId])
 
     def b_destroyGoon(self):
         self.resetSpeedCaching()
