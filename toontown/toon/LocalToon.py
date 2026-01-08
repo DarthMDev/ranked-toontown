@@ -737,6 +737,16 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                     break
                 goonNode = goonNode.getParent()
         
+        # If TNT pie hits a crane's safetyBubble, disable the crane
+        if pieName == 'tnt' and intoName == 'safetyBubble':
+            # Get crane doId from collision node tag
+            craneDoIdStr = intoNode.getNetTag('craneDoId')
+            if craneDoIdStr:
+                craneDoId = int(craneDoIdStr)
+                crane = base.cr.doId2do.get(craneDoId)
+                if crane and hasattr(crane, 'd_tntHit'):
+                    crane.d_tntHit()
+        
         # TNT explosion radius check - destroy all goons within 15 units
         goonsDestroyed = False
         if pieName == 'tnt':

@@ -1464,6 +1464,7 @@ dclass DistributedCashbotBossCrane : DistributedObject {
   setCablePos(uint8, int16/100, uint16%360/100, LinkPosition [3], int16) broadcast clsend;
   setMagnetOn(uint8) broadcast ram;
   requestMagnetOn(uint8) airecv clsend;
+  tntHit() broadcast clsend airecv;
 };
 
 dclass DistributedCashbotBossSideCrane : DistributedCashbotBossCrane {

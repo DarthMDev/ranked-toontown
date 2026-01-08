@@ -233,11 +233,15 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # And finally, a safe-proof bubble we put over the whole thing
         # to keep safes from falling on us while we're on the controls
         # (or from occupying the spot when the controls are vacant).
+        # Also used for TNT detection
         cs = CollisionSphere(0, 0, 2, 3)
         cn = CollisionNode('safetyBubble')
         cn.addSolid(cs)
-        cn.setIntoCollideMask(ToontownGlobals.PieBitmask)
-        self.controls.attachNewNode(cn)
+        # Accept both regular pies and TNTs
+        cn.setIntoCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
+        self.safetyBubbleNode = self.controls.attachNewNode(cn)
+        # Tag the node with our doId so we can find the crane from collision
+        self.safetyBubbleNode.setTag('craneDoId', str(self.doId))
         
         arm = self.boss.craneArm.copyTo(self.crane)
         
@@ -1836,6 +1840,51 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.fadeTrack.start()
         self.trigger.unstash()
         self.accept(self.triggerEvent, self.__hitTrigger)
+    
+    def performDisableAnimation(self):
+        """Perform the disabling animation (fade track, restore scale track, trigger handling)
+        This is called when a toon leaves or when TNT hits the crane."""
+        # Cancel any existing fade/restore tracks
+        if self.fadeTrack:
+            self.fadeTrack.finish()
+            self.fadeTrack = None
+        
+        if hasattr(self, 'restoreScaleTrack') and self.restoreScaleTrack:
+            self.restoreScaleTrack.finish()
+            self.restoreScaleTrack = None
+        
+        # Remove any pending trigger tasks
+        taskMgr.remove(self.triggerName)
+        
+        # Stash the trigger immediately
+        self.trigger.stash()
+        self.ignore(self.triggerEvent)
+        
+        # Wait a few seconds before neutralizing the scale
+        self.restoreScaleTrack = Sequence(Wait(6), self.getRestoreScaleInterval())
+        self.restoreScaleTrack.start()
+        
+        # Fade the control model
+        self.controlModel.setAlphaScale(0.3)
+        self.controlModel.setTransparency(1)
+        self.fadeTrack = Sequence(Func(self.controlModel.setTransparency, 1), self.controlModel.colorScaleInterval(0.2, VBase4(1, 1, 1, 0.3)))
+        self.fadeTrack.start()
+        
+        # After 5 seconds, restore the trigger and fade
+        taskMgr.doMethodLater(5, self.__allowDetect, self.triggerName)
+    
+    def d_tntHit(self):
+        """Send update to server that TNT hit this crane"""
+        self.sendUpdate('tntHit', [])
+    
+    def tntHit(self):
+        """Called from server when TNT hits this crane - perform disabling animation on all clients"""
+        # Perform the disabling animation regardless of current state
+        # This will handle fade track, restore scale track, and trigger stashing/unstashing
+        self.performDisableAnimation()
+        
+        # Note: If crane is controlled, the server will force the toon off automatically
+        # We don't need to handle that here - just perform the visual disabling
 
     def exitFree(self):
         if self.fadeTrack:
