@@ -1118,17 +1118,7 @@ class DistributedBattleBaseAI(DistributedObjectAI.DistributedObjectAI, BattleBas
             toon = self.getToon(toonId)
             if toon == None:
                 return
-            if av in toon.NPCFriendsDict:
-                npcCollision = 0
-                if av in self.npcAttacks:
-                    callingToon = self.npcAttacks[av]
-                    if self.activeToons.count(callingToon) == 1:
-                        self.toonAttacks[toonId] = getToonAttack(toonId, track=PASS)
-                        npcCollision = 1
-                if npcCollision == 0:
-                    self.toonAttacks[toonId] = getToonAttack(toonId, track=NPCSOS, level=5, target=av)
-                    self.numNPCAttacks += 1
-                    self.npcAttacks[av] = toonId
+            self.toonAttacks[toonId] = getToonAttack(toonId, track=PASS)
         elif track == PETSOS:
             self.notify.debug('toon: %d calls for pet: %d' % (toonId, av))
             self.air.writeServerEvent('PETSOS', toonId, '%s' % av)
@@ -1548,11 +1538,6 @@ class DistributedBattleBaseAI(DistributedObjectAI.DistributedObjectAI, BattleBas
                         npcTrapAttacks.append(attack)
                         toon = self.getToon(attack[TOON_ID_COL])
                         av = attack[TOON_TGT_COL]
-                        if toon != None and av in toon.NPCFriendsDict:
-                            toon.NPCFriendsDict[av] -= 1
-                            if toon.NPCFriendsDict[av] <= 0:
-                                del toon.NPCFriendsDict[av]
-                            toon.d_setNPCFriendsDict(toon.NPCFriendsDict)
                         continue
                 if track != NO_ATTACK:
                     toonId = attack[TOON_ID_COL]
@@ -1562,11 +1547,6 @@ class DistributedBattleBaseAI(DistributedObjectAI.DistributedObjectAI, BattleBas
                     if attack[TOON_TRACK_COL] == NPCSOS:
                         toon = self.getToon(toonId)
                         av = attack[TOON_TGT_COL]
-                        if toon != None and av in toon.NPCFriendsDict:
-                            toon.NPCFriendsDict[av] -= 1
-                            if toon.NPCFriendsDict[av] <= 0:
-                                del toon.NPCFriendsDict[av]
-                            toon.d_setNPCFriendsDict(toon.NPCFriendsDict)
                     elif track == PETSOS:
                         pass
                     elif track == FIRE:

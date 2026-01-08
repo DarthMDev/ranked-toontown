@@ -46,6 +46,7 @@ class MinigameAvatarScorePanel(DirectFrame):
             self.laffMeter.reparentTo(self)
             self.laffMeter.setPos(-0.085, 0, -0.035)
             self.laffMeter.setScale(0.05)
+            self.laffMeter.setAvatar(self.avatar)
             self.laffMeter.start()
         else:
             # Now put the avatar's head in the panel.

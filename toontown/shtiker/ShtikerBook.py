@@ -100,7 +100,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             self.notify.info('QA-REGRESSION: SHTICKERBOOK: Close')
 
     def load(self):
-        self.checkGardenStarted = localAvatar.getGardenStarted()
         bookModel = loader.loadModel('phase_3.5/models/gui/stickerbook_gui')
         self['image'] = bookModel.find('**/big_book')
         self['image_scale'] = (2, 1, 1.5)
@@ -262,10 +261,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
 
     def __open(self):
         messenger.send('enterStickerBook')
-        if not localAvatar.getGardenStarted():
-            for tab in self.pageTabs:
-                if tab['text'][2] == TTLocalizer.GardenPageTitle:
-                    tab.hide()
 
     def __close(self):
         base.playSfx(self.closeSound)

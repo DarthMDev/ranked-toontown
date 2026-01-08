@@ -160,7 +160,10 @@ class DistributedScaleGameAI(DistributedMinigameAI):
                 av.stopToonUp()
 
                 # Give the toon a nice heal.
-                av.b_setHp(av.getMaxHp())
+                if self.ruleset.FORCE_MAX_LAFF:
+                    av.b_setMaxHp(self.ruleset.FORCE_MAX_LAFF_AMOUNT)
+                if self.ruleset.HEAL_TOONS_ON_START:
+                    av.b_setHp(av.getMaxHp())
 
         self.initializeComboTrackers()
         self.listenForToonDeaths()
@@ -317,14 +320,14 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.sendUpdate('toonDied', [toon.doId])
 
         # Add a task to revive the toon.
-        taskMgr.doMethodLater(5, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
+        taskMgr.doMethodLater(self.ruleset.REVIVE_TOONS_TIME, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
 
     def reviveToon(self, toonId: int) -> None:
         toon = self.air.getDo(toonId)
         if toon is None:
             return
 
-        toon.b_setHp(1)
+        toon.b_setHp(max(1, toon.getMaxHp() * self.ruleset.REVIVE_TOONS_LAFF_PERCENTAGE))
 
         self.sendUpdate("revivedToon", [toonId])
 

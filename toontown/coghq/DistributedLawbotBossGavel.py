@@ -79,7 +79,7 @@ class DistributedLawbotBossGavel(DistributedObject.DistributedObject, FSM.FSM):
         tube1.setTangible(0)
         collNode.addSolid(tube1)
         collNode.setTag('attackCode', str(ToontownGlobals.BossCogGavelStomp))
-        collNode.setName('GavelZap')
+        collNode.setName(f'GavelZap{self.getDoId()}')
         self.collNodePath = self.nodePath.attachNewNode(collNode)
         handleBounds = gavelHandle.getBounds()
         handleCenter = handleBounds.getCenter()
@@ -89,7 +89,7 @@ class DistributedLawbotBossGavel(DistributedObject.DistributedObject, FSM.FSM):
         handleCollNode = CollisionNode(self.uniqueName('gavelHandle'))
         handleCollNode.addSolid(tube2)
         handleCollNode.setTag('attackCode', str(ToontownGlobals.BossCogGavelHandle))
-        handleCollNode.setName('GavelHandleZap')
+        handleCollNode.setName(f'GavelHandleZap{self.getDoId()}')
         self.handleCollNodePath = self.nodePath.attachNewNode(handleCollNode)
 
     def makeNodePath(self):
@@ -147,8 +147,8 @@ class DistributedLawbotBossGavel(DistributedObject.DistributedObject, FSM.FSM):
             self.ival.append(goingUp)
 
         self.ival.loop()
-        self.accept('enterGavelZap', self.__touchedGavel)
-        self.accept('enterGavelHandleZap', self.__touchedGavelHandle)
+        self.accept(f'enterGavelZap{self.getDoId()}', self.__touchedGavel)
+        self.accept(f'enterGavelHandleZap{self.getDoId()}', self.__touchedGavelHandle)
 
     def enterOff(self):
         if self.ival:

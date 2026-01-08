@@ -242,7 +242,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.extra_stats_text = DirectLabel(parent=self.frame , relief=None, text='', text_shadow=(0, 0, 0, 1), text_fg=WHITE, text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X+.62, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
 
         # Indicator for if this toon is being spectated. Currently, this is using a placeholder texture.
-        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui')
+        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui.egg')
         notReadyStatusTexture = boarding_model.find('**/status-notready')
         self.spectating_indicator = DirectLabel(parent=self.frame, pos=(self.FIRST_PLACE_HEAD_X - .1, 0, .015), relief=None, text='', image=notReadyStatusTexture, scale=.03)
         self.spectating_indicator.hide()

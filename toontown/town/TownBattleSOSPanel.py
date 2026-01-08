@@ -157,8 +157,6 @@ class TownBattleSOSPanel(DirectFrame, StateData.StateData):
     def __updateScrollList(self):
         newFriends = []
         battlePets = base.config.GetBool('want-pets-in-battle', 1)
-        if base.wantPets and battlePets == 1 and base.localAvatar.hasPet():
-            newFriends.append((base.localAvatar.getPetId(), 0))
         if not self.bldg or self.factoryToonIdList is not None:
             for friendPair in base.localAvatar.friendsList:
                 if base.cr.isFriendOnline(friendPair[0]):
@@ -189,7 +187,7 @@ class TownBattleSOSPanel(DirectFrame, StateData.StateData):
 
     def __updateNPCFriendsPanel(self):
         self.NPCFriends = {}
-        for friend, count in list(base.localAvatar.NPCFriendsDict.items()):
+        for friend, count in list({}.items()):
             track = NPCToons.getNPCTrack(friend)
             if track == ToontownBattleGlobals.LURE_TRACK and self.canLure == 0 or track == ToontownBattleGlobals.TRAP_TRACK and self.canTrap == 0:
                 self.NPCFriends[friend] = 0

@@ -81,6 +81,7 @@ class DistributedBanquetTable(DistributedObject.DistributedObject, FSM.FSM, Banq
         self.lastPowerFired = 0
         self.moveSound = None
         self.releaseTrack = None
+        self.hitBossSoundInterval = None
         return
 
     def disable(self):
@@ -178,6 +179,7 @@ class DistributedBanquetTable(DistributedObject.DistributedObject, FSM.FSM, Banq
         self.hitBossSfx = loader.loadSfx('phase_5/audio/sfx/SA_watercooler_spray_only.ogg')
         self.serveFoodSfx = loader.loadSfx('phase_4/audio/sfx/MG_sfx_travel_game_bell_for_trolley.ogg')
         self.pitcherMoveSfx = base.loader.loadSfx('phase_4/audio/sfx/MG_cannon_adjust.ogg')
+        self.hitBossSoundInterval = SoundInterval(self.hitBossSfx, node=self.boss.getBoss(), volume=1.0)
 
     def setupDiners(self):
         for i in range(self.numDiners):
@@ -907,9 +909,8 @@ class DistributedBanquetTable(DistributedObject.DistributedObject, FSM.FSM, Banq
         tag = self.hitObject.getNetTag('pieCode')
         pieCode = int(tag)
         if pieCode == ToontownGlobals.PieCodeBossCog:
-            if not hasattr(self, "hitBossSoundInterval"):
-                self.hitBossSoundInterval = SoundInterval(self.hitBossSfx, node=self.boss.getBoss(), volume=1.0)
-            self.hitBossSoundInterval.start()
+            if self.hitBossSoundInterval:
+                self.hitBossSoundInterval.start()
             self.sendUpdate('waterHitBoss', [self.index])
             if self.TugOfWarControls:
                 damage = 1
