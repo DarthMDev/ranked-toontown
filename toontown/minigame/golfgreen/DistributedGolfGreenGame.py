@@ -43,10 +43,14 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.board = None
         self.attackPattern = None
         self.tooLowFlag = 0
-        self.toonPoints = (Point3(3.0, 13.0, 0.0),
-                           Point3(6.0, 13.0, 0.0),
-                           Point3(-3.0, 13.0, 0.0),
-                           Point3(-6.0, 13.0, 0.0))
+        self.toonPoints = list(
+            Point3(
+                3 * ((offset // 2) + 1) * ((-1) ** offset),
+                13.0,
+                0
+            )
+            for offset in range(16)
+        )
         self.flagNextLevel = 0
         self.wildIndex = 8
         self.bombIndex = 7
