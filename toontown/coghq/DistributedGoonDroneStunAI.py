@@ -49,25 +49,23 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
             for goon in self.boss.game.goons:
                 taskMgr.doMethodLater(0.1 + random.random() * 0.2, goon.stun, goon.uniqueName('droneStun'), extraArgs=[self.ownerId, 10])
         
-        # Stun the CFO with flinch
-        # Send visual effect first to trigger flinch on client, then stun
+        # Stun the CFO immediately to interrupt any ongoing attacks
+        # Send visual effect first to trigger flinch on client, then stun immediately
         self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.STUN.value])
         
-        def stunBoss(_=None):
-            if hasattr(self.boss, 'game') and self.boss.game:
-                # Record hit with 0 damage but forceStun=True to stun
-                self.boss.game.recordHit(
-                    0,
-                    impact=0.99,
-                    craneId=-1,
-                    objId=0,
-                    isGoon=False,
-                    isDOT=False,
-                    avIdOverride=self.ownerId,
-                    forceStun=True
-                )
-        
-        taskMgr.doMethodLater(0.1, stunBoss, self.boss.game.uniqueName('droneStun'))
+        # Stun immediately - no delay to prevent gear attacks from completing
+        if hasattr(self.boss, 'game') and self.boss.game:
+            # Record hit with 0 damage but forceStun=True to stun
+            self.boss.game.recordHit(
+                0,
+                impact=0.99,
+                craneId=-1,
+                objId=0,
+                isGoon=False,
+                isDOT=False,
+                avIdOverride=self.ownerId,
+                forceStun=True
+            )
         
         # Check if CFO has a helmet - remove it AFTER stun (with delay to let drone explode first)
         def removeHelmet(_=None):

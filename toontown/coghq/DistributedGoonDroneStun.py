@@ -421,7 +421,11 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
     def performVisualEffect(self, droneTypeValue, healAmount=0, healInterval=0):
         """Handle visual effects from AI."""
         # Trigger flinch animation on CFO when stun drone hits
+        # Also clean up any ongoing gear attacks immediately to prevent them from completing
         if self.boss and hasattr(self.boss, 'doAnimate') and hasattr(self.boss, 'ruleset'):
+            # Clean up gear attacks immediately when flinch happens (before server stun arrives)
+            if hasattr(self.boss, 'cleanupAttacks'):
+                self.boss.cleanupAttacks()
             if self.boss.ruleset.CFO_FLINCHES_ON_HIT:
                 self.boss.doAnimate('hit', now=1)
     
