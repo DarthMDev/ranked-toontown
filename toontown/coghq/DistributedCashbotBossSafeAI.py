@@ -378,15 +378,19 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
             self.__checkSafeCollisions(pusher)
 
     # Called from client when a safe destroys a goon
-    def destroyedGoon(self):
+    def destroyedGoon(self, goonId):
         avId = self.air.getAvatarIdFromSender()
-        # Prevent duplicate point awards - use a simple flag that resets after a short delay
-        # This prevents rapid duplicate calls for the same destruction
-        if not hasattr(self, '_goonDestroyed') or not self._goonDestroyed:
-            self._goonDestroyed = True
+        # Track destroyed goons by ID to prevent duplicate awards for the same goon
+        # while allowing multiple different goons to be credited
+        if not hasattr(self, '_destroyedGoonIds'):
+            self._destroyedGoonIds = set()
+        
+        # Check if we've already credited this specific goon
+        if goonId not in self._destroyedGoonIds:
+            self._destroyedGoonIds.add(goonId)
             self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
-            # Reset flag after 0.5 seconds to allow for new destructions
-            taskMgr.doMethodLater(0.5, lambda task: setattr(self, '_goonDestroyed', False), self.uniqueName('resetGoonDestroyed'))
+            # Clean up the goon ID from tracking after a delay to prevent memory leaks
+            taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoonIds.discard(gId), self.uniqueName('cleanupDestroyedGoon-%d' % goonId))
 
     def cleanup(self):
         """Clean up collision system and node paths to prevent memory leaks"""

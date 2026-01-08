@@ -160,7 +160,8 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
         # Only send destroyedGoon if we actually destroyed it (not friendly fire, not invulnerable)
         if destroyed:
             self._destroyedGoons.add(goonId)
-            self.sendUpdate('destroyedGoon', [])
+            # Pass goon ID to server so it can track individual goons
+            self.sendUpdate('destroyedGoon', [goonId])
             # Clean up the set after a delay to prevent memory leaks
             taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoons.discard(gId), self.uniqueName('cleanupDestroyedGoon'))
     
