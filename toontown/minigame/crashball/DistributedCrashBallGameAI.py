@@ -12,6 +12,7 @@ from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.crashball.CrashBallConstants import InitialScore, GolfBallRadius, GolfBallDensity
 from toontown.minigame.crashball.CrashBallGamePhysicsWorld import CrashBallGamePhysicsWorld
 from toontown.minigame.crashball.DistributedCrashBallVehicleAI import DistributedCrashBallVehicleAI
+from toontown.toon.DistributedToonAI import DistributedToonAI
 
 # Set precision to be really high!
 getcontext().prec = 49
@@ -88,7 +89,7 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
 
     @property
     def totalPlayerIdList(self) -> list[int]:
-        return self.avIdList + self.npcPlayerIds
+        return self.getParticipantIdsNotSpectating() + self.npcPlayerIds
 
     def getNpcPlayerIds(self) -> list[int]:
         return self.npcPlayerIds
@@ -109,6 +110,14 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
 
         self.vehicles = {}
         self.tireDict = {}
+
+        # If we have more than 4 players, we need to only allow the first 4.
+        players = self.getParticipantIdsNotSpectating()
+        if len(players) > 4:
+            newSpectators = players[4:] + self.getSpectators()
+            self.b_setSpectators(newSpectators)
+            self.npcPlayerIds = [10 + i for i in range(4 - len(self.getParticipantIdsNotSpectating()))]
+
         for index, avId in enumerate(self.totalPlayerIdList):
             _, _, tireOdeGeom, tireOdeGeom2 = self.createTire(index)
 
@@ -179,6 +188,9 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
             avId = self.totalPlayerIdList[playerIndex]
             score = max(self.getScoringContext().get_round(0).get_score(avId) - 1, 0)
             self.getScoringContext().get_round(0).set_score(avId, score)
+            av = self.air.getDo(avId)
+            if isinstance(av, DistributedToonAI):
+                av.takeDamage(1)
 
             # Remove the movement task.
             if score == 0:
@@ -251,6 +263,11 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
 
         for avId in self.totalPlayerIdList:
             self.getScoringContext().get_round(0).set_score(avId, InitialScore)
+            av = self.air.getDo(avId)
+            if isinstance(av, DistributedToonAI):
+                av.b_setMaxHp(InitialScore)
+                av.b_setHp(InitialScore)
+                av.stopToonUp()
 
         # Spin up a task which will spawn the golf balls.
         taskMgr.doMethodLater(random.random(), self.__spawnBallTask, self.ballSpawnTask)
@@ -274,6 +291,12 @@ class DistributedCrashBallGameAI(DistributedMinigameAI, CrashBallGamePhysicsWorl
         # Cleanup npc player tasks.
         for npcId in self.npcPlayerIds:
             self.vehicles[npcId].stopNpcMovement()
+
+        for avId in self.totalPlayerIdList:
+            av = self.air.getDo(avId)
+            if isinstance(av, DistributedToonAI):
+                av.b_setMaxHp(100)
+                av.b_setHp(100)
 
     def enterWinMovie(self, winnerId: int) -> None:
         self.sendUpdate("setWinner", [winnerId])
