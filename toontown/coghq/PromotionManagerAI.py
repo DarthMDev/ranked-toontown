@@ -19,9 +19,8 @@ class PromotionManagerAI:
             extraMerits = [0, 0, 0, 0]
 
         for i in range(len(extraMerits)):
-            if CogDisguiseGlobals.isSuitComplete(av.getCogParts(), i):
-                meritsRecovered[i] += extraMerits[i]
-                self.notify.debug('recoverMerits: extra merits = %s' % extraMerits[i])
+            meritsRecovered[i] += extraMerits[i]
+            self.notify.debug('recoverMerits: extra merits = %s' % extraMerits[i])
 
         self.notify.debug('recoverMerits: multiplier = %s' % multiplier)
 
@@ -37,10 +36,6 @@ class PromotionManagerAI:
                 continue
 
             self.notify.debug('recoverMerits: checking against cogDict: %s' % cogDict)
-
-            # Toon needs a disguise to recover merits
-            if not CogDisguiseGlobals.isSuitComplete(av.getCogParts(), SuitDNA.suitDepts.index(cogDict['track'])):
-                continue
 
             level = cogDict['level'] if cogDict['level'] is not None else 0
             merits = level * MeritMultiplier

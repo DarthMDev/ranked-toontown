@@ -16,7 +16,6 @@ from toontown.toonbase import TTLocalizer
 from toontown.toon import NPCToons
 import math
 from toontown.coghq import CogDisguiseGlobals
-from toontown.shtiker import DisguisePage
 from . import Fanfare
 from otp.otpbase import OTPGlobals
 from .GagTrackBarGUI import GagTrackBarGUI
@@ -68,35 +67,6 @@ class RewardPanel(DirectFrame):
         self.trackIncLabels = []
         self.trackBars: List[GagTrackBarGUI] = []
         self.trackBarsOffset = 0
-        self.meritLabels = []
-        self.meritIncLabels = []
-        self.meritBars = []
-        for i in range(len(SuitDNA.suitDepts)):
-            deptName = TextEncoder.upper(SuitDNA.suitDeptFullnames[SuitDNA.suitDepts[i]])
-            self.meritLabels.append(DirectLabel(parent=self.gagExpFrame, relief=None, text=deptName, text_scale=0.05,
-                                                text_align=TextNode.ARight,
-                                                pos=(TTLocalizer.RPmeritLabelPosX, 0, -0.09 * i - 0.125),
-                                                text_pos=(0, -0.02)))
-            self.meritIncLabels.append(
-                DirectLabel(parent=self.gagExpFrame, relief=None, text='', text_scale=0.05, text_align=TextNode.ALeft,
-                            pos=(0.7, 0, -0.09 * i - 0.125), text_pos=(0, -0.02)))
-            self.meritBars.append(DirectWaitBar(parent=self.gagExpFrame, relief=DGG.SUNKEN, frameSize=(-1,
-                                                                                                       1,
-                                                                                                       -0.15,
-                                                                                                       0.15),
-                                                borderWidth=(0.02, 0.02), scale=0.25,
-                                                frameColor=(DisguisePage.DeptColors[i][0] * 0.7,
-                                                            DisguisePage.DeptColors[i][1] * 0.7,
-                                                            DisguisePage.DeptColors[i][2] * 0.7,
-                                                            1), barColor=(DisguisePage.DeptColors[i][0],
-                                                                          DisguisePage.DeptColors[i][1],
-                                                                          DisguisePage.DeptColors[i][2],
-                                                                          1),
-                                                text='0/0 ' + TTLocalizer.RewardPanelMeritBarLabels[i],
-                                                text_scale=TTLocalizer.RPmeritBarLabels, text_fg=(0, 0, 0, 1),
-                                                text_align=TextNode.ALeft, text_pos=(-0.96, -0.05),
-                                                pos=(TTLocalizer.RPmeritBarsPosX, 0, -0.09 * i - 0.125)))
-
         for i in range(len(ToontownBattleGlobals.Tracks)):
             trackName = TextEncoder.upper(ToontownBattleGlobals.Tracks[i])
             self.trackLabels.append(
@@ -136,13 +106,6 @@ class RewardPanel(DirectFrame):
 
     def getNextExpValueUber(self, curSkill, trackIndex):
         return ToontownBattleGlobals.MaxSkill
-
-    def getNextMeritValue(self, curMerits, toon, dept):
-        totalMerits = CogDisguiseGlobals.getTotalMerits(toon, dept)
-        retVal = totalMerits
-        if curMerits > totalMerits:
-            retVal = amount
-        return retVal
 
     def initItemFrame(self, toon):
         self.endTrackFrame.hide()
@@ -220,34 +183,6 @@ class RewardPanel(DirectFrame):
         self.missedItemFrame.hide()
         trackBarOffset = 0
         self.skipButton['state'] = choice(noSkip, DGG.DISABLED, DGG.NORMAL)
-        for i in range(len(SuitDNA.suitDepts)):
-            meritBar = self.meritBars[i]
-            meritLabel = self.meritLabels[i]
-            totalMerits = CogDisguiseGlobals.getTotalMerits(toon, i)
-            merits = meritList[i]
-            self.meritIncLabels[i].hide()
-            if CogDisguiseGlobals.isSuitComplete(toon.cogParts, i):
-                if not self.trackBarsOffset:
-                    trackBarOffset = 0.47
-                    self.trackBarsOffset = 1
-                meritBar.show()
-                meritLabel.show()
-                meritLabel.show()
-                if totalMerits:
-                    meritBar['range'] = totalMerits
-                    meritBar['value'] = merits
-                    if merits >= totalMerits:
-                        meritBar['text'] = TTLocalizer.RewardPanelMeritAlert
-                    else:
-                        meritBar['text'] = '%s/%s %s' % (merits, totalMerits, TTLocalizer.RewardPanelMeritBarLabels[i])
-                else:
-                    meritBar['range'] = 1
-                    meritBar['value'] = 1
-                    meritBar['text'] = TTLocalizer.RewardPanelMeritsMaxed
-                self.resetMeritBarColor(i)
-            else:
-                meritBar.hide()
-                meritLabel.hide()
 
         for i in range(len(expList)):
             curExp = expList[i]
@@ -288,28 +223,6 @@ class RewardPanel(DirectFrame):
 
         if hardCappedExp < nextGagExp:
             trackBar.makeFrameRed()
-
-    def incrementMerits(self, toon, dept, newValue, totalMerits):
-        meritBar = self.meritBars[dept]
-        oldValue = meritBar['value']
-        if totalMerits:
-            newValue = min(totalMerits, newValue)
-            meritBar['range'] = totalMerits
-            meritBar['value'] = newValue
-            if newValue == totalMerits:
-                meritBar['text'] = TTLocalizer.RewardPanelMeritAlert
-                meritBar['barColor'] = (DisguisePage.DeptColors[dept][0],
-                                        DisguisePage.DeptColors[dept][1],
-                                        DisguisePage.DeptColors[dept][2],
-                                        1)
-            else:
-                meritBar['text'] = '%s/%s %s' % (newValue, totalMerits, TTLocalizer.RewardPanelMeritBarLabels[dept])
-
-    def resetMeritBarColor(self, dept):
-        self.meritBars[dept]['barColor'] = (DisguisePage.DeptColors[dept][0] * 0.8,
-                                            DisguisePage.DeptColors[dept][1] * 0.8,
-                                            DisguisePage.DeptColors[dept][2] * 0.8,
-                                            1)
 
     def getRandomCongratsPair(self, toon):
         congratsStrings = TTLocalizer.RewardPanelCongratsStrings
@@ -420,10 +333,6 @@ class RewardPanel(DirectFrame):
             self.trackIncLabels[track]['text'] = ' ' + str(earnedSkill)
         self.trackIncLabels[track].show()
 
-    def showMeritIncLabel(self, dept, earnedMerits):
-        self.meritIncLabels[dept]['text'] = '+ ' + str(earnedMerits)
-        self.meritIncLabels[dept].show()
-
     def getTrackIntervalList(self, toon, track, origSkill, earnedSkill, guestWaste=0):
 
         tickDelay = 1.0 / 144
@@ -453,30 +362,6 @@ class RewardPanel(DirectFrame):
                 else:
                     nextExpValue = newNextExpValue
 
-        return intervalList
-
-    def getMeritIntervalList(self, toon, dept, origMerits, earnedMerits):
-        tickDelay = 1.0 / 60
-        intervalList = []
-        totalMerits = CogDisguiseGlobals.getTotalMerits(toon, dept)
-        neededMerits = 0
-        if totalMerits and origMerits != totalMerits:
-            neededMerits = totalMerits - origMerits
-            intervalList.append(Func(self.showMeritIncLabel, dept, min(neededMerits, earnedMerits)))
-        barTime = 0.5
-        numTicks = int(math.ceil(barTime / tickDelay))
-        for i in range(numTicks):
-            t = (i + 1) / float(numTicks)
-            newValue = int(origMerits + t * earnedMerits + 0.5)
-            intervalList.append(Func(self.incrementMerits, toon, dept, newValue, totalMerits))
-            intervalList.append(Wait(tickDelay))
-
-        intervalList.append(Func(self.resetMeritBarColor, dept))
-        intervalList.append(Wait(0.1))
-        if toon.cogLevels[dept] < ToontownGlobals.MaxCogSuitLevel:
-            if neededMerits and toon.readyForPromotion(dept):
-                intervalList.append(Wait(0.4))
-                intervalList += self.getPromotionIntervalList(toon, dept)
         return intervalList
 
     def promotion(self, toon, dept):
@@ -669,10 +554,6 @@ class RewardPanel(DirectFrame):
                 if origExp[trackIndex] < ToontownBattleGlobals.MaxSkill <= earnedExp[trackIndex] + origExp[trackIndex]:
                     endTracks[trackIndex] = 1
                     trackEnded = 1
-
-        for dept in range(len(SuitDNA.suitDepts)):
-            if meritList[dept]:
-                track += self.getMeritIntervalList(toon, dept, origMeritList[dept], meritList[dept])
 
         track.append(Wait(1))
         itemInterval = self.getItemIntervalList(toon, itemList)

@@ -7,9 +7,7 @@ from toontown.toon.LaffMeter import LaffMeter
 from toontown.toonbase.ToontownGlobals import *
 from direct.distributed.ClockDelta import *
 from direct.interval.IntervalGlobal import *
-from direct.showbase.InputStateGlobal import inputState
 from otp.otpbase import OTPGlobals
-from toontown.toonbase import ToontownGlobals
 from direct.directnotify import DirectNotifyGlobal
 from otp.avatar import DistributedPlayer
 from otp.avatar import Avatar, DistributedAvatar
@@ -19,21 +17,14 @@ from . import Toon
 from direct.task.Task import Task
 from direct.distributed import DistributedSmoothNode
 from direct.distributed import DistributedObject
-from direct.fsm import ClassicFSM
 from toontown.hood import ZoneUtil
-from toontown.distributed import DelayDelete
 from toontown.distributed.DelayDeletable import DelayDeletable
-from direct.showbase import PythonUtil
-from toontown.catalog import CatalogItemList
-from toontown.catalog import CatalogItem
 from . import TTEmote
 from otp.speedchat.SpeedChatGlobals import speedChatStyles
 from toontown.fishing import FishCollection
 from toontown.fishing import FishTank
-from toontown.quest import Quests
 from toontown.suit import SuitDNA
 from toontown.coghq import CogDisguiseGlobals
-from toontown.toonbase import TTLocalizer
 from . import Experience
 from . import InventoryNew
 from toontown.speedchat import TTSCDecoders
@@ -41,17 +32,9 @@ from toontown.chat import ToonChatGarbler
 from toontown.chat import ResistanceChat
 from direct.distributed.MsgTypes import *
 from toontown.effects.ScavengerHuntEffects import *
-from toontown.estate import FlowerCollection
-from toontown.estate import FlowerBasket
 from toontown.estate import GardenGlobals
 from toontown.estate import DistributedGagTree
 from toontown.golf import GolfGlobals
-from toontown.parties.PartyGlobals import InviteStatus, PartyStatus
-from toontown.parties.PartyInfo import PartyInfo
-from toontown.parties.InviteInfo import InviteInfo
-from toontown.parties.PartyReplyInfo import PartyReplyInfoBase
-from toontown.parties.SimpleMailBase import SimpleMailBase
-from toontown.parties import PartyGlobals
 from toontown.friends import FriendHandle
 import time
 import operator
@@ -99,29 +82,15 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.trophyStar = None
         self.trophyStarSpeed = 0
         self.safeZonesVisited = []
-        self.NPCFriendsDict = {}
         self.earnedExperience = None
         self.track = None
         self.effect = None
         self.maxCarry = 0
-        self.disguisePageFlag = 0
-        self.sosPageFlag = 0
-        self.disguisePage = None
-        self.sosPage = None
-        self.gardenPage = None
         self.cogTypes = [0,
          0,
          0,
          0]
         self.cogLevels = [0,
-         0,
-         0,
-         0]
-        self.cogParts = [0,
-         0,
-         0,
-         0]
-        self.cogMerits = [0,
          0,
          0,
          0]
@@ -135,21 +104,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explodey
         self.resistanceMessages = []
         self.cogSummonsEarned = []
-        self.catalogNotify = ToontownGlobals.NoItems
-        self.mailboxNotify = ToontownGlobals.NoItems
-        self.simpleMailNotify = ToontownGlobals.NoItems
-        self.inviteMailNotify = ToontownGlobals.NoItems
-        self.catalogScheduleCurrentWeek = 0
-        self.catalogScheduleNextTime = 0
-        self.monthlyCatalog = CatalogItemList.CatalogItemList()
-        self.weeklyCatalog = CatalogItemList.CatalogItemList()
-        self.backCatalog = CatalogItemList.CatalogItemList()
-        self.onOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        self.onGiftOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        self.mailboxContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization)
-        self.deliveryboxContentsContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.GiftTag)
-        self.awardMailboxContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization)
-        self.onAwardOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
         self.splash = None
         self.tossTrack = None
         self.pieTracks = {}
@@ -173,7 +127,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.maxMoney = 0
         self.maxBankMoney = 0
         self.emblems = [0, 0]
-        self.maxNPCFriends = 16
         self.petId = 0
         self.bPetTutorialDone = False
         self.bFishBingoTutorialDone = False
@@ -181,7 +134,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.accessories = []
         if base.wantKarts:
             self.kartDNA = [-1] * getNumFields()
-        self.flowerCollection = None
         self.shovel = 0
         self.shovelSkill = 0
         self.shovelModel = None
@@ -698,27 +650,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
         return
 
-    def setMaxNPCFriends(self, max):
-        max &= 32767
-        if max != self.maxNPCFriends:
-            self.maxNPCFriends = max
-            messenger.send(self.uniqueName('maxNPCFriendsChange'))
-        else:
-            self.maxNPCFriends = max
-
-    def getMaxNPCFriends(self):
-        return self.maxNPCFriends
-
-    def getNPCFriendsDict(self):
-        return self.NPCFriendsDict
-
-    def setNPCFriendsDict(self, NPCFriendsList):
-        NPCFriendsDict = {}
-        for friendPair in NPCFriendsList:
-            NPCFriendsDict[friendPair[0]] = friendPair[1]
-
-        self.NPCFriendsDict = NPCFriendsDict
-
     def setMaxAccessories(self, max):
         self.maxAccessories = max
 
@@ -771,16 +702,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def setClothesBottomsList(self, clothesList):
         self.clothesBottomsList = clothesList
 
-    def catalogGenClothes(self, avId):
-        if avId == self.doId:
-            self.generateToonClothes()
-            self.loop('neutral')
-
-    def catalogGenAccessories(self, avId):
-        if avId == self.doId:
-            self.generateToonAccessories()
-            self.loop('neutral')
-
     def isClosetFull(self, extraClothes = 0):
         numClothes = len(self.clothesTopsList) / 4 + len(self.clothesBottomsList) / 2
         return numClothes + extraClothes >= self.maxClothes
@@ -813,8 +734,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
 
     def setHoodsVisited(self, hoods):
         self.hoodsVisited = hoods
-        if ToontownGlobals.SellbotHQ in hoods or ToontownGlobals.CashbotHQ in hoods or ToontownGlobals.LawbotHQ in hoods or ToontownGlobals.BossbotHQ in hoods:
-            self.setDisguisePageFlag(1)
 
     def wrtReparentTo(self, parent):
         DistributedSmoothNode.DistributedSmoothNode.wrtReparentTo(self, parent)
@@ -1006,37 +925,12 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
 
     def setCogTypes(self, types):
         self.cogTypes = types
-        if self.disguisePage:
-            self.disguisePage.updatePage()
 
     def setCogLevels(self, levels):
         self.cogLevels = levels
-        if self.disguisePage:
-            self.disguisePage.updatePage()
 
     def getCogLevels(self):
         return self.cogLevels
-
-    def setCogParts(self, parts):
-        self.cogParts = parts
-        if self.disguisePage:
-            self.disguisePage.updatePage()
-
-    def getCogParts(self):
-        return self.cogParts
-
-    def setCogMerits(self, merits):
-        self.cogMerits = merits
-        if self.disguisePage:
-            self.disguisePage.updatePage()
-
-    def readyForPromotion(self, dept):
-        merits = base.localAvatar.cogMerits[dept]
-        totalMerits = CogDisguiseGlobals.getTotalMerits(self, dept)
-        if merits >= totalMerits:
-            return 1
-        else:
-            return 0
 
     def setCogIndex(self, index):
         self.cogIndex = index
@@ -1057,11 +951,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             return 0
         else:
             return 1
-
-    def setDisguisePageFlag(self, flag):
-        if flag and hasattr(self, 'book'):
-            self.loadDisguisePages()
-        self.disguisePageFlag = flag
 
     def setSosPageFlag(self, flag):
         if flag and hasattr(self, 'book'):
@@ -1231,84 +1120,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
                 return msgs[i][1]
 
         return 0
-
-    def setCatalogSchedule(self, currentWeek, nextTime):
-        self.catalogScheduleCurrentWeek = currentWeek
-        self.catalogScheduleNextTime = nextTime
-        if self.isLocal():
-            self.notify.debug('setCatalogSchedule(%s, %s)' % (currentWeek, nextTime))
-            if nextTime:
-                serverTime = time.time() + self.cr.getServerDelta()
-                duration = nextTime * 60 - serverTime
-                self.notify.debug('next catalog in %s.' % PythonUtil.formatElapsedSeconds(duration))
-
-    def setCatalog(self, monthlyCatalog, weeklyCatalog, backCatalog):
-        self.monthlyCatalog = CatalogItemList.CatalogItemList(monthlyCatalog)
-        self.weeklyCatalog = CatalogItemList.CatalogItemList(weeklyCatalog)
-        self.backCatalog = CatalogItemList.CatalogItemList(backCatalog)
-        if self.catalogNotify == ToontownGlobals.NewItems:
-            self.catalogNotify = ToontownGlobals.OldItems
-
-    def setCatalogNotify(self, catalogNotify, mailboxNotify):
-        if len(self.weeklyCatalog) + len(self.monthlyCatalog) == 0:
-            catalogNotify = ToontownGlobals.NoItems
-        if len(self.mailboxContents) == 0:
-            mailboxNotify = ToontownGlobals.NoItems
-        self.catalogNotify = catalogNotify
-        self.mailboxNotify = mailboxNotify
-        if self.isLocal():
-            self.gotCatalogNotify = 1
-            self.refreshOnscreenButtons()
-            print('local')
-
-    def setDeliverySchedule(self, onOrder):
-        self.onOrder = CatalogItemList.CatalogItemList(onOrder, store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if self == base.localAvatar:
-            nextTime = self.onOrder.getNextDeliveryDate()
-            if nextTime != None:
-                serverTime = time.time() + self.cr.getServerDelta()
-                duration = nextTime * 60 - serverTime
-                self.notify.debug('next delivery in %s.' % PythonUtil.formatElapsedSeconds(duration))
-            messenger.send('setDeliverySchedule-%s' % self.doId)
-        return
-
-    def setMailboxContents(self, mailboxContents):
-        self.mailboxContents = CatalogItemList.CatalogItemList(mailboxContents, store=CatalogItem.Customization)
-        messenger.send('setMailboxContents-%s' % self.doId)
-
-    def setAwardSchedule(self, onOrder):
-        self.onAwardOrder = CatalogItemList.CatalogItemList(onOrder, store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if self == base.localAvatar:
-            nextTime = self.onAwardOrder.getNextDeliveryDate()
-            if nextTime != None:
-                serverTime = time.time() + self.cr.getServerDelta()
-                duration = nextTime * 60 - serverTime
-                self.notify.debug('next delivery in %s.' % PythonUtil.formatElapsedSeconds(duration))
-            messenger.send('setAwardSchedule-%s' % self.doId)
-        return
-
-    def setAwardMailboxContents(self, awardMailboxContents):
-        self.notify.debug('Setting awardMailboxContents to %s.' % awardMailboxContents)
-        self.awardMailboxContents = CatalogItemList.CatalogItemList(awardMailboxContents, store=CatalogItem.Customization)
-        self.notify.debug('awardMailboxContents is %s.' % self.awardMailboxContents)
-        messenger.send('setAwardMailboxContents-%s' % self.doId)
-
-    def setAwardNotify(self, awardNotify):
-        self.notify.debug('setAwardNotify( %s )' % awardNotify)
-        self.awardNotify = awardNotify
-        if self.isLocal():
-            self.gotCatalogNotify = 1
-            self.refreshOnscreenButtons()
-
-    def setGiftSchedule(self, onGiftOrder):
-        self.onGiftOrder = CatalogItemList.CatalogItemList(onGiftOrder, store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if self == base.localAvatar:
-            nextTime = self.onGiftOrder.getNextDeliveryDate()
-            if nextTime != None:
-                serverTime = time.time() + self.cr.getServerDelta()
-                duration = nextTime * 60 - serverTime
-                self.notify.debug('next delivery in %s.' % PythonUtil.formatElapsedSeconds(duration))
-        return
 
     def playSplashEffect(self, x, y, z):
         if localAvatar.zoneId not in [ToontownGlobals.DonaldsDock, ToontownGlobals.OutdoorZone] and (not hasattr(localAvatar, 'inEstate') or localAvatar.inEstate != 1):
@@ -1958,50 +1769,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def cogSummonsResponse(self, returnCode, suitIndex, doId):
         messenger.send('cog-summons-response', [returnCode, suitIndex, doId])
 
-    def setCogSummonsEarned(self, cogSummonsEarned):
-        self.cogSummonsEarned = cogSummonsEarned
-
-    def getCogSummonsEarned(self):
-        return self.cogSummonsEarned
-
-    def hasCogSummons(self, suitIndex, type = None):
-        summons = self.getCogSummonsEarned()
-        curSetting = summons[suitIndex]
-        if type == 'single':
-            return curSetting & 1
-        elif type == 'building':
-            return curSetting & 2
-        elif type == 'invasion':
-            return curSetting & 4
-        return curSetting
-
-    def setFlowerCollection(self, speciesList, varietyList):
-        self.flowerCollection = FlowerCollection.FlowerCollection()
-        self.flowerCollection.makeFromNetLists(speciesList, varietyList)
-
-    def getFlowerCollection(self):
-        return self.flowerCollection
-
-    def setMaxFlowerBasket(self, maxFlowerBasket):
-        self.maxFlowerBasket = maxFlowerBasket
-
-    def getMaxFlowerBasket(self):
-        return self.maxFlowerBasket
-
-    def isFlowerBasketFull(self):
-        return len(self.flowerBasket) >= self.maxFlowerBasket
-
-    def setFlowerBasket(self, speciesList, varietyList):
-        self.flowerBasket = FlowerBasket.FlowerBasket()
-        self.flowerBasket.makeFromNetLists(speciesList, varietyList)
-        messenger.send('flowerBasketUpdated')
-
-    def getFlowerBasket(self):
-        return self.flowerBasket
-
-    def setShovel(self, shovelId):
-        self.shovel = shovelId
-
     def attachShovel(self):
         self.shovelModel = self.getShovelModel()
         self.shovelModel.reparentTo(self.rightHand)
@@ -2071,14 +1838,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def setWateringCanSkill(self, skillLevel):
         self.wateringCanSkill = skillLevel
 
-    def setGardenSpecials(self, specials):
-        self.gardenSpecials = specials
-        if hasattr(self, 'gardenPage') and self.gardenPage:
-            self.gardenPage.updatePage()
-
-    def getGardenSpecials(self):
-        return self.gardenSpecials
-
     def getMyTrees(self):
         treeDict = self.cr.getObjectsOfClass(DistributedGagTree.DistributedGagTree)
         trees = []
@@ -2129,20 +1888,8 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         trackBonus = self.getTrackBonusLevel(track)
         return trackBonus >= level
 
-    def setGardenTrophies(self, trophyList):
-        self.gardenTrophies = trophyList
-
-    def getGardenTrophies(self):
-        return self.gardenTrophies
-
     def useSpecialResponse(self, returnCode):
         messenger.send('use-special-response', [returnCode])
-
-    def setGardenStarted(self, bStarted):
-        self.gardenStarted = bStarted
-
-    def getGardenStarted(self):
-        return self.gardenStarted
 
     def sendToGolfCourse(self, zoneId):
         print('sending to golfCourse')
@@ -2163,24 +1910,8 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def getGolfCups(self):
         return self.golfCups
 
-    def setGolfHistory(self, history):
-        self.golfHistory = history
-        self.golfTrophies = GolfGlobals.calcTrophyListFromHistory(self.golfHistory)
-        self.golfCups = GolfGlobals.calcCupListFromHistory(self.golfHistory)
-        if hasattr(self, 'book'):
-            self.addGolfPage()
-
-    def getGolfHistory(self):
-        return self.golfHistory
-
     def hasPlayedGolf(self):
-        retval = False
-        for historyValue in self.golfHistory:
-            if historyValue:
-                retval = True
-                break
-
-        return retval
+        return False
 
     def setPackedGolfHoleBest(self, packedHoleBest):
         unpacked = GolfGlobals.unpackGolfHoleBest(packedHoleBest)

@@ -399,8 +399,6 @@ class MaxToon(MagicWord):
         toon.inventory.maxInventory(clearFirst=True)
         toon.b_setInventory(toon.inventory.makeNetString())
 
-        toon.b_setBaseGagSkillMultiplier(10)
-
         toon.b_setMaxMoney(9999)
         toon.b_setMoney(toon.getMaxMoney())
         toon.b_setBankMoney(ToontownGlobals.DefaultMaxBankMoney)
@@ -411,20 +409,11 @@ class MaxToon(MagicWord):
         toon.b_setHoodsVisited(ToontownGlobals.Hoods)
         toon.b_setTeleportAccess(ToontownGlobals.HoodsForTeleportAll)
 
-        toon.b_setCogParts([
-            CogDisguiseGlobals.PartsPerSuitBitmasks[0],
-            CogDisguiseGlobals.PartsPerSuitBitmasks[1],
-            CogDisguiseGlobals.PartsPerSuitBitmasks[2],
-            CogDisguiseGlobals.PartsPerSuitBitmasks[3],
-        ])
         toon.b_setCogLevels([ToontownGlobals.MaxCogSuitLevel] * 4)
         toon.b_setCogTypes([7] * 4)
 
         toon.b_setCogCount([CogPageGlobals.get_max_cog_quota(toon)] * 8 * 4)
         cogStatus = [CogPageGlobals.COG_COMPLETE2] * SuitDNA.suitsPerDept
-        toon.b_setCogStatus(cogStatus * 4)
-        toon.b_setCogRadar([1] * 4)
-        toon.b_setBuildingRadar([1] * 4)
 
         for id in toon.getQuests():
             toon.removeQuest(id)
@@ -441,15 +430,6 @@ class MaxToon(MagicWord):
         toon.b_setFishCollection(*fishLists)
         toon.b_setFishingRod(FishGlobals.MaxRodId)
         toon.b_setFishingTrophies(list(FishGlobals.TrophyDict.keys()))
-
-        if not toon.hasKart() and simbase.wantKarts:
-            toon.b_setKartBodyType(list(KartDict.keys())[1])
-        toon.b_setTickets(RaceGlobals.MaxTickets)
-        maxTrophies = RaceGlobals.NumTrophies + RaceGlobals.NumCups
-        toon.b_setKartingTrophies(list(range(1, maxTrophies + 1)))
-        toon.b_setTickets(99999)
-
-        toon.b_setGolfHistory([600] * (GolfGlobals.MaxHistoryIndex * 2))
 
         return "Maxed out {}'s stats.".format(toon.getName())
 
@@ -3258,36 +3238,6 @@ class Phrase(MagicWord):
 
         return "Invalid phrase id!"
 
-
-class SetSos(MagicWord):
-    aliases = ["sos"]
-    desc = "Sets the target's SOS cards. The default is 1 Flippy card."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("amount", int, False, 1), ("name", str, False, 'Flippy')]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        amt = args[0]
-        name = args[1]
-
-        if not 0 <= amt <= 100:
-            return "The amount must be between 0 and 100!"
-
-        for npcId, npcName in TTLocalizer.NPCToonNames.items():
-            if name.lower() == npcName.lower():
-                if npcId not in NPCToons.npcFriends:
-                    continue
-                break
-        else:
-            return "The {0} SOS card was not found!".format(name)
-        if (amt == 0) and (npcId in invoker.NPCFriendsDict):
-            del toon.NPCFriendsDict[npcId]
-        else:
-            toon.NPCFriendsDict[npcId] = amt
-        toon.d_setNPCFriendsDict(toon.NPCFriendsDict)
-        return "Restocked {0} {1} SOS cards successfully!".format(amt, npcName)
-
-
 class FreeBldg(MagicWord):
     desc = "Closest cog building gets freed."
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
@@ -3301,22 +3251,6 @@ class FreeBldg(MagicWord):
         elif returnCode[0] == 'busy':
             return "Toons are currently taking back the building!"
         return "Couldn't free building."
-
-
-class MaxGarden(MagicWord):
-    desc = "Maxes your garden."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        invoker.b_setShovel(3)
-        invoker.b_setWateringCan(3)
-        invoker.b_setShovelSkill(639)
-        invoker.b_setWateringCanSkill(999)
-        invoker.b_setGardenTrophies(list(GardenGlobals.TrophyDict.keys()))
-        # invoker.b_setFlowerCollection([1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6, 7, 8, 9])
-        # print invoker.flowerCollection.getNetLists()
-
 
 class InstaDelivery(MagicWord):
     aliases = ["fastdel"]

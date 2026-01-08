@@ -933,9 +933,6 @@ class DistributedCogdoInteriorAI(DistributedObjectAI.DistributedObjectAI):
                     if self.bldg.track == 'l':
                         emblemReward = self.getEmblemReward()
                         toon.addEmblems(emblemReward)
-                    else:
-                        if not toon.attemptAddNPCFriend(self.SOSCard, numCalls = 1):
-                            self.notify.info('%s.unable to add NPCFriend %s to %s.' % (self.doId, self.SOSCard, v))
 
         self.bldg.fsm.request('waitForVictorsFromCogdo', [
             victors,

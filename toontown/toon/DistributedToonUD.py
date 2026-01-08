@@ -55,12 +55,6 @@ class DistributedToonUD(DistributedObjectUD):
     def setInventory(self, todo0):
         pass
 
-    def setMaxNPCFriends(self, todo0):
-        pass
-
-    def setNPCFriendsDict(self, todo0):
-        pass
-
     def setDefaultShard(self, todo0):
         pass
 
@@ -119,9 +113,6 @@ class DistributedToonUD(DistributedObjectUD):
         pass
 
     def setShoes(self, todo0, todo1, todo2):
-        pass
-
-    def setGardenSpecials(self, todo0):
         pass
 
     def setEarnedExperience(self, todo0):
@@ -244,16 +235,7 @@ class DistributedToonUD(DistributedObjectUD):
     def setCogTypes(self, todo0):
         pass
 
-    def setCogParts(self, todo0):
-        pass
-
-    def setCogMerits(self, todo0):
-        pass
-
     def setCogIndex(self, todo0):
-        pass
-
-    def setDisguisePageFlag(self, todo0):
         pass
 
     def setSosPageFlag(self, todo0):
@@ -299,30 +281,6 @@ class DistributedToonUD(DistributedObjectUD):
         pass
 
     def setFishingTrophies(self, todo0):
-        pass
-
-    def setFlowerCollection(self, todo0, todo1):
-        pass
-
-    def setFlowerBasket(self, todo0, todo1):
-        pass
-
-    def setMaxFlowerBasket(self, todo0):
-        pass
-
-    def setGardenTrophies(self, todo0):
-        pass
-
-    def setShovel(self, todo0):
-        pass
-
-    def setShovelSkill(self, todo0):
-        pass
-
-    def setWateringCan(self, todo0):
-        pass
-
-    def setWateringCanSkill(self, todo0):
         pass
 
     def promoteShovel(self, todo0):
@@ -461,9 +419,6 @@ class DistributedToonUD(DistributedObjectUD):
         pass
 
     def sendToGolfCourse(self, todo0):
-        pass
-
-    def setGolfHistory(self, todo0):
         pass
 
     def setPackedGolfHoleBest(self, todo0):

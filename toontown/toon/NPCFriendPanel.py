@@ -41,7 +41,7 @@ class NPCFriendPanel(DirectFrame):
             card.destroy()
 
         self.cardList = []
-        self.maxNPCFriends = localAvatar.getMaxNPCFriends()
+        self.maxNPCFriends = 16
         rotateCard = False
         if self.maxNPCFriends == 8:
             rotateCard = True
