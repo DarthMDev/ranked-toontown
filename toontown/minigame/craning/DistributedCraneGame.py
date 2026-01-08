@@ -1877,10 +1877,6 @@ class DistributedCraneGame(DistributedMinigame):
         pass
 
     def enterPrepare(self):
-
-        # Make all laff meters blink when in uber mode
-        messenger.send('uberThreshold', [self.ruleset.LOW_LAFF_BONUS_THRESHOLD])
-
         camera.wrtReparentTo(render)
         self.setToonsToBattleThreePos()
         base.localAvatar.d_clearSmoothing()
