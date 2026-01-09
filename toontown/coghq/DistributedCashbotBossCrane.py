@@ -1883,6 +1883,13 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # This will handle fade track, restore scale track, and trigger stashing/unstashing
         self.performDisableAnimation()
         
+        # If the local toon was on the crane when TNT hit, grant i-frames
+        if base.localAvatar.doId == self.avId:
+            toon = base.localAvatar
+            if toon and not toon.isStunned and toon.hp > 0:
+                # Grant i-frames immediately (similar to gear throws and laser hits)
+                toon.stunToon()
+        
         # Note: If crane is controlled, the server will force the toon off automatically
         # We don't need to handle that here - just perform the visual disabling
 

@@ -105,8 +105,17 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         if avId not in self.boss.avIdList:
             return
         
-        # If crane is controlled, force the toon off
+        # If crane is controlled, damage the toon and force them off
         if self.state == 'Controlled' and self.avId != 0:
+            toon = self.air.doId2do.get(self.avId)
+            if toon:
+                # Apply 10 damage to the toon on the crane
+                tntDamage = 10
+                if hasattr(self.boss, 'game') and hasattr(self.boss.game, 'damageToon'):
+                    self.boss.game.damageToon(toon, tntDamage)
+                elif hasattr(self.boss, 'damageToon'):
+                    self.boss.damageToon(toon, tntDamage)
+            
             # Force the controlling toon off the crane
             self.request('Free')
         
