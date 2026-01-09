@@ -1,5 +1,6 @@
 """
-Ghosty Drone - Sabotages opponent's nearest 2 safes by making them ghostly and pass through everything.
+Ghosty Drone - Sabotages opponent's nearest 2 safes by making them completely transparent (only visible to targeted toon).
+Safes remain grabbable despite being transparent.
 """
 
 from panda3d.core import *
@@ -18,8 +19,8 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
     Ghosty drone that:
     1. Spawns and flies to opponent's side
     2. Finds the 2 nearest safes
-    3. Makes them ghostly (transparent purple, pulsing)
-    4. Disables their collisions (except floor) - they pass through everything
+    3. Makes them completely transparent (only visible to targeted toon)
+    4. Safes remain grabbable (collisions not disabled)
     5. Lasts 6 seconds or until drone is destroyed
     6. Safes return to normal after duration or drone destruction
     """
@@ -34,6 +35,7 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
         self.pulseTask = None
         self.ghostParticles = None
         self.targetSafes = []
+        self.opponentIds = []  # Store opponent IDs to check if local toon should see transparency
     
     def getDroneType(self):
         return CraneLeagueGlobals.DroneType.GHOSTY
@@ -57,6 +59,9 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
                     opponentIds = [tid for tid in participantIds if tid != self.ownerId]
             elif hasattr(self.boss, 'involvedToons'):
                 opponentIds = [tid for tid in self.boss.involvedToons if tid != self.ownerId]
+        
+        # Store opponent IDs for later use in applyGhostEffect
+        self.opponentIds = opponentIds
         
         if not opponentIds:
             self.notify.warning('No opponents found for ghosty drone')
@@ -391,64 +396,87 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
             return Task.done
     
     def applyGhostEffect(self, safe):
-        """Apply ghost visual effect and disable collisions on a safe."""
+        """Apply ghost visual effect - makes safe completely transparent (only visible to targeted toon)."""
         if not safe or safe.isEmpty():
+            return
+        
+        # Get the safe's owner (if any)
+        safeAvId = 0
+        if hasattr(safe, 'avId'):
+            safeAvId = safe.avId
+        elif hasattr(safe, 'getAvId'):
+            safeAvId = safe.getAvId()
+        
+        # Check if the local toon should see this safe as transparent
+        # Only the targeted toon (opponent) should see their safes as transparent
+        localAvatarId = base.localAvatar.doId if hasattr(base, 'localAvatar') and base.localAvatar else None
+        
+        # If safe belongs to a specific opponent, only that opponent sees it transparent
+        # If safe is ungrabbed (avId == 0), all opponents see it transparent
+        shouldApplyEffect = False
+        if safeAvId == 0:
+            # Ungrabbed safe - all opponents see it transparent
+            shouldApplyEffect = localAvatarId in self.opponentIds if localAvatarId else False
+        elif safeAvId in self.opponentIds:
+            # Safe belongs to an opponent - only that specific opponent sees it transparent
+            shouldApplyEffect = (localAvatarId == safeAvId) if localAvatarId else False
+        
+        # Only apply transparency effect if this client is the targeted toon
+        if not shouldApplyEffect:
+            # Not the targeted toon - don't apply any visual effect
+            self.notify.debug(f'Not applying ghost effect to safe {safe.doId} - local toon is not targeted (safeAvId={safeAvId}, localAvatarId={localAvatarId})')
             return
         
         # Store original safe properties
         if not hasattr(safe, '_originalColorScale'):
             safe._originalColorScale = safe.getColorScale()
         
-        # Get original collision masks from collision node
-        if not hasattr(safe, '_originalIntoCollideMask'):
-            if hasattr(safe, 'collisionNode') and safe.collisionNode:
-                safe._originalIntoCollideMask = safe.collisionNode.getIntoCollideMask()
-                safe._originalFromCollideMask = safe.collisionNode.getFromCollideMask()
-            else:
-                from toontown.toonbase import ToontownGlobals
-                from otp.otpbase import OTPGlobals
-                safe._originalIntoCollideMask = ToontownGlobals.PieBitmask | OTPGlobals.WallBitmask
-                safe._originalFromCollideMask = ToontownGlobals.PieBitmask | OTPGlobals.FloorBitmask
-        
         # Mark as ghosted
         safe._isGhosted = True
         safe._ghostStartTime = globalClock.getFrameTime()
         self.ghostedSafes.append(safe)
         
-        # Apply ghost visual: light transparent purple
-        safe.setColorScale(0.7, 0.2, 1.0, 0.5)  # Light purple, semi-transparent
+        # Apply ghost visual: completely transparent (alpha = 0)
+        # Keep original color scale RGB values, but set alpha to 0
+        originalColor = safe._originalColorScale
+        safe.setColorScale(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)  # Completely transparent
         safe.setTransparency(TransparencyAttrib.MAlpha)
         
-        # Disable collisions (except floor)
-        # Remove PieBitmask from both masks to prevent collisions with CFO and other objects
-        # Keep WallBitmask/FloorBitmask for floor collision only
-        from toontown.toonbase import ToontownGlobals
-        from otp.otpbase import OTPGlobals
-        if hasattr(safe, 'collisionNode') and safe.collisionNode:
-            # Modify both collision masks - remove PieBitmask to prevent CFO collisions
-            safe.collisionNode.setIntoCollideMask(OTPGlobals.WallBitmask)  # Only collide with walls/floor
-            safe.collisionNode.setFromCollideMask(OTPGlobals.FloorBitmask)  # Only collide with floor (no CFO)
-        else:
-            # Fallback: try setCollideMask on the safe itself
-            safe.setCollideMask(OTPGlobals.WallBitmask)
+        # NOTE: We do NOT disable collisions - safes should still be grabbable!
+        # The original code disabled collisions, but we want them to remain grabbable.
         
-        self.notify.debug(f'Ghosted safe {safe.doId}')
+        self.notify.debug(f'Ghosted safe {safe.doId} - made completely transparent for targeted toon (safeAvId={safeAvId})')
     
     def updateGhostPulse(self, task):
-        """Pulse the ghosted safes."""
+        """Keep ghosted safes transparent (no pulsing needed)."""
         if not self.ghostedSafes:
             return Task.done
         
-        elapsed = globalClock.getFrameTime() - self.ghostStartTime
-        
-        # Pulse effect: oscillate alpha between 0.4 and 0.6 (slower, gentler pulse)
-        pulseFrequency = 1.0  # Pulses per second (slowed down from 3.0)
-        alphaValue = 0.5 + 0.1 * math.sin(elapsed * pulseFrequency * 2 * math.pi)
+        localAvatarId = base.localAvatar.doId if hasattr(base, 'localAvatar') and base.localAvatar else None
         
         for safe in self.ghostedSafes:
             if safe and not safe.isEmpty() and hasattr(safe, '_isGhosted') and safe._isGhosted:
                 try:
-                    safe.setColorScale(0.7, 0.2, 1.0, alphaValue)  # Pulsing light purple
+                    # Check if this safe should be transparent for the local toon
+                    safeAvId = 0
+                    if hasattr(safe, 'avId'):
+                        safeAvId = safe.avId
+                    elif hasattr(safe, 'getAvId'):
+                        safeAvId = safe.getAvId()
+                    
+                    # Determine if local toon should see this safe as transparent
+                    shouldBeTransparent = False
+                    if safeAvId == 0:
+                        # Ungrabbed safe - all opponents see it transparent
+                        shouldBeTransparent = localAvatarId in self.opponentIds if localAvatarId else False
+                    elif safeAvId in self.opponentIds:
+                        # Safe belongs to an opponent - only that specific opponent sees it transparent
+                        shouldBeTransparent = (localAvatarId == safeAvId) if localAvatarId else False
+                    
+                    if shouldBeTransparent:
+                        # Keep completely transparent (alpha = 0)
+                        originalColor = safe._originalColorScale if hasattr(safe, '_originalColorScale') else VBase4(1, 1, 1, 1)
+                        safe.setColorScale(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)
                 except:
                     continue
         
@@ -456,35 +484,37 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
     
     def removeGhostEffects(self, task=None):
         """Remove ghost effects from all safes."""
+        localAvatarId = base.localAvatar.doId if hasattr(base, 'localAvatar') and base.localAvatar else None
+        
         for safe in self.ghostedSafes:
             if safe and not safe.isEmpty() and hasattr(safe, '_isGhosted'):
                 try:
-                    # Restore original properties
-                    if hasattr(safe, '_originalColorScale'):
-                        safe.setColorScale(safe._originalColorScale)
-                    else:
-                        safe.setColorScale(1.0, 1.0, 1.0, 1.0)
+                    # Check if this safe should have been transparent for the local toon
+                    safeAvId = 0
+                    if hasattr(safe, 'avId'):
+                        safeAvId = safe.avId
+                    elif hasattr(safe, 'getAvId'):
+                        safeAvId = safe.getAvId()
                     
-                    if hasattr(safe, '_originalIntoCollideMask') and hasattr(safe, '_originalFromCollideMask'):
-                        # Restore original collision masks
-                        if hasattr(safe, 'collisionNode') and safe.collisionNode:
-                            safe.collisionNode.setIntoCollideMask(safe._originalIntoCollideMask)
-                            safe.collisionNode.setFromCollideMask(safe._originalFromCollideMask)
-                        else:
-                            safe.setCollideMask(safe._originalIntoCollideMask)
-                    else:
-                        # Restore default collision masks
-                        from toontown.toonbase import ToontownGlobals
-                        from otp.otpbase import OTPGlobals
-                        defaultIntoMask = ToontownGlobals.PieBitmask | OTPGlobals.WallBitmask
-                        defaultFromMask = ToontownGlobals.PieBitmask | OTPGlobals.FloorBitmask
-                        if hasattr(safe, 'collisionNode') and safe.collisionNode:
-                            safe.collisionNode.setIntoCollideMask(defaultIntoMask)
-                            safe.collisionNode.setFromCollideMask(defaultFromMask)
-                        else:
-                            safe.setCollideMask(defaultIntoMask)
+                    # Determine if local toon should have seen this safe as transparent
+                    shouldHaveBeenTransparent = False
+                    if safeAvId == 0:
+                        # Ungrabbed safe - all opponents see it transparent
+                        shouldHaveBeenTransparent = localAvatarId in self.opponentIds if localAvatarId else False
+                    elif safeAvId in self.opponentIds:
+                        # Safe belongs to an opponent - only that specific opponent sees it transparent
+                        shouldHaveBeenTransparent = (localAvatarId == safeAvId) if localAvatarId else False
                     
-                    safe.clearTransparency()
+                    # Only restore if we applied the effect (i.e., if we're the targeted toon)
+                    if shouldHaveBeenTransparent:
+                        # Restore original properties
+                        if hasattr(safe, '_originalColorScale'):
+                            safe.setColorScale(safe._originalColorScale)
+                        else:
+                            safe.setColorScale(1.0, 1.0, 1.0, 1.0)
+                        
+                        safe.clearTransparency()
+                    
                     safe._isGhosted = False
                     
                     self.notify.debug(f'Unghosted safe {safe.doId}')
