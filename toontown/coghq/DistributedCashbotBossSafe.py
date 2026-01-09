@@ -87,31 +87,10 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
         self.shadow.show()
         
     def setupPhysics(self, name):
-        an = ActorNode('%s-%s' % (name, self.doId))
-        an.getPhysicsObject().setOrientation(LOrientationf(0, 0, 0, 1))
-        anp = NodePath(an)
-        if not self.isEmpty():
-            self.reparentTo(anp)
-
-        # It is important that there be no messenger hooks added on
-        # this object at the time we reassign the NodePath.
-        NodePath.assign(self, anp)
-        
-        self.physicsObject = an.getPhysicsObject()
-        self.setTag('object', str(self.doId))
-       
-        self.collisionNodePath.reparentTo(self)
-        self.handler = PhysicsCollisionHandler()
-        self.handler.addCollider(self.collisionNodePath, self)
-
-        # Set up a collision event so we know when the object hits the
-        # floor, or the boss's target.
-        self.collideName = self.uniqueName('collide')
-        self.handler.addInPattern(self.collideName + '-%in')
-        self.handler.addAgainPattern(self.collideName + '-%in')
-        
-        self.watchDriftName = self.uniqueName('watchDrift')
-        self.startCacheName = self.uniqueName('startSpeedCaching')
+        # Call parent to set up physics with collision velocity correction
+        # The parent class handles world-space collision responses to prevent orientation from affecting trajectory
+        # This allows visual orientation to change freely (e.g., when grabbed by crane) without affecting physics
+        DistributedCashbotBossObject.DistributedCashbotBossObject.setupPhysics(self, name)
 
     def getMinImpact(self):
         # This method returns the minimum impact, in feet per second,

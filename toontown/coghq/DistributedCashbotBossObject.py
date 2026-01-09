@@ -6,6 +6,7 @@ from direct.interval.IntervalGlobal import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedSmoothNode
 from toontown.coghq import CraneLeagueGlobals
+from toontown.coghq.OrientationIndependentPhysicsHandler import OrientationIndependentPhysicsHandler
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
 from direct.fsm import FSM
@@ -111,6 +112,8 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
 
     def setupPhysics(self, name):
         an = ActorNode('%s-%s' % (name, self.doId))
+        # Allow visual orientation to change freely (e.g., when grabbed by crane).
+        # We manually handle collision responses in world space to prevent orientation from affecting trajectory.
         anp = NodePath(an)
         if not self.isEmpty():
             self.reparentTo(anp)
@@ -123,7 +126,9 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.setTag('object', str(self.doId))
        
         self.collisionNodePath.reparentTo(self)
-        self.handler = PhysicsCollisionHandler()
+        # Use our custom physics collision handler that ensures world-space collision responses
+        # This prevents orientation (H value) from affecting post-collision trajectory
+        self.handler = OrientationIndependentPhysicsHandler()
         self.handler.addCollider(self.collisionNodePath, self)
 
         base.cTrav.setRespectPrevTransform(False)
@@ -183,6 +188,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.ignore(self.collideName + '-goon')
             self.ignore(self.collideName + '-headTarget')
             self.ignore(self.collideName + '-dropPlane')
+            self.ignore(self.collideName + '-shield')
 
     def hideShadows(self):
         pass
