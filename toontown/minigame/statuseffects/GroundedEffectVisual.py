@@ -277,23 +277,22 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         # Apply brown/tan glow color to safe (not CFO) - will fade in when effect starts
         if isSafe and not isCFOBoss:
             try:
-                # Store original color scale if not already stored
-                if not hasattr(self.obj, '_originalGroundedColorScale'):
+                # Use centralized color management system
+                # Get true original color scale
+                if hasattr(self.obj, 'getTrueOriginalColorScale'):
+                    originalColor = self.obj.getTrueOriginalColorScale()
+                else:
+                    # Fallback to current color if system not available
                     originalColor = self.obj.getColorScale()
-                    # Validate the color is reasonable
-                    if (0.0 <= originalColor.getX() <= 2.0 and 
-                        0.0 <= originalColor.getY() <= 2.0 and 
-                        0.0 <= originalColor.getZ() <= 2.0 and 
-                        0.0 <= originalColor.getW() <= 2.0):
-                        self.obj._originalGroundedColorScale = originalColor
-                    else:
-                        # Color is corrupted, use default white
-                        self.obj._originalGroundedColorScale = VBase4(1, 1, 1, 1)
+                    if not (0.0 <= originalColor.getX() <= 2.0 and 
+                            0.0 <= originalColor.getY() <= 2.0 and 
+                            0.0 <= originalColor.getZ() <= 2.0 and 
+                            0.0 <= originalColor.getW() <= 2.0):
+                        originalColor = VBase4(1, 1, 1, 1)
                 
                 # Calculate lighter brown/tan tint (less intense)
                 # Blend between original and earthy brown: 70% original, 30% brown
                 # This creates a subtle glow effect
-                originalColor = self.obj._originalGroundedColorScale
                 brownTint = VBase4(0.6, 0.4, 0.2, 1.0)  # Earthy brown tint (matches globals)
                 blendFactor = 0.5  # 50% of the tint (lighter effect)
                 
@@ -513,21 +512,24 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                if hasattr(self.obj, '_groundedGlowColor') and hasattr(self.obj, '_originalGroundedColorScale'):
-                    # Cancel any existing color interval
-                    if hasattr(self.obj, '_groundedColorInterval'):
-                        if self.obj._groundedColorInterval:
-                            self.obj._groundedColorInterval.finish()
-                    
-                    # Fade in to glow color over 0.4 seconds
-                    self.obj._groundedColorInterval = LerpColorScaleInterval(
-                        self.obj,
-                        duration=0.4,
-                        colorScale=self.obj._groundedGlowColor,
-                        blendType='easeInOut'
-                    )
-                    self.obj._groundedColorInterval.start()
-                    self.notify.info("Fading in brown/tan glow color on safe")
+                if hasattr(self.obj, '_groundedGlowColor'):
+                    # Use centralized color management system
+                    if hasattr(self.obj, 'registerColorModification'):
+                        self.obj.registerColorModification('grounded', self.obj._groundedGlowColor, priority='elemental')
+                        self.notify.info("Registered grounded color modification on safe")
+                    else:
+                        # Fallback if system not available
+                        if hasattr(self.obj, '_groundedColorInterval'):
+                            if self.obj._groundedColorInterval:
+                                self.obj._groundedColorInterval.finish()
+                        self.obj._groundedColorInterval = LerpColorScaleInterval(
+                            self.obj,
+                            duration=0.4,
+                            colorScale=self.obj._groundedGlowColor,
+                            blendType='easeInOut'
+                        )
+                        self.obj._groundedColorInterval.start()
+                        self.notify.info("Fading in brown/tan glow color on safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error fading in safe color: {e}")
     
@@ -542,21 +544,24 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                if hasattr(self.obj, '_originalGroundedColorScale'):
-                    # Cancel any existing color interval
-                    if hasattr(self.obj, '_groundedColorInterval'):
-                        if self.obj._groundedColorInterval:
-                            self.obj._groundedColorInterval.finish()
-                    
-                    # Fade out to original color over 0.4 seconds
-                    self.obj._groundedColorInterval = LerpColorScaleInterval(
-                        self.obj,
-                        duration=0.4,
-                        colorScale=self.obj._originalGroundedColorScale,
-                        blendType='easeInOut'
-                    )
-                    self.obj._groundedColorInterval.start()
-                    self.notify.info("Fading out brown/tan glow color on safe")
+                # Use centralized color management system
+                if hasattr(self.obj, 'unregisterColorModification'):
+                    self.obj.unregisterColorModification('grounded', priority='elemental')
+                    self.notify.info("Unregistered grounded color modification on safe")
+                else:
+                    # Fallback if system not available
+                    if hasattr(self.obj, '_originalGroundedColorScale'):
+                        if hasattr(self.obj, '_groundedColorInterval'):
+                            if self.obj._groundedColorInterval:
+                                self.obj._groundedColorInterval.finish()
+                        self.obj._groundedColorInterval = LerpColorScaleInterval(
+                            self.obj,
+                            duration=0.4,
+                            colorScale=self.obj._originalGroundedColorScale,
+                            blendType='easeInOut'
+                        )
+                        self.obj._groundedColorInterval.start()
+                        self.notify.info("Fading out brown/tan glow color on safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error fading out safe color: {e}")
     
@@ -571,16 +576,19 @@ class GroundedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                # Cancel any existing color interval
-                if hasattr(self.obj, '_groundedColorInterval'):
-                    if self.obj._groundedColorInterval:
-                        self.obj._groundedColorInterval.finish()
-                    self.obj._groundedColorInterval = None
-                
-                # Restore original color immediately
-                if hasattr(self.obj, '_originalGroundedColorScale'):
-                    self.obj.setColorScale(self.obj._originalGroundedColorScale)
-                    self.notify.info("Restored original color to safe")
+                # Use centralized color management system
+                if hasattr(self.obj, 'unregisterColorModification'):
+                    self.obj.unregisterColorModification('grounded', priority='elemental')
+                    self.notify.info("Unregistered grounded color modification on safe (immediate)")
+                else:
+                    # Fallback if system not available
+                    if hasattr(self.obj, '_groundedColorInterval'):
+                        if self.obj._groundedColorInterval:
+                            self.obj._groundedColorInterval.finish()
+                        self.obj._groundedColorInterval = None
+                    if hasattr(self.obj, '_originalGroundedColorScale'):
+                        self.obj.setColorScale(self.obj._originalGroundedColorScale)
+                        self.notify.info("Restored original color to safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error restoring safe color: {e}")
     

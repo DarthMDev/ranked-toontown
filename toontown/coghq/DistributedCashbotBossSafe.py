@@ -70,6 +70,9 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
             
         self.boss.safes[self.index] = self
         
+        # Initialize color management system - store true original color scale
+        self._initializeColorManagement()
+        
         self.setupPhysics('safe')
         self.resetToInitialPosition()
 
@@ -223,3 +226,146 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
         if self.state in ['LocalGrabbed', 'LocalDropped', 'Grabbed', 'Dropped']:
             return
         self.setPosHpr(x, y, z, rotation, 0, 0)
+    
+    # ===== Color Management System =====
+    # Centralized system to handle all color scale modifications and prevent conflicts
+    
+    def _initializeColorManagement(self):
+        """Initialize the color management system with the true original color scale."""
+        # Store the true original color scale when the safe is first created
+        # This should only be called once in announceGenerate()
+        if not hasattr(self, '_trueOriginalColorScale'):
+            originalColor = self.getColorScale()
+            # Validate the color is reasonable
+            if (0.0 <= originalColor.getX() <= 2.0 and 
+                0.0 <= originalColor.getY() <= 2.0 and 
+                0.0 <= originalColor.getZ() <= 2.0 and 
+                0.0 <= originalColor.getW() <= 2.0):
+                self._trueOriginalColorScale = originalColor
+            else:
+                # Color is corrupted, use default white
+                self._trueOriginalColorScale = VBase4(1, 1, 1, 1)
+        
+        # Track active color modifications
+        # Priority: GHOST (highest) > ELEMENTAL_EFFECTS (lowest)
+        if not hasattr(self, '_activeColorModifications'):
+            self._activeColorModifications = {
+                'ghost': None,  # Ghost effect (highest priority)
+                'elemental': None,  # Elemental status effects (burned, drenched, etc.)
+            }
+        
+        # Track active color intervals to cancel them when needed
+        if not hasattr(self, '_activeColorInterval'):
+            self._activeColorInterval = None
+    
+    def _cancelActiveColorInterval(self):
+        """Cancel any active color scale interval to prevent conflicts."""
+        if hasattr(self, '_activeColorInterval') and self._activeColorInterval:
+            try:
+                self._activeColorInterval.finish()
+            except:
+                pass
+            self._activeColorInterval = None
+    
+    def registerColorModification(self, modType, colorScale, priority='elemental'):
+        """
+        Register a color modification.
+        
+        Args:
+            modType: Unique identifier for this modification (e.g., 'burned', 'drenched', 'ghost')
+            colorScale: The target color scale (VBase4)
+            priority: 'ghost' (highest) or 'elemental' (lower)
+        """
+        if not hasattr(self, '_activeColorModifications'):
+            self._initializeColorManagement()
+        
+        # Cancel any existing interval
+        self._cancelActiveColorInterval()
+        
+        # Store the modification
+        if priority == 'ghost':
+            self._activeColorModifications['ghost'] = (modType, colorScale)
+        else:
+            self._activeColorModifications['elemental'] = (modType, colorScale)
+        
+        # Apply the highest priority modification
+        self._applyActiveColorModification()
+    
+    def unregisterColorModification(self, modType, priority='elemental'):
+        """
+        Unregister a color modification.
+        
+        Args:
+            modType: The identifier of the modification to remove
+            priority: 'ghost' or 'elemental'
+        """
+        if not hasattr(self, '_activeColorModifications'):
+            return
+        
+        # Remove the modification if it matches
+        if priority == 'ghost':
+            if (self._activeColorModifications.get('ghost') and 
+                self._activeColorModifications['ghost'][0] == modType):
+                self._activeColorModifications['ghost'] = None
+        else:
+            if (self._activeColorModifications.get('elemental') and 
+                self._activeColorModifications['elemental'][0] == modType):
+                self._activeColorModifications['elemental'] = None
+        
+        # Reapply the highest priority remaining modification
+        self._applyActiveColorModification()
+    
+    def _applyActiveColorModification(self):
+        """Apply the highest priority active color modification."""
+        if not hasattr(self, '_activeColorModifications'):
+            return
+        
+        # Cancel any existing interval
+        self._cancelActiveColorInterval()
+        
+        # Determine target color based on priority
+        targetColor = None
+        
+        # Ghost effect has highest priority
+        if self._activeColorModifications.get('ghost'):
+            targetColor = self._activeColorModifications['ghost'][1]
+        # Otherwise use elemental effect
+        elif self._activeColorModifications.get('elemental'):
+            targetColor = self._activeColorModifications['elemental'][1]
+        # No modifications - restore to true original
+        else:
+            if hasattr(self, '_trueOriginalColorScale'):
+                targetColor = self._trueOriginalColorScale
+            else:
+                targetColor = VBase4(1, 1, 1, 1)
+        
+        # Apply the color with a smooth transition
+        if targetColor:
+            self._activeColorInterval = LerpColorScaleInterval(
+                self,
+                duration=0.4,
+                colorScale=targetColor,
+                blendType='easeInOut'
+            )
+            self._activeColorInterval.start()
+    
+    def getTrueOriginalColorScale(self):
+        """Get the true original color scale stored when the safe was created."""
+        if hasattr(self, '_trueOriginalColorScale'):
+            return self._trueOriginalColorScale
+        return VBase4(1, 1, 1, 1)
+    
+    def forceRestoreOriginalColor(self):
+        """Force immediate restoration to original color (no fade)."""
+        self._cancelActiveColorInterval()
+        
+        # Clear all modifications
+        if hasattr(self, '_activeColorModifications'):
+            self._activeColorModifications['ghost'] = None
+            self._activeColorModifications['elemental'] = None
+        
+        # Restore immediately
+        if hasattr(self, '_trueOriginalColorScale'):
+            self.setColorScale(self._trueOriginalColorScale)
+        else:
+            self.setColorScale(1.0, 1.0, 1.0, 1.0)

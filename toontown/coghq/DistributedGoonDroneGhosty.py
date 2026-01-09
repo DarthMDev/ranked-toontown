@@ -427,19 +427,33 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
             self.notify.debug(f'Not applying ghost effect to safe {safe.doId} - local toon is not targeted (safeAvId={safeAvId}, localAvatarId={localAvatarId})')
             return
         
-        # Store original safe properties
-        if not hasattr(safe, '_originalColorScale'):
-            safe._originalColorScale = safe.getColorScale()
-        
         # Mark as ghosted
         safe._isGhosted = True
         safe._ghostStartTime = globalClock.getFrameTime()
         self.ghostedSafes.append(safe)
         
-        # Apply ghost visual: completely transparent (alpha = 0)
-        # Keep original color scale RGB values, but set alpha to 0
-        originalColor = safe._originalColorScale
-        safe.setColorScale(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)  # Completely transparent
+        # Use centralized color management system
+        # Get the true original color RGB and set alpha to 0
+        if hasattr(safe, 'getTrueOriginalColorScale'):
+            originalColor = safe.getTrueOriginalColorScale()
+        else:
+            # Fallback: get current color
+            originalColor = safe.getColorScale()
+            if not (0.0 <= originalColor.getX() <= 2.0 and 
+                    0.0 <= originalColor.getY() <= 2.0 and 
+                    0.0 <= originalColor.getZ() <= 2.0 and 
+                    0.0 <= originalColor.getW() <= 2.0):
+                originalColor = VBase4(1, 1, 1, 1)
+        
+        transparentColor = VBase4(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)
+        
+        # Register ghost modification with highest priority
+        if hasattr(safe, 'registerColorModification'):
+            safe.registerColorModification('ghost', transparentColor, priority='ghost')
+        else:
+            # Fallback if color management not available
+            safe.setColorScale(transparentColor)
+        
         safe.setTransparency(TransparencyAttrib.MAlpha)
         
         # NOTE: We do NOT disable collisions - safes should still be grabbable!
@@ -475,8 +489,21 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
                     
                     if shouldBeTransparent:
                         # Keep completely transparent (alpha = 0)
-                        originalColor = safe._originalColorScale if hasattr(safe, '_originalColorScale') else VBase4(1, 1, 1, 1)
-                        safe.setColorScale(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)
+                        # Use centralized color management - preserve true original RGB
+                        if hasattr(safe, 'getTrueOriginalColorScale'):
+                            originalColor = safe.getTrueOriginalColorScale()
+                        else:
+                            originalColor = safe.getColorScale()
+                            if not (0.0 <= originalColor.getX() <= 2.0 and 
+                                    0.0 <= originalColor.getY() <= 2.0 and 
+                                    0.0 <= originalColor.getZ() <= 2.0 and 
+                                    0.0 <= originalColor.getW() <= 2.0):
+                                originalColor = VBase4(1, 1, 1, 1)
+                        transparentColor = VBase4(originalColor.getX(), originalColor.getY(), originalColor.getZ(), 0.0)
+                        if hasattr(safe, 'registerColorModification'):
+                            safe.registerColorModification('ghost', transparentColor, priority='ghost')
+                        else:
+                            safe.setColorScale(transparentColor)
                 except:
                     continue
         
@@ -507,11 +534,15 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
                     
                     # Only restore if we applied the effect (i.e., if we're the targeted toon)
                     if shouldHaveBeenTransparent:
-                        # Restore original properties
-                        if hasattr(safe, '_originalColorScale'):
-                            safe.setColorScale(safe._originalColorScale)
+                        # Unregister ghost modification using centralized color management
+                        if hasattr(safe, 'unregisterColorModification'):
+                            safe.unregisterColorModification('ghost', priority='ghost')
                         else:
-                            safe.setColorScale(1.0, 1.0, 1.0, 1.0)
+                            # Fallback if color management not available
+                            if hasattr(safe, '_trueOriginalColorScale'):
+                                safe.setColorScale(safe._trueOriginalColorScale)
+                            else:
+                                safe.setColorScale(1.0, 1.0, 1.0, 1.0)
                         
                         safe.clearTransparency()
                     
