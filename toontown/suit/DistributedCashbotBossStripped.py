@@ -57,6 +57,10 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.headTarget.setTag('pieCode', str(ToontownGlobals.PieCodeBossCog))
         print('[CFO Client] headTarget created with pieCode=%s, tag=%s' % (ToontownGlobals.PieCodeBossCog, self.headTarget.getTag('pieCode')))
         # self.headTarget.show()
+        
+        # Initialize locked coordinates (will be set when battle starts)
+        self.headTargetLockedX = None
+        self.headTargetLockedY = None
 
         # And he gets a big bubble around his torso, just to keep
         # things from falling through him.  It's a big sphere so
@@ -76,8 +80,45 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.eyes.hide()
 
     def delete(self):
+        # Clean up the headTarget locking task
+        from direct.task.TaskManagerGlobal import taskMgr
+        taskMgr.remove(self.uniqueName('lockHeadTarget'))
         super().delete()
         self.ruleset = None
+    
+    def __lockHeadTargetPosition(self, task):
+        """
+        Task that locks the headTarget's X and Y coordinates to their initial values,
+        while allowing Z to move freely with the head/neck.
+        """
+        if not hasattr(self, 'headTarget') or not self.headTarget or self.headTarget.isEmpty():
+            return task.cont
+        
+        # If locked coordinates haven't been set yet, skip this frame
+        if self.headTargetLockedX is None or self.headTargetLockedY is None:
+            return task.cont
+        
+        # Get the neck's current world position
+        neckWorldPos = self.neck.getPos(render)
+        
+        # Calculate what the headTarget's world position should be:
+        # X and Y locked to initial values, Z follows the neck
+        targetWorldZ = neckWorldPos.getZ()
+        # Get the headTarget's current local Z offset from neck (should be constant)
+        currentLocalPos = self.headTarget.getPos(self.neck)
+        targetWorldZ += currentLocalPos.getZ()
+        
+        # Calculate the desired world position
+        targetWorldPos = Point3(self.headTargetLockedX, self.headTargetLockedY, targetWorldZ)
+        
+        # Transform the desired world position to local space relative to the neck
+        # Use getRelativePoint to convert from render space to neck's local space
+        targetLocalPos = self.neck.getRelativePoint(render, targetWorldPos)
+        
+        # Set the headTarget's local position
+        self.headTarget.setPos(self.neck, targetLocalPos)
+        
+        return task.cont
 
     def getBossMaxDamage(self):
         return self.ruleset.CFO_MAX_HP
@@ -149,6 +190,18 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         # Accept pie hit events
         self.accept('pieSplat', self.__pieSplat)
         self.accept('localPieSplat', self.__localPieSplat)
+        
+        # Lock the headTarget's X and Y coordinates to their current position when battle starts
+        # This ensures the headTarget only moves in Z with the head
+        if hasattr(self, 'headTarget') and self.headTarget and not self.headTarget.isEmpty():
+            initialHeadTargetPos = self.headTarget.getPos(render)
+            self.headTargetLockedX = initialHeadTargetPos.getX()
+            self.headTargetLockedY = initialHeadTargetPos.getY()
+            
+            # Start a task to lock the headTarget's X and Y coordinates
+            # The headTarget should only move with the head in the Z coordinate
+            from direct.task.TaskManagerGlobal import taskMgr
+            taskMgr.add(self.__lockHeadTargetPosition, self.uniqueName('lockHeadTarget'), priority=45)
 
     def cleanupBossBattle(self):
         self.cleanupIntervals()
@@ -160,6 +213,13 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         # Ignore pie hit events
         self.ignore('pieSplat')
         self.ignore('localPieSplat')
+        
+        # Stop the headTarget locking task
+        from direct.task.TaskManagerGlobal import taskMgr
+        taskMgr.remove(self.uniqueName('lockHeadTarget'))
+        # Reset locked coordinates
+        self.headTargetLockedX = None
+        self.headTargetLockedY = None
     
     def cleanupAttacks(self):
         """Clean up any ongoing gear attacks"""
