@@ -105,23 +105,21 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         if avId not in self.boss.avIdList:
             return
         
-        # Capture toon ID before state change (needed for broadcast)
+        # Capture toon ID (needed for broadcast) - don't force state change, let client handle it
         toonIdOnCrane = 0
         if self.state == 'Controlled' and self.avId != 0:
             toonIdOnCrane = self.avId
             toon = self.air.doId2do.get(self.avId)
             if toon:
-                # Apply 10 damage to the toon on the crane
+                # Apply 10 damage to the toon on the crane (same as gear throws)
                 tntDamage = 10
                 if hasattr(self.boss, 'game') and hasattr(self.boss.game, 'damageToon'):
                     self.boss.game.damageToon(toon, tntDamage)
                 elif hasattr(self.boss, 'damageToon'):
                     self.boss.damageToon(toon, tntDamage)
-            
-            # Force the controlling toon off the crane
-            self.request('Free')
         
         # Broadcast to all clients that the crane was hit (include toon ID that was on it)
+        # Client will handle knocking toon off via exitCrane message (same as gear throws)
         self.d_tntHit(toonIdOnCrane)
     
     def d_tntHit(self, toonIdOnCrane=0):
