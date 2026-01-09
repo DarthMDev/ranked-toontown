@@ -25,7 +25,7 @@ STATUS_EFFECT_COLORS = {
     StatusEffect.DRENCHED: (0.6, 0.8, 0.9, 1.0),    # Misty blue
     StatusEffect.WINDED: (0.4, 0.8, 0.4, 1.0),      # Windy green
     StatusEffect.GROUNDED: (0.6, 0.4, 0.2, 1.0),    # Earthy brown
-    StatusEffect.EXPLODE: (0.8, 0.8, 0.8, 1.0),     # Flashbang gray
+    StatusEffect.EXPLODE: (0.8, 0.8, 0.8, 1.0),     # Explosion gray
     StatusEffect.FROZEN: (0.7, 0.9, 1.0, 1.0),      # Icy blue
     StatusEffect.SHATTERED: (1.0, 1.0, 1.0, 1.0),   # White
 }

@@ -5,7 +5,7 @@ Creates an animated explosion effect with:
 - Particles burst outward from center (0.0-0.2s)
 - Particles orbit and spiral inward around target (0.2-1.5s)
 - At 0.75s: Burn damage consumed - particles speed up orbit
-- At 1.5s: Massive explosion - flames burst out + explosion particles + white screen flash
+- At 1.5s: Massive explosion - flames burst out + explosion particles + subtle orange/red screen flash (epilepsy-friendly)
 - Scaled appropriately to object size (especially for CFO)
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
@@ -28,7 +28,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
     1. Burst phase (0.0-0.2s): Particles explode outward from center
     2. Orbit phase (0.2-0.75s): Particles orbit and slowly spiral inward
     3. Acceleration (0.75s): Orbit speeds up, spiral tightens
-    4. Final explosion (1.5s): Flames burst outward + explosion particles + white screen flash
+    4. Final explosion (1.5s): Flames burst outward + explosion particles + subtle orange/red screen flash (epilepsy-friendly)
     """
     
     def create(self):
@@ -64,7 +64,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         if isCFOBoss:
             heightScale = height / 26.0
             widthScale = avgWidth / 20.0
-            baseScale = max(2.0, min(max(heightScale, widthScale) * 2.0, 4.0))
+            baseScale = max(2.0, min(max(heightScale, widthScale) * 4.0, 2.0)) 
         else:
             baseScale = max(0.8, min(height / 3.0, 2.5))
         
@@ -76,7 +76,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         
         # Calculate orbit radius for flame burst positioning (used in final explosion)
         if isCFOBoss:
-            self.orbitRadius = max(6.0, avgWidth * 0.8)  # Orbit radius around CFO
+            self.orbitRadius = max(10.0, avgWidth * 0.8)  # Much larger orbit radius around CFO for massive expansion
         else:
             self.orbitRadius = max(2.5, avgWidth * 0.7)  # Orbit radius around safe
         
@@ -107,7 +107,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
     
     
     def _finalExplosion(self, task):
-        """Massive explosion with flame burst, explosion particles, and white screen flash at 1.5s."""
+        """Massive explosion with flame burst, explosion particles, and subtle orange/red screen flash at 1.5s (epilepsy-friendly)."""
         self.notify.info("=== _finalExplosion CALLED ===")
         
         # Don't check self.active - explosion should happen even if effect was "removed"
@@ -141,7 +141,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
                 import traceback
                 self.notify.warning(traceback.format_exc())
             
-            # Create WHITE SCREEN FLASH overlay
+            # Create subtle orange/red screen flash overlay (epilepsy-friendly)
             try:
                 self._createScreenFlash()
                 self.notify.info("Created screen flash")
@@ -185,7 +185,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         """Create flames bursting outward from center."""
         # Create multiple fire particle bursts radiating outward
         numBursts = 12 if self.isCFOBoss else 8
-        burstScale = self.baseScale * 2.5 if self.isCFOBoss else self.baseScale * 1.5
+        burstScale = self.baseScale * 2.0 if self.isCFOBoss else self.baseScale * 1.5
         
         for i in range(numBursts):
             angle = (360.0 / numBursts) * i
@@ -193,14 +193,14 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
             radians = math.radians(angle)
             
             # Calculate outward direction
-            outwardDist = self.orbitRadius * 1.5
+            outwardDist = self.orbitRadius * 0.5
             offsetX = math.cos(radians) * outwardDist
             offsetY = math.sin(radians) * outwardDist
             
             # Create small fire burst
             fireModel = loader.loadModel('phase_3.5/models/props/explosion')
             fireNode = fireModel.copyTo(render)
-            fireNode.setPos(explosionPos + Vec3(offsetX, offsetY, 0))
+            fireNode.setPos(explosionPos + Vec3(offsetX, offsetY, 10))
             fireNode.setScale(burstScale * 0.8)
             fireNode.setBillboardPointEye()
             fireNode.setTransparency(1)
@@ -229,8 +229,8 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         explosionNode.reparentTo(render)
         explosionNode.setPos(explosionPos)
         
-        # Scale based on object size
-        explosionScale = self.baseScale * 5.0 if self.isCFOBoss else self.baseScale * 2.5
+        # Scale based on object size - much larger for CFO
+        explosionScale = self.baseScale * 8.0 if self.isCFOBoss else self.baseScale * 2.5  # Increased from 5.0 to 8.0 for massive CFO explosion
         explosionNode.setScale(explosionScale)
         
         # Play both particle effects
@@ -245,11 +245,11 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         particleTrack.start()
     
     def _createScreenFlash(self):
-        """Create a white screen flash using GeomNode approach (like FogOverlay) - more reliable."""
+        """Create a subtle orange/red screen flash using GeomNode approach - epilepsy-friendly version."""
         try:
             from panda3d.core import GeomNode, Geom, GeomVertexData, GeomVertexFormat, GeomVertexWriter, GeomTristrips, TransparencyAttrib
             
-            self.notify.info("=== CREATING WHITE SCREEN FLASH (GeomNode method) ===")
+            self.notify.info("=== CREATING SUBTLE EXPLOSION SCREEN FLASH (epilepsy-friendly) ===")
             
             # Create base node on aspect2d (like FogOverlay does)
             self.screenFlashBase = aspect2d.attachNewNode('explosionScreenFlash')
@@ -282,10 +282,13 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
             overlayVertexWriter = GeomVertexWriter(overlayVertexData, 'vertex')
             overlayColorWriter = GeomVertexWriter(overlayVertexData, 'color')
             
-            # Write vertices and colors (white, fully opaque)
+            # Write vertices and colors (orange/red to match explosion theme, moderate opacity for epilepsy safety)
+            # Using orange/red (1.0, 0.4, 0.0) instead of white, with moderate initial opacity
+            flashColor = (1.0, 0.5, 0.0)  # Orange/red to match explosion flames
+            initialAlpha = 0.35  # Moderate opacity - epilepsy-friendly but more noticeable (was 1.0 originally)
             for vertex in shapeVertices:
                 overlayVertexWriter.addData3f(vertex[0], vertex[1], vertex[2])
-                overlayColorWriter.addData4f(1.0, 1.0, 1.0, 1.0)  # White, opaque
+                overlayColorWriter.addData4f(flashColor[0], flashColor[1], flashColor[2], initialAlpha)
             
             # Create triangle strip
             overlayTris = GeomTristrips(Geom.UHStatic)
@@ -303,8 +306,8 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
             
             self.notify.info(f"Screen flash created on aspect2d, aspectRatio={aspectRatio}")
             
-            # Fade out duration
-            flashDuration = 0.5 if self.isCFOBoss else 0.35
+            # Faster fade out duration for less intense effect
+            flashDuration = 0.3 if self.isCFOBoss else 0.3
             
             def destroyFlash():
                 self.notify.info("Destroying screen flash")
@@ -320,19 +323,19 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
             def updateFlashAlpha(alpha):
                 if hasattr(self, 'screenFlashNode') and self.screenFlashNode and not self.screenFlashNode.isEmpty():
                     try:
-                        # Update color to fade alpha
-                        self.screenFlashNode.setColorScale(1, 1, 1, alpha)
+                        # Update color to fade alpha (maintain orange/red color)
+                        self.screenFlashNode.setColorScale(flashColor[0], flashColor[1], flashColor[2], alpha)
                     except:
                         pass
             
-            # Create fade sequence
+            # Create fade sequence - start from low opacity and fade out quickly
             self.flashSequence = Sequence(
-                Wait(0.05),  # Brief hold at full white
+                Wait(0.02),  # Very brief hold at low opacity (was 0.05)
                 LerpColorScaleInterval(
                     self.screenFlashNode,
                     flashDuration,
-                    Vec4(1, 1, 1, 0),  # Fade to transparent
-                    startColorScale=Vec4(1, 1, 1, 1),
+                    Vec4(flashColor[0], flashColor[1], flashColor[2], 0),  # Fade to transparent
+                    startColorScale=Vec4(flashColor[0], flashColor[1], flashColor[2], initialAlpha),
                     blendType='easeIn'
                 ),
                 Func(destroyFlash)
@@ -341,7 +344,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
             # Start immediately
             self.flashSequence.start()
             
-            self.notify.info("Screen flash sequence started")
+            self.notify.info("Screen flash sequence started (epilepsy-friendly)")
             
         except Exception as e:
             import traceback
