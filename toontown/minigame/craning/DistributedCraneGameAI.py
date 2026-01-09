@@ -1131,6 +1131,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
+        # If forceStun is True but CFO is already stunned, don't do anything that would affect the stun state
+        # This prevents Xplodey and Stunna from canceling an existing stun
+        if forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or self.boss.attackCode == ToontownGlobals.BossCogDizzyNow):
+            return
+
         self.boss.stopHelmets()
 
         # Is the damage high enough to stun? or did a side crane hit a high impact hit?
