@@ -1875,20 +1875,96 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     
     def d_tntHit(self):
         """Send update to server that TNT hit this crane"""
-        self.sendUpdate('tntHit', [])
+        # Client doesn't know who's on the crane, so send 0
+        # Server will determine the actual toonId and broadcast it
+        self.sendUpdate('tntHit', [0])
     
-    def tntHit(self):
+    def tntHit(self, toonIdOnCrane=0):
         """Called from server when TNT hits this crane - perform disabling animation on all clients"""
         # Perform the disabling animation regardless of current state
         # This will handle fade track, restore scale track, and trigger stashing/unstashing
         self.performDisableAnimation()
         
-        # If the local toon was on the crane when TNT hit, grant i-frames
-        if base.localAvatar.doId == self.avId:
-            toon = base.localAvatar
-            if toon and not toon.isStunned and toon.hp > 0:
-                # Grant i-frames immediately (similar to gear throws and laser hits)
-                toon.stunToon()
+        # Handle animation for toon on crane (local or remote)
+        # Use toonIdOnCrane from broadcast (self.avId may already be 0 due to state change)
+        if toonIdOnCrane != 0:
+            toon = base.cr.doId2do.get(toonIdOnCrane)
+            if toon and not toon.isEmpty() and toon.hp > 0:
+                isLocalToon = (toon == base.localAvatar)
+                
+                # Local toon: grant i-frames and prevent movement (same as gear throws)
+                if isLocalToon:
+                    if not toon.isStunned:
+                        # Knock toon off crane immediately (server will also force it, but this ensures immediate client response)
+                        messenger.send('exitCrane')
+                        
+                        # Set ouch mode to prevent movement (same as gear throws)
+                        messenger.send("LocalSetOuchMode")
+                        
+                        # Create custom track with slip-backward animation, backward push, and i-frames (same as gear throws)
+                        def getSlideToPos(toon=toon):
+                            return render.getRelativePoint(toon, Point3(0, -5, 0))
+                        
+                        # I-frame flashing track (same as stunToon)
+                        def setStunned(stunned):
+                            toon.isStunned = stunned
+                            messenger.send('toonStunned-' + str(toon.doId), [toon.isStunned])
+                        
+                        node = toon.getGeomNode()
+                        lerpTime = 0.5
+                        down = toon.doToonColorScale(VBase4(1, 1, 1, 0.6), lerpTime)
+                        up = toon.doToonColorScale(VBase4(1, 1, 1, 0.9), lerpTime)
+                        clear = toon.doToonColorScale(toon.defaultColorScale, lerpTime)
+                        iframeTrack = Sequence(Func(setStunned, 1), down, up, down, up, down, up, down, clear, Func(toon.restoreDefaultColorScale), Func(setStunned, 0))
+                        
+                        # Animation and position movement (same as gear throws)
+                        slipBackwardDuration = toon.getDuration('slip-backward', 'torso')
+                        toonTrack = Parallel(
+                            ActorInterval(toon, 'slip-backward'),
+                            toon.posInterval(0.5, getSlideToPos, fluid=1),  # 0.5 seconds like gear throws
+                            iframeTrack
+                        )
+                        
+                        # Restore movement after animation completes (not after iframes end)
+                        # Create a separate track that waits only for the animation duration
+                        restoreMovementTrack = Sequence(
+                            Wait(slipBackwardDuration),
+                            Func(messenger.send, "LocalSetFinalBattleMode")
+                        )
+                        
+                        # Store and start both tracks
+                        if toon.stunTrack:
+                            toon.stunTrack.finish()
+                        toon.stunTrack = toonTrack
+                        toonTrack.start()
+                        restoreMovementTrack.start()
+                
+                # Remote toon: show animation without affecting local toon's camera/controls (same as gear throws)
+                else:
+                    # Stop smooth movement for remote toon (same as gear throws)
+                    toon.stopSmooth()
+                    
+                    # Create animation track with backward push (no i-frames for remote toons)
+                    def getSlideToPos(toon=toon):
+                        return render.getRelativePoint(toon, Point3(0, -5, 0))
+                    
+                    slipBackwardDuration = toon.getDuration('slip-backward', 'torso')
+                    toonTrack = Parallel(
+                        ActorInterval(toon, 'slip-backward'),
+                        toon.posInterval(0.5, getSlideToPos, fluid=1)  # 0.5 seconds like gear throws
+                    )
+                    
+                    # Restart smooth movement after animation (same as gear throws)
+                    fullTrack = Sequence(
+                        toonTrack,
+                        Func(toon.startSmooth)
+                    )
+                    
+                    # Store and start the track
+                    if toon.stunTrack:
+                        toon.stunTrack.finish()
+                    toon.stunTrack = fullTrack
+                    fullTrack.start()
         
         # Note: If crane is controlled, the server will force the toon off automatically
         # We don't need to handle that here - just perform the visual disabling

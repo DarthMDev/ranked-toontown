@@ -97,7 +97,7 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         if avId == self.avId:  # Only the controlling player can change magnet state
             self.setMagnetOn(magnetOn)
     
-    def tntHit(self):
+    def tntHit(self, unused=0):
         """Called from client when TNT hits this crane"""
         avId = self.air.getAvatarIdFromSender()
         
@@ -105,8 +105,10 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         if avId not in self.boss.avIdList:
             return
         
-        # If crane is controlled, damage the toon and force them off
+        # Capture toon ID before state change (needed for broadcast)
+        toonIdOnCrane = 0
         if self.state == 'Controlled' and self.avId != 0:
+            toonIdOnCrane = self.avId
             toon = self.air.doId2do.get(self.avId)
             if toon:
                 # Apply 10 damage to the toon on the crane
@@ -119,12 +121,12 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
             # Force the controlling toon off the crane
             self.request('Free')
         
-        # Broadcast to all clients that the crane was hit
-        self.d_tntHit()
+        # Broadcast to all clients that the crane was hit (include toon ID that was on it)
+        self.d_tntHit(toonIdOnCrane)
     
-    def d_tntHit(self):
+    def d_tntHit(self, toonIdOnCrane=0):
         """Broadcast to all clients that TNT hit this crane"""
-        self.sendUpdate('tntHit', [])
+        self.sendUpdate('tntHit', [toonIdOnCrane])
 
     ### FSM States ###
     
