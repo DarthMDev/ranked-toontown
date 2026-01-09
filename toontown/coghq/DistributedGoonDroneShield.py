@@ -61,8 +61,8 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         hoverPos = Point3(ownerPos.getX(), ownerPos.getY(), ownerPos.getZ() + 15)
         self.setPos(hoverPos)
         
-        # After 0.5s hover, activate shield
-        taskMgr.doMethodLater(0.5, self.activateShield, self.uniqueName('activateShield'))
+        # Activate shield almost instantly
+        taskMgr.doMethodLater(0.05, self.activateShield, self.uniqueName('activateShield'))
     
     def activateShield(self, task=None):
         """Activate the shield bubble around the owner."""

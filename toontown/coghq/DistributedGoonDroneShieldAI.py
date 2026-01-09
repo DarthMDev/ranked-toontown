@@ -11,7 +11,7 @@ from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 class DistributedGoonDroneShieldAI(DistributedGoonDroneBaseAI):
     """
     Shield drone AI that:
-    1. Activates shield for owner after 0.5s
+    1. Activates shield for owner almost instantly
     2. Tracks shield state (active/broken)
     3. Provides method for game to check if player has shield
     4. Provides method for game to break shield
@@ -30,8 +30,8 @@ class DistributedGoonDroneShieldAI(DistributedGoonDroneBaseAI):
     
     def startBehavior(self):
         """Initialize shield drone behavior."""
-        # After 0.5s hover, activate shield
-        taskMgr.doMethodLater(0.5, self.activateShield, self.uniqueName('activateShield'))
+        # Activate shield almost instantly
+        taskMgr.doMethodLater(0.05, self.activateShield, self.uniqueName('activateShield'))
     
     def activateShield(self, task=None):
         """Activate the shield for the owner."""
