@@ -310,20 +310,20 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         
         # Create sequential horizontal shockwave rings (like boss ground slam)
         # Each ring is a single expanding circle on the ground plane
-        numRings = 3  # Number of sequential shockwave rings
-        ringDelay = 0.4  # Delay between each ring (seconds)
-        ringDuration = 2.0  # How long each ring expands
+        numRings = 2  # Number of sequential shockwave rings
+        ringDelay = 1.0  # Delay between each ring (seconds)
+        ringDuration = 2.5  # How long each ring expands
         startRadius = 0.5  # Starting radius (small)
-        endRadius = 50.0  # Ending radius (expands twice as far - doubled from 25.0)
-        shockwaveHeight = 0.5  # Height above ground for visibility
+        endRadius = 42.0  # Ending radius (expands almost twice as far - doubled from 25.0)
+        shockwaveHeight = 3.0 # Height above ground for visibility
         
-        # Helper function to create a single horizontal shockwave ring
-        def createShockwaveRing(ringIndex):
+        # Helper function to create a single horizontal shockwave ring with specified thickness
+        def createShockwaveRingGeometry(ringIndex, thickness):
             # Create a horizontal ring on the ground plane
             # In Toontown: X and Y are horizontal, Z is vertical (like shield rings)
             lines = LineSegs('shockwaveRing%d' % ringIndex)
-            lines.setColor(1.0, 1.0, 1.0, 0.8)  # White
-            lines.setThickness(5.0)  # Thick line for visibility
+            lines.setColor(1.0, 1.0, 1.0, 1.0)  # White, fully opaque (1.0 alpha) to start
+            lines.setThickness(thickness)  # Thickness (will be animated from 10.0 to 0.0)
             
             # Draw a horizontal circle (ring slightly above ground)
             # X and Y form the circle, Z is slightly above ground for visibility
@@ -339,8 +339,12 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
                 else:
                     lines.drawTo(x, y, z)
             
-            # Create the ring node
-            ringNode = render.attachNewNode(lines.create())
+            return lines.create()
+        
+        # Helper function to create a ring node container
+        def createShockwaveRing(ringIndex):
+            # Create a parent container node
+            ringNode = render.attachNewNode('shockwaveRingContainer%d' % ringIndex)
             ringNode.setPos(render, cfoPos)
             ringNode.setLightOff()
             ringNode.setFogOff()
@@ -349,13 +353,21 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
             ringNode.setTransparency(TransparencyAttrib.MAlpha)
             ringNode.setBin('default', 0)
             
-            return ringNode
+            # Create initial geometry with starting thickness (5.0) as a child
+            geom = createShockwaveRingGeometry(ringIndex, 5.0)
+            geomNode = ringNode.attachNewNode(geom)
+            geomNode.setLightOff()
+            geomNode.setFogOff()
+            
+            return ringNode, geomNode
         
-        # Create all rings
+        # Create all rings and store geometry node references
         ringNodes = []
+        geomNodes = {}  # Dictionary to store geometry node references
         for i in range(numRings):
-            ringNode = createShockwaveRing(i)
+            ringNode, geomNode = createShockwaveRing(i)
             ringNodes.append(ringNode)
+            geomNodes[ringNode] = geomNode  # Store reference in dictionary
         
         # Large explosion - similar to explodey drone
         sx = random.uniform(0.9, 1.5) * baseScale * 3.5
@@ -365,6 +377,9 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         shockwaveTracks = []
         for i, ringNode in enumerate(ringNodes):
             startDelay = i * ringDelay
+            
+            # Set initial alpha to ensure transparency works
+            ringNode.setAlphaScale(1.0)  # Start fully opaque
             
             # Scale and fade animation for each ring
             # Scale X and Y (the horizontal circle), keep Z at 1.0 (vertical)
@@ -376,18 +391,47 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
                 blendType='easeOut'
             )
             
-            fadeTrack = LerpColorScaleInterval(
-                ringNode,
-                ringDuration,
-                Vec4(1.0, 1.0, 1.0, 0.0),  # Fade to transparent
-                startColorScale=Vec4(1.0, 1.0, 1.0, 1.0),
+            # Use LerpFunc to manually update alpha for proper fading
+            # This ensures LineSegs geometry fades correctly to fully transparent (0.0)
+            def updateAlpha(alpha, node=ringNode):
+                node.setAlphaScale(alpha)
+            
+            fadeTrack = LerpFunc(
+                updateAlpha,
+                fromData=1.0,  # Start at fully opaque (1.0 alpha)
+                toData=0.0,    # End at fully transparent (0.0 alpha)
+                duration=ringDuration,
                 blendType='easeIn'
             )
             
-            # Combine scale and fade, then remove the node
+            # Animate thickness from 5.0 to 0.0 by recreating geometry with new thickness
+            # Thickness reaches 0.0 at 90% of the animation duration
+            def updateThickness(thickness, node=ringNode, ringIdx=i, geomDict=geomNodes):
+                # Remove old geometry node
+                if node in geomDict and geomDict[node]:
+                    geomDict[node].removeNode()
+                # Create new geometry with updated thickness
+                newGeom = createShockwaveRingGeometry(ringIdx, thickness)
+                geomNode = node.attachNewNode(newGeom)
+                geomNode.setLightOff()
+                geomNode.setFogOff()
+                # Store reference to new geometry node in dictionary
+                geomDict[node] = geomNode
+            
+            # Thickness animation completes at 90% of ringDuration
+            thicknessDuration = ringDuration * 0.9
+            thicknessTrack = LerpFunc(
+                updateThickness,
+                fromData=5.0,  # Start at thickness 5.0
+                toData=0.0,    # End at thickness 0.0
+                duration=thicknessDuration,  # Complete at 90% of ringDuration
+                blendType='easeIn'
+            )
+            
+            # Combine scale, fade, and thickness animation, then remove the node
             ringTrack = Sequence(
                 Wait(startDelay),
-                Parallel(scaleTrack, fadeTrack),
+                Parallel(scaleTrack, fadeTrack, thicknessTrack),
                 Func(ringNode.removeNode)
             )
             
