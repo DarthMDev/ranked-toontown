@@ -6,6 +6,7 @@ from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
+from direct.showbase.ShowBaseGlobal import aspect2d
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
 from toontown.coghq import CraneLeagueGlobals
@@ -454,17 +455,17 @@ class DistributedGoonDroneExplodey(DistributedGoonDroneBase):
         self.performExplodeVisualEffect()
     
     def performExplodeVisualEffect(self):
-        """Show explosion effect (not poof - actual goon destruction)."""
+        """Show explosion effect (not poof - actual goon destruction) with enlarged explosion, camera shake, and screen flash."""
         if self.isEmpty():
             return
         
         # Use the same destruction effect as goons (playCrushMovie)
-        # Make it MUCH bigger for explodey drone - 3-4x the normal size
+        # Make it MUCH bigger for explodey drone - 5-6x the normal size (enlarged from 3.5x)
         goonPos = self.getPos()
         baseScale = self.scale if hasattr(self, 'scale') and self.scale > 0 else 1.0
-        # Much larger explosion - 3-4x normal goon explosion size
-        sx = random.uniform(0.9, 1.5) * baseScale * 3.5  # Much larger X scale
-        sz = random.uniform(0.9, 1.5) * baseScale * 3.5  # Much larger Z scale
+        # Much larger explosion - 5-6x normal goon explosion size
+        sx = random.uniform(0.9, 1.5) * baseScale * 5.5  # Enlarged X scale
+        sz = random.uniform(0.9, 1.5) * baseScale * 5.5  # Enlarged Z scale
         crushTrack = Sequence(
             GoonDeath.createGoonExplosion(self.getParent(), goonPos, VBase3(sx, 1, sz)),
             name=self.uniqueName('crushTrack'),
@@ -472,9 +473,183 @@ class DistributedGoonDroneExplodey(DistributedGoonDroneBase):
         )
         crushTrack.start()
         
+        # Add camera shake and screen flash (like elementals)
+        self._createCameraShake()
+        self._createScreenFlash()
+        
         # Call dead() like goons do, then disable
         self.dead()
         self.disable()
+    
+    def _createScreenFlash(self):
+        """Create a subtle orange/red screen flash (epilepsy-friendly version, like elementals)."""
+        try:
+            from panda3d.core import GeomNode, Geom, GeomVertexData, GeomVertexFormat, GeomVertexWriter, GeomTristrips, TransparencyAttrib
+            
+            # Create base node on aspect2d
+            screenFlashBase = aspect2d.attachNewNode('explodeyScreenFlash')
+            
+            # Create GeomNode
+            overlayGN = GeomNode('FlashOverlay')
+            screenFlashNode = screenFlashBase.attachNewNode(overlayGN)
+            screenFlashNode.setDepthWrite(False)
+            screenFlashNode.setTransparency(TransparencyAttrib.MAlpha)
+            screenFlashNode.setBin('fixed', 999999)  # Maximum priority
+            
+            # Create vertices for fullscreen quad
+            aspectRatio = base.getAspectRatio()
+            xSize = aspectRatio * 3.0
+            zSize = 3.0
+            shapeVertices = [
+                (-xSize, 0.0, zSize),   # Top-left
+                (-xSize, 0.0, -zSize),  # Bottom-left
+                (xSize, 0.0, zSize),    # Top-right
+                (xSize, 0.0, -zSize),   # Bottom-right
+            ]
+            
+            # Create vertex format with position and color
+            gFormat = GeomVertexFormat.getV3cp()
+            overlayVertexData = GeomVertexData('flashVertices', gFormat, Geom.UHStatic)
+            overlayVertexWriter = GeomVertexWriter(overlayVertexData, 'vertex')
+            overlayColorWriter = GeomVertexWriter(overlayVertexData, 'color')
+            
+            # Write vertices with orange/red color (subtle)
+            flashColor = Vec4(1.0, 0.4, 0.0, 0.15)  # Subtle orange/red, low alpha
+            for vertex in shapeVertices:
+                overlayVertexWriter.addData3f(vertex[0], vertex[1], vertex[2])
+                overlayColorWriter.addData4f(flashColor)
+            
+            # Create triangle strip
+            overlayTris = GeomTristrips(overlayVertexData)
+            overlayTris.addVertex(0)
+            overlayTris.addVertex(1)
+            overlayTris.addVertex(2)
+            overlayTris.addVertex(3)
+            overlayTris.closePrimitive()
+            
+            # Create geom
+            overlayGeom = Geom(overlayVertexData)
+            overlayGeom.addPrimitive(overlayTris)
+            overlayGN.addGeom(overlayGeom)
+            
+            # Animate: quick flash then fade out
+            flashSequence = Sequence(
+                LerpColorScaleInterval(screenFlashNode, 0.1, Vec4(1.0, 0.4, 0.0, 0.25), startColorScale=Vec4(1.0, 0.4, 0.0, 0.0)),
+                Wait(0.1),
+                LerpColorScaleInterval(screenFlashNode, 0.3, Vec4(1.0, 0.4, 0.0, 0.0)),
+                Func(screenFlashBase.removeNode)
+            )
+            flashSequence.start()
+        except Exception as e:
+            self.notify.warning(f'Error creating screen flash: {e}')
+    
+    def _createCameraShake(self):
+        """Create a camera shake effect for the explosion (like elementals)."""
+        try:
+            camera = base.camera
+            if not camera or camera.isEmpty():
+                return
+            
+            # Shake intensity - strong for explodey drone
+            shakeIntensity = 1.5
+            shakeDuration = 0.5
+            
+            # Initialize shake state
+            self.cameraShakeActive = True
+            self.cameraShakeStartTime = globalClock.getFrameTime()
+            self.cameraShakeDuration = shakeDuration
+            self.cameraShakeIntensity = shakeIntensity
+            self.cameraShakeOffset = Vec3(0, 0, 0)
+            self.cameraShakeLastUpdate = 0.0
+            self.cameraShakeDirection = Vec3(
+                (random.random() - 0.5) * 2.0,
+                (random.random() - 0.5) * 2.0,
+                (random.random() - 0.5) * 0.8
+            )
+            if self.cameraShakeDirection.length() > 0:
+                self.cameraShakeDirection.normalize()
+            
+            # Store camera reference
+            self.shakeCamera = camera
+            
+            # Start shake update task
+            taskMgr.add(self._updateCameraShake, self.uniqueName('cameraShake'), priority=50)
+            
+            # Schedule shake end
+            taskMgr.doMethodLater(shakeDuration, self._stopCameraShake, self.uniqueName('stopCameraShake'))
+        except Exception as e:
+            self.notify.warning(f'Error creating camera shake: {e}')
+    
+    def _updateCameraShake(self, task):
+        """Update camera shake every frame."""
+        if not hasattr(self, 'cameraShakeActive') or not self.cameraShakeActive:
+            return task.done
+        if not hasattr(self, 'shakeCamera') or not self.shakeCamera:
+            return task.done
+        
+        try:
+            currentTime = globalClock.getFrameTime()
+            elapsed = currentTime - self.cameraShakeStartTime
+            
+            if elapsed >= self.cameraShakeDuration:
+                self._removeCameraShakeOffset()
+                return task.done
+            
+            # Calculate shake progress (0.0 to 1.0)
+            progress = elapsed / self.cameraShakeDuration
+            
+            # Decay intensity over time (strong at start, weak at end)
+            intensityMultiplier = 1.0 - (progress * progress)  # Quadratic decay
+            
+            # Calculate current shake offset
+            import math
+            shakeFrequency = 15.0
+            timeValue = elapsed * shakeFrequency
+            
+            # Random direction changes periodically
+            if int(timeValue) != self.cameraShakeLastUpdate:
+                self.cameraShakeDirection = Vec3(
+                    (random.random() - 0.5) * 2.0,
+                    (random.random() - 0.5) * 2.0,
+                    (random.random() - 0.5) * 0.8
+                )
+                if self.cameraShakeDirection.length() > 0:
+                    self.cameraShakeDirection.normalize()
+                self.cameraShakeLastUpdate = int(timeValue)
+            
+            # Calculate shake offset
+            shakeAmount = self.cameraShakeIntensity * intensityMultiplier
+            noiseValue = math.sin(timeValue * 2 * math.pi) * 0.5 + 0.5
+            self.cameraShakeOffset = self.cameraShakeDirection * shakeAmount * noiseValue
+            
+            # Apply offset to camera
+            if hasattr(self, 'cameraShakeBasePos'):
+                self.shakeCamera.setPos(self.cameraShakeBasePos + self.cameraShakeOffset)
+            else:
+                # Store base position on first update
+                self.cameraShakeBasePos = self.shakeCamera.getPos()
+                self.shakeCamera.setPos(self.cameraShakeBasePos + self.cameraShakeOffset)
+            
+            return task.cont
+        except Exception as e:
+            self.notify.warning(f'Error updating camera shake: {e}')
+            return task.done
+    
+    def _removeCameraShakeOffset(self):
+        """Remove camera shake offset and restore original position."""
+        if hasattr(self, 'cameraShakeActive'):
+            self.cameraShakeActive = False
+        if hasattr(self, 'shakeCamera') and hasattr(self, 'cameraShakeBasePos'):
+            try:
+                self.shakeCamera.setPos(self.cameraShakeBasePos)
+            except:
+                pass
+        taskMgr.remove(self.uniqueName('cameraShake'))
+    
+    def _stopCameraShake(self, task):
+        """Stop camera shake task."""
+        self._removeCameraShakeOffset()
+        return task.done
     
     def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect, unless already destroyed by collision."""

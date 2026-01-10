@@ -1133,7 +1133,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # The CFO is already dizzy, OR the crane is None, so get outta here
         # But if forceStun is True, we should still process the stun even if crane is None
-        if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
+        # Also allow processing if isGoon=True (goon hits should always process for fast recovery)
+        if not forceStun and not isGoon and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         # If forceStun is True but CFO is already stunned, don't do anything that would affect the stun state
@@ -1150,7 +1151,12 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             hitMeetsStunRequirements = (self.boss.attackCode != ToontownGlobals.BossCogDizzy and 
                                         self.boss.attackCode != ToontownGlobals.BossCogDizzyNow)
         else:
-            hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
+            # For goon hits (isGoon=True), don't check stun requirements if crane is None
+            # Goon hits should just flinch and recover quickly, not stun
+            if isGoon and crane is None:
+                hitMeetsStunRequirements = False
+            else:
+                hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
         
         if hitMeetsStunRequirements:
             # A particularly good hit (when he's not already
