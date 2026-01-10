@@ -542,6 +542,11 @@ class OptionElement(DirectFrame):
                 ),
                 image_scale=(0.6, 1, 1),
             )
+            # Bind right-click separately, and use command for left-click only
+            def clearPrimaryBind(event=None):
+                print("[DEBUG] B3PRESS bind fired for primary bind")
+                self._clearBind(event, 0)
+            self.optionModifier.bind(DGG.B3PRESS, clearPrimaryBind)
             self.optionModifier["command"] = self._updateButtonOption
             
             # Secondary bind button
@@ -556,6 +561,11 @@ class OptionElement(DirectFrame):
                 ),
                 image_scale=(0.6, 1, 1),
             )
+            # Bind right-click separately, and use command for left-click only
+            def clearSecondaryBind(event=None):
+                print("[DEBUG] B3PRESS bind fired for secondary bind")
+                self._clearBind(event, 1)
+            self.optionModifier2.bind(DGG.B3PRESS, clearSecondaryBind)
             self.optionModifier2["command"] = self._updateButtonOption2
             
             self.checkForDuplicates()
@@ -733,6 +743,40 @@ class OptionElement(DirectFrame):
 
         messenger.send("controls_findDuplicates")
 
+    def _clearBind(self, event, bind_index: int) -> None:
+        """
+        Clear a bind by setting it to empty string.
+        Called when right-clicking a bind button.
+        Args:
+            event: The mouse event (from bind)
+            bind_index: Which bind to clear (0 for primary, 1 for secondary)
+        """
+        messenger.send("wakeup")
+        
+        # Don't clear if we're currently registering a keybind
+        if hasattr(self, '_registeringPrimary') and self._registeringPrimary and bind_index == 0:
+            return
+        if hasattr(self, '_registeringSecondary') and self._registeringSecondary and bind_index == 1:
+            return
+        
+        # Set the bind to empty string
+        base.settings.setControl(self.optionName, "", bind_index)
+        
+        # Update the UI
+        if bind_index == 0:
+            self.optionModifier.configure(
+                text=self.formatKeybind(""),
+                image_color=Vec4(1, 1, 1, 1),
+            )
+        elif bind_index == 1:
+            self.optionModifier2.configure(
+                text=self.formatKeybind(""),
+                image_color=Vec4(1, 1, 1, 1),
+            )
+        
+        # Check for duplicates after clearing
+        messenger.send("controls_findDuplicates")
+
     def checkForDuplicates(self) -> None:
         """Iterate through our control schema to find if there are any
         duplicates. In the case that there is, change the button color
@@ -812,6 +856,15 @@ class OptionElement(DirectFrame):
     def _updateButtonOption(self) -> None:
         """Handle primary bind button click"""
         messenger.send("wakeup")
+        
+        # Check if this was a right-click (button 3)
+        try:
+            from panda3d.core import MouseButton
+            if base.mouseWatcherNode.isButtonDown(MouseButton.button3()):
+                self._clearBind(None, 0)
+                return
+        except:
+            pass
 
         if self.optionType == OptionTypes.CONTROL:
             # Tell any controls that are listening for input to stop doing that.
@@ -863,6 +916,15 @@ class OptionElement(DirectFrame):
         """Handle secondary bind button click"""
         print(f"[DEBUG] _updateButtonOption2 called for {self.optionName}")
         messenger.send("wakeup")
+        
+        # Check if this was a right-click (button 3)
+        try:
+            from panda3d.core import MouseButton
+            if base.mouseWatcherNode.isButtonDown(MouseButton.button3()):
+                self._clearBind(None, 1)
+                return
+        except:
+            pass
 
         if self.optionType == OptionTypes.CONTROL:
             # Tell any controls that are listening for input to stop doing that.
