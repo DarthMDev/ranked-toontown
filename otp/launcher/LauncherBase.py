@@ -1090,9 +1090,25 @@ class LauncherBase(DirectObject):
             if hasattr(builtins, 'base') and getattr(base, 'cr', None):
                 if base.cr.timeManager:
                     from otp.otpbase import OTPGlobals
-                    base.cr.timeManager.setDisconnectReason(OTPGlobals.DisconnectPythonError)
-                    base.cr.timeManager.setExceptionInfo()
-                base.cr.sendDisconnect()
+                    try:
+                        base.cr.timeManager.setDisconnectReason(OTPGlobals.DisconnectPythonError)
+                        base.cr.timeManager.setExceptionInfo()
+                    except AssertionError as assertion_err:
+                        # Catch Panda3D 1.11.0 cull traverser errors that can occur even during error handling
+                        from otp.otpbase.OTPBase import OTPBase
+                        if OTPBase.isPanda311CullTraverserError(assertion_err):
+                            self.notify.warning('Panda3D 1.11.0 compatibility error during disconnect (ignored): %s' % str(assertion_err))
+                        else:
+                            raise
+                try:
+                    base.cr.sendDisconnect()
+                except AssertionError as assertion_err:
+                    # Catch Panda3D 1.11.0 cull traverser errors that can occur during sendDisconnect
+                    from otp.otpbase.OTPBase import OTPBase
+                    if OTPBase.isPanda311CullTraverserError(assertion_err):
+                        self.notify.warning('Panda3D 1.11.0 compatibility error during sendDisconnect (ignored): %s' % str(assertion_err))
+                    else:
+                        raise
             if hasattr(builtins, 'base'):
                 base.errorReportingService.report(e)
                 base.destroy()
