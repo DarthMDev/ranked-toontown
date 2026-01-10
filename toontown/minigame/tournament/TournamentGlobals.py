@@ -33,6 +33,7 @@ IDEAL_MAX_PLAYERS = 6  # Recommended maximum for reasonable match counts
 DEFAULT_TOURNAMENT_READY_TIMEOUT = 300  # 5 minutes for initial setup
 BETWEEN_MATCH_DELAY = 3.0  # Delay between tournament matches
 MATCH_RESULT_DISPLAY_TIME = 5.0  # How long to show match result before next match
+MATCH_READY_TIMEOUT = 60  # Timeout for players to ready up between matches (in seconds)
 
 # Tiebreaker priorities for round robin
 TIEBREAKER_MATCH_WINS = 0

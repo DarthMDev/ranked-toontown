@@ -92,6 +92,12 @@ class DistributedCraneGame(DistributedMinigame):
         self.tournamentActive = False  # Is a tournament active?
         self.tournamentType = TournamentType.NONE
         self.tournamentButton = None  # Button to open tournament settings
+        
+        # Tournament match ready-up system (distinct from framework ready-up)
+        self.waitingForMatchReady = False
+        self.matchPlayers = []
+        self.matchReadyUI = None  # UI elements for match ready-up
+        self.matchReadyButton = None  # Ready button
         self.tournamentProgressLabel = None  # Label showing tournament progress
         self.tournamentPanel = None  # Tournament panel (like modifiers panel)
         self.tournamentPanelVisible = False  # Is tournament panel visible?
@@ -1904,6 +1910,33 @@ class DistributedCraneGame(DistributedMinigame):
             for avId in self.getParticipantIdsNotSpectating():
                 self.scoreboard.addToon(avId)
 
+        # Check if we're waiting for match ready-up (tournament break state)
+        if self.waitingForMatchReady:
+            # Don't start countdown yet - show match ready UI instead
+            # Position camera during break phase (same as prepare phase)
+            self.__positionCameraForMatchReady()
+            self.boss.prepareBossForBattle()
+            # Clean up all status effects when starting a new round
+            if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+                self.statusEffectSystem.cleanup()
+            # Make absolutely sure all indicators are cleaned up
+            self.removeStatusIndicators()
+            return  # Exit early, countdown will start when all players ready
+        
+        # If we're in a tournament with match players, wait briefly to see if ready request arrives
+        # This prevents countdown from starting before requestMatchReady arrives
+        if self.tournamentActive and hasattr(self, 'tournamentCurrentMatchPlayers') and self.tournamentCurrentMatchPlayers:
+            # Give requestMatchReady a chance to arrive (it should come before restart)
+            taskMgr.doMethodLater(0.15, lambda task: self.__checkIfShouldWaitForReady(),
+                                 self.uniqueName('check-ready-wait'))
+            # Do basic setup but don't start countdown yet
+            self.boss.prepareBossForBattle()
+            if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+                self.statusEffectSystem.cleanup()
+            self.removeStatusIndicators()
+            return
+        
+        # Normal flow: start countdown immediately
         self.introductionMovie = self.__generatePrepareInterval()
         self.introductionMovie.start()
         self.boss.prepareBossForBattle()
@@ -1916,9 +1949,12 @@ class DistributedCraneGame(DistributedMinigame):
         self.removeStatusIndicators()
 
     def exitPrepare(self):
-        self.introductionMovie.pause()
-        self.introductionMovie = None
+        if self.introductionMovie:
+            self.introductionMovie.pause()
+            self.introductionMovie = None
         self.__hideOverlayText()
+        # Clean up match ready UI
+        self.__hideMatchReadyUI()
 
     def enterPlay(self):
         self.__cleanupRulesPanel()
@@ -2470,6 +2506,11 @@ class DistributedCraneGame(DistributedMinigame):
         """
         Called via astron update. Do any client side logic needed in order to restart the game.
         """
+        # If we're in a tournament and waiting for match ready, don't enter prepare yet
+        # The requestMatchReady call will handle entering prepare when ready
+        if self.tournamentActive and self.waitingForMatchReady:
+            # We're already waiting, don't enter prepare again
+            return
         self.gameFSM.request('prepare')
 
     """
@@ -3774,6 +3815,195 @@ class DistributedCraneGame(DistributedMinigame):
         # Hide after a few seconds
         taskMgr.doMethodLater(5, lambda task: self.__hideOverlayText(), 
                               self.uniqueName('hide-tournament-winner'))
+    
+    def requestMatchReady(self, matchPlayers, player1, player2):
+        """
+        Server requests ready-up for tournament match.
+        Shows matchup display and ready button.
+        
+        Args:
+            matchPlayers: List of avatar IDs who need to ready up
+            player1: Avatar ID of first player in match
+            player2: Avatar ID of second player in match
+        """
+        self.waitingForMatchReady = True
+        self.matchPlayers = matchPlayers
+        
+        # Enter prepare state if we're not already there
+        # This ensures we're in prepare state when showing the ready UI
+        currentState = self.gameFSM.getCurrentState()
+        if currentState is None or currentState.getName() != 'prepare':
+            # Request prepare state - this will call enterPrepare which will check waitingForMatchReady
+            self.gameFSM.request('prepare')
+            # Show UI after a tiny delay to ensure enterPrepare has run
+            taskMgr.doMethodLater(0.1, lambda task: self.__showMatchReadyUI(player1, player2),
+                                 self.uniqueName('show-match-ready-ui'))
+        else:
+            # We're already in prepare, show UI immediately
+            self.__showMatchReadyUI(player1, player2)
+    
+    def startMatchCountdown(self):
+        """Server signals all players ready, start countdown"""
+        self.waitingForMatchReady = False
+        self.__hideMatchReadyUI()
+        # Now start the normal countdown
+        if not hasattr(self, 'introductionMovie') or self.introductionMovie is None:
+            self.introductionMovie = self.__generatePrepareInterval()
+            self.introductionMovie.start()
+    
+    def setMatchReady(self):
+        """Client calls this when player clicks ready button"""
+        if not self.waitingForMatchReady:
+            return
+        self.sendUpdate('setMatchReady', [])
+        # Update button to show ready state
+        if self.matchReadyButton:
+            self.matchReadyButton['text'] = 'Ready!'
+            self.matchReadyButton['state'] = 'disabled'
+    
+    def __positionCameraForMatchReady(self):
+        """Position camera during match ready break phase (same as prepare phase)"""
+        players = self.getParticipantsNotSpectating()
+        if len(players) <= 0:
+            return
+        
+        # Use same camera positioning as prepare phase
+        toon = base.localAvatar if not self.localToonSpectating() else self.getParticipantsNotSpectating()[0]
+        targetCameraPos = render.getRelativePoint(toon, Vec3(0, -10, toon.getHeight()))
+        startCameraHpr = Point3(reduceAngle(camera.getH()), camera.getP(), camera.getR())
+        
+        # Smoothly move camera to position (same duration as prepare phase)
+        cameraInterval = LerpPosHprInterval(
+            camera, 
+            CraneGameGlobals.PREPARE_DELAY / 2.5, 
+            Point3(*targetCameraPos), 
+            Point3(reduceAngle(toon.getH()), 0, 0), 
+            startPos=camera.getPos(), 
+            startHpr=startCameraHpr, 
+            blendType='easeInOut'
+        )
+        cameraInterval.start()
+    
+    def __showMatchReadyUI(self, player1, player2):
+        """Show matchup display and ready button - styled to match crane game UI"""
+        
+        # Hide any existing UI
+        self.__hideMatchReadyUI()
+        
+        # Get button geometry (same as other crane game buttons)
+        btnGeom = loader.loadModel('phase_3/models/gui/quit_button')
+        
+        # Get player names
+        p1Toon = self.cr.getDo(player1) if player1 else None
+        p2Toon = self.cr.getDo(player2) if player2 else None
+        p1Name = p1Toon.getName() if p1Toon else "Player 1"
+        p2Name = p2Toon.getName() if p2Toon else "Player 2"
+        
+        # Create frame using same styling as settings panel
+        self.matchReadyUI = DirectFrame(
+            relief=None,
+            image=DGG.getDefaultDialogGeom(),
+            image_color=ToontownGlobals.GlobalDialogColor,
+            image_scale=(1.2, 1, 0.6),
+            pos=(0, 0, 0),
+            parent=aspect2d
+        )
+        
+        # Match title - styled like settings panel title
+        matchLabel = DirectLabel(
+            text="Next Match",
+            text_scale=0.08,
+            text_fg=(0, 0, 0, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(0, 0, 0.2),
+            parent=self.matchReadyUI
+        )
+        
+        # Player names - styled consistently
+        p1Label = DirectLabel(
+            text=p1Name,
+            text_scale=0.06,
+            text_fg=(0, 0, 0, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(0, 0, 0.05),
+            parent=self.matchReadyUI
+        )
+        
+        vsLabel = DirectLabel(
+            text="VS",
+            text_scale=0.05,
+            text_fg=(0.5, 0.5, 0.5, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(0, 0, -0.05),
+            parent=self.matchReadyUI
+        )
+        
+        p2Label = DirectLabel(
+            text=p2Name,
+            text_scale=0.06,
+            text_fg=(0, 0, 0, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(0, 0, -0.15),
+            parent=self.matchReadyUI
+        )
+        
+        # Ready button (only show if local player is in match) - styled like other buttons
+        localAvId = base.localAvatar.getDoId()
+        if localAvId in self.matchPlayers:
+            self.matchReadyButton = DirectButton(
+                relief=None,
+                text="Ready Up",
+                text_scale=0.055,
+                text_pos=(0, -0.02),
+                geom=(btnGeom.find('**/QuitBtn_UP'),
+                      btnGeom.find('**/QuitBtn_DN'),
+                      btnGeom.find('**/QuitBtn_RLVR')),
+                geom_scale=(0.8, 1, 1),
+                pos=(0, 0, -0.3),
+                parent=self.matchReadyUI,
+                command=self.setMatchReady
+            )
+        else:
+            # Spectator - show waiting message
+            waitLabel = DirectLabel(
+                text="Waiting for players to ready up...",
+                text_scale=0.05,
+                text_fg=(0.5, 0.5, 0.5, 1),
+                text_font=ToontownGlobals.getInterfaceFont(),
+                relief=None,
+                pos=(0, 0, -0.3),
+                parent=self.matchReadyUI
+            )
+        
+        self.matchReadyUI.show()
+    
+    def __hideMatchReadyUI(self):
+        """Hide match ready UI"""
+        if self.matchReadyUI:
+            self.matchReadyUI.destroy()
+            self.matchReadyUI = None
+        if self.matchReadyButton:
+            self.matchReadyButton = None
+    
+    def __checkIfShouldWaitForReady(self):
+        """Check if we should wait for ready-up or start countdown"""
+        if self.waitingForMatchReady:
+            # We're waiting, don't start countdown
+            return
+        # Not waiting, start countdown now
+        if not hasattr(self, 'introductionMovie') or self.introductionMovie is None:
+            self.introductionMovie = self.__generatePrepareInterval()
+            self.introductionMovie.start()
+        self.boss.prepareBossForBattle()
+        # Clean up all status effects when starting a new round
+        if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
+            self.statusEffectSystem.cleanup()
+        # Make absolutely sure all indicators are cleaned up
+        self.removeStatusIndicators()
     
     def __showTournamentProgress(self):
         """Show tournament progress label"""

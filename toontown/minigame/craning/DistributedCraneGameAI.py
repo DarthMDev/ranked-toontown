@@ -27,6 +27,8 @@ from toontown.toonbase import ToontownGlobals
 from toontown.minigame.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
 from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
 from toontown.minigame.tournament import TournamentManagerAI, TournamentType
+from toontown.minigame.tournament.TournamentGlobals import MATCH_READY_TIMEOUT
+from toontown.ai.ToonBarrier import ToonBarrier
 
 class DistributedCraneGameAI(DistributedMinigameAI):
     DESPERATION_MODE_ACTIVATE_THRESHOLD = 1800
@@ -131,6 +133,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # Tournament system
         self.tournamentManager = TournamentManagerAI(self)
+        
+        # Tournament match ready-up system (distinct from framework ready-up)
+        self.matchReadyBarrier = None
 
     def isRanked(self) -> bool:
         # Tournaments are NEVER ranked
@@ -1343,6 +1348,12 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
+        print(f"[DistributedCraneGameAI] enterPrepare called - tournament active: {self.tournamentManager.isTournamentActive()}, barrier exists: {self.matchReadyBarrier is not None}")
+        
+        # CRITICAL: Remove any existing play transition tasks to prevent double-scheduling
+        # This ensures we don't have leftover tasks from previous prepare calls
+        taskMgr.remove(self.uniqueName('start-game-task'))
+        print(f"[DistributedCraneGameAI] Cleaned up any existing start-game-task")
         
         # Clear all status effects from any existing objects before recreating them
         if self.statusEffectSystem:
@@ -1372,17 +1383,151 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if self.bestOfValue > 1:
             self.d_setRoundInfo()
 
+        # Check if this is a tournament match that requires ready-up
+        # Skip ready-up for the first match - start immediately
+        if self.tournamentManager.isTournamentActive():
+            currentMatch = self.tournamentManager.getCurrentMatch()
+            print(f"[DistributedCraneGameAI] Tournament active, currentMatch: {currentMatch}")
+            if currentMatch:
+                # Check if this is the first match (skip ready-up for first match)
+                progress = self.tournamentManager.getProgress()
+                isFirstMatch = False
+                if progress:
+                    # currentMatchIndex is 0-based, so 0 means first match
+                    isFirstMatch = (progress['currentMatchIndex'] == 0)
+                    print(f"[DistributedCraneGameAI] Current match index: {progress['currentMatchIndex']}, isFirstMatch: {isFirstMatch}")
+                
+                # Get only the players in this match (not spectators)
+                matchPlayers = []
+                if currentMatch.player1 is not None:
+                    matchPlayers.append(currentMatch.player1)
+                if currentMatch.player2 is not None:
+                    matchPlayers.append(currentMatch.player2)
+                
+                print(f"[DistributedCraneGameAI] Match players: {matchPlayers}")
+                if matchPlayers and not isFirstMatch:
+                    # Set up ready-up barrier for match players (but NOT for first match)
+                    # Send ready-up request to clients FIRST (before restart)
+                    # This will also trigger prepare state on clients
+                    currentMatch = self.tournamentManager.getCurrentMatch()
+                    print(f"[DistributedCraneGameAI] Setting up match ready barrier, calling d_requestMatchReady")
+                    self.d_requestMatchReady(matchPlayers, currentMatch.player1 if currentMatch else None, 
+                                             currentMatch.player2 if currentMatch else None)
+                    # Then set up the barrier
+                    self._setupMatchReadyBarrier(matchPlayers)
+                    # Call d_restart() for game setup, but DO NOT schedule play transition
+                    # The play transition will only happen when all players ready up (via barrier callback)
+                    print(f"[DistributedCraneGameAI] Calling d_restart() and returning early - NO play transition scheduled")
+                    self.d_restart()
+                    # IMPORTANT: Return early to prevent normal flow from scheduling play transition
+                    return
+                elif isFirstMatch:
+                    print(f"[DistributedCraneGameAI] First match - skipping ready-up, proceeding with normal flow")
+                else:
+                    print(f"[DistributedCraneGameAI] No match players found, falling through to normal flow")
+            else:
+                print(f"[DistributedCraneGameAI] Tournament active but no current match, falling through to normal flow")
+        else:
+            print(f"[DistributedCraneGameAI] Not a tournament, falling through to normal flow")
+        
+        # Normal flow (non-tournament or tournament setup): schedule play transition immediately
+        # BUT: Only if we don't have a match ready barrier active (safety check)
+        print(f"[DistributedCraneGameAI] Reached normal flow - barrier exists: {self.matchReadyBarrier is not None}")
+        if self.matchReadyBarrier is not None:
+            print("[DistributedCraneGameAI] WARNING: Normal flow attempted to schedule play transition but match ready barrier exists! Skipping.")
+            # Don't schedule play transition - barrier will handle it when all players ready
+            self.d_restart()
+            return
+        
         # Calculate how long we should wait to actually start the game.
         # If more than 1 player is present, we want to have a delay present for a cutscene to play.
         delayTime = CraneGameGlobals.PREPARE_LATENCY_FACTOR
         if len(self.getParticipantIdsNotSpectating()) != 1:
             delayTime += CraneGameGlobals.PREPARE_DELAY
+        print(f"[DistributedCraneGameAI] Scheduling play transition in {delayTime} seconds")
         taskMgr.doMethodLater(delayTime, self.gameFSM.request, self.uniqueName('start-game-task'), extraArgs=['play'])
         self.d_restart()
 
     def exitPrepare(self):
         self.notify.debug("exitPrepare")
         taskMgr.remove(self.uniqueName('start-game-task'))
+        # Clean up match ready barrier if it exists
+        if self.matchReadyBarrier is not None:
+            self.matchReadyBarrier.cleanup()
+            self.matchReadyBarrier = None
+
+    def _setupMatchReadyBarrier(self, matchPlayers):
+        """
+        Set up ready-up barrier for tournament match players.
+        This is distinct from the framework ready-up system.
+        
+        Args:
+            matchPlayers: List of avatar IDs who need to ready up for this match
+        """
+        self.notify.info(f"Setting up match ready barrier for players: {matchPlayers}")
+        print(f"[DistributedCraneGameAI] _setupMatchReadyBarrier called for players: {matchPlayers}")
+        
+        # CRITICAL: Clean up any existing barrier first to prevent conflicts
+        if self.matchReadyBarrier is not None:
+            print(f"[DistributedCraneGameAI] WARNING: Existing match ready barrier found, cleaning it up first")
+            self.matchReadyBarrier.cleanup()
+            self.matchReadyBarrier = None
+        
+        def allPlayersReady():
+            """Called when all match players have readied up"""
+            self.notify.info("All match players ready, starting countdown")
+            print("[DistributedCraneGameAI] allPlayersReady callback called - scheduling play transition")
+            # Now schedule the play transition
+            delayTime = CraneGameGlobals.PREPARE_LATENCY_FACTOR
+            if len(matchPlayers) > 1:
+                delayTime += CraneGameGlobals.PREPARE_DELAY
+            print(f"[DistributedCraneGameAI] Scheduling play transition in {delayTime} seconds from allPlayersReady")
+            taskMgr.doMethodLater(delayTime, self.gameFSM.request,
+                                 self.uniqueName('start-game-task'), extraArgs=['play'])
+            # Notify clients to start countdown
+            self.d_startMatchCountdown()
+            # Clean up barrier
+            if self.matchReadyBarrier is not None:
+                self.matchReadyBarrier.cleanup()
+                self.matchReadyBarrier = None
+        
+        def handleTimeout(avIds):
+            """Called when ready-up times out"""
+            print(f"[DistributedCraneGameAI] WARNING: Match ready timeout for players: {avIds}")
+            # Force ready and start anyway
+            allPlayersReady()
+        
+        # Create barrier for match players only
+        self.matchReadyBarrier = ToonBarrier(
+            'matchReady',
+            self.uniqueName('matchReady'),
+            matchPlayers,
+            MATCH_READY_TIMEOUT,
+            allPlayersReady,
+            handleTimeout
+        )
+        # Note: d_requestMatchReady() is called before this function, so clients receive it first
+    
+    def setMatchReady(self):
+        """
+        Called when a player reports they're ready for the match.
+        This is distinct from the framework ready-up.
+        """
+        avId = self.air.getAvatarIdFromSender()
+        self.notify.debug(f"Player {avId} is ready for match")
+        
+        if self.matchReadyBarrier is not None:
+            self.matchReadyBarrier.clear(avId)
+        else:
+            print(f"[DistributedCraneGameAI] WARNING: Received setMatchReady from {avId} but no barrier exists")
+    
+    def d_requestMatchReady(self, matchPlayers, player1, player2):
+        """Notify clients to show match ready-up UI"""
+        self.sendUpdate('requestMatchReady', [matchPlayers, player1, player2])
+    
+    def d_startMatchCountdown(self):
+        """Notify clients that all players are ready and countdown should start"""
+        self.sendUpdate('startMatchCountdown', [])
 
     def enterPlay(self):
         self.notify.debug("enterPlay")

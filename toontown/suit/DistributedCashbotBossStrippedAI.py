@@ -103,6 +103,16 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
     def doNextAttack(self, task):
         # Choose an attack and do it.
+        
+        # BRUTE FORCE: Don't attack if game isn't in play state
+        if self.game is None:
+            return
+        if not hasattr(self.game, 'gameFSM'):
+            return
+        if self.game.gameFSM.getCurrentState() is None:
+            return
+        if self.game.gameFSM.getCurrentState().getName() != 'play':
+            return
 
         # Make sure we're waiting for a helmet.
         if self.heldObject is None and not self.waitingForHelmet:
@@ -129,6 +139,10 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         return self.game.getParticipantIdsNotSpectating()
 
     def __doDirectedAttack(self):
+
+        # BRUTE FORCE: Initialize toonsToAttack if it doesn't exist
+        if not hasattr(self, 'toonsToAttack'):
+            self.toonsToAttack = []
 
         # Choose the next toon in line to get the assault.
         targets = self.__findEligibleTargets()
