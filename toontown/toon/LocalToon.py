@@ -92,6 +92,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.__pieButtonType = None
             self.__pieButtonCount = None
             self.tossPieStart = None
+            self.__trajectoryLine = None
+            self.__trajectoryTarget = None
+            self.__finalPiePower = None  # Store final power after charging stops
             self.__presentingPie = 0
             self.__pieSequence = 0
             self.wantBattles = base.config.GetBool('want-battles', 1)
@@ -264,6 +267,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             if self.__piePowerMeter:
                 self.__piePowerMeter.destroy()
                 self.__piePowerMeter = None
+            self.__removeTrajectoryLine()
+            self.__removeTrajectoryTarget()
             taskMgr.remove('lerpFurnitureButton')
             if self.__furnitureGui:
                 self.__furnitureGui.destroy()
@@ -534,8 +539,15 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             return
         if self.__pieInHand():
             return
-        if getattr(self.controlManager.currentControls, 'isAirborne', 0):
-            return
+        # Check if we're airborne - allow TNT to be charged while in the air
+        isAirborne = getattr(self.controlManager.currentControls, 'isAirborne', 0)
+        if isAirborne:
+            # Check if this is TNT - allow TNT to be charged while airborne
+            from toontown.toonbase import ToontownBattleGlobals
+            pieName = ToontownBattleGlobals.pieNames[self.pieType]
+            if pieName != 'tnt':
+                # Regular pies cannot be charged while airborne
+                return
         messenger.send('wakeup')
         self.localPresentPie(time)
         taskName = self.uniqueName('updatePiePower')
@@ -550,6 +562,12 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         messenger.send('wakeup')
         power = self.__getPiePower(time)
         self.tossPieStart = None
+        # Store final power and start updating trajectory line based on toon movement
+        self.__finalPiePower = power
+        # Start a task to keep updating trajectory line until pie is released
+        updateTaskName = self.uniqueName('updateTrajectoryAfterCharge')
+        taskMgr.add(self.__updateTrajectoryAfterCharge, updateTaskName)
+        # Don't remove trajectory line here - it will be removed when pie leaves hand
         self.localTossPie(power)
         return
 
@@ -589,6 +607,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         self.__piePowerMeter.show()
         self.__piePowerMeterSequence = sequence
         self.__piePowerMeter['value'] = 0
+        # Create initial trajectory line
+        self.__createTrajectoryLine(0)
         return
 
     def __stopPresentPie(self):
@@ -612,14 +632,322 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
     def __updatePiePower(self, task):
         if not self.__piePowerMeter:
             return Task.done
-        self.__piePowerMeter['value'] = self.__getPiePower(globalClock.getFrameTime())
+        power = self.__getPiePower(globalClock.getFrameTime())
+        self.__piePowerMeter['value'] = power
+        # Update trajectory line
+        self.__updateTrajectoryLine(power)
         return Task.cont
+
+    def __createTrajectoryLine(self, power):
+        """Create a trajectory line showing where the pie will land"""
+        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, CollisionRay, CollisionNode, BitMask32
+        from direct.interval.ProjectileInterval import ProjectileInterval
+        from otp.otpbase import OTPGlobals
+        
+        # Remove existing line and target if any
+        self.__removeTrajectoryLine()
+        self.__removeTrajectoryTarget()
+        
+        # Calculate trajectory using same logic as getTossPieInterval
+        pos = self.getPos()
+        hpr = self.getHpr()
+        t = power / 100.0
+        dist = 100 - 70 * t
+        time = 1 + 0.5 * t
+        
+        # Create a ProjectileInterval to get the velocity
+        proj = ProjectileInterval(None, startPos=Point3(0, 0, 0), endPos=Point3(0, dist, 0), duration=time)
+        relVel = proj.startVel
+        
+        # Get velocity in world space
+        startVel = render.getRelativeVector(self, relVel)
+        
+        # Calculate trajectory points
+        from toontown.minigame import Trajectory
+        startTime = globalClock.getFrameTime()
+        # Use the same hand position offset as in getTossPieInterval (relative to toon)
+        # The pie starts at position (0.52, 0.97, 2.24) relative to the toon
+        handOffset = render.getRelativePoint(self, Point3(0.52, 0.97, 2.24))
+        startPos = handOffset
+        
+        # Create trajectory
+        trajectory = Trajectory.Trajectory(startTime, startPos, startVel)
+        
+        # Find ground impact time
+        groundTime = trajectory.calcTimeOfImpactOnPlane(0.0)
+        if groundTime < 0:
+            # No ground impact, use max flight time
+            maxTime = 3.0
+        else:
+            maxTime = groundTime - startTime
+            maxTime = min(maxTime, 3.0)  # Cap at 3 seconds
+        
+        # Calculate points along the trajectory with collision detection
+        numPoints = 100  # More points for smoother line
+        points = []
+        hitPoint = None
+        surfaceNormal = None
+        
+        # Set up collision detection
+        collisionTrav = CollisionTraverser()
+        collisionQueue = CollisionHandlerQueue()
+        from panda3d.core import CollisionSegment
+        collisionSegment = CollisionSegment()
+        collisionNode = CollisionNode('trajectorySegment')
+        collisionNode.addSolid(collisionSegment)
+        # Include PieBitmask and TNTBitmask to detect CFO shield, but exclude NearBoss
+        from toontown.toonbase import ToontownGlobals
+        collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
+        collisionNode.setIntoCollideMask(BitMask32.allOff())
+        segmentNodePath = render.attachNewNode(collisionNode)
+        collisionTrav.addCollider(segmentNodePath, collisionQueue)
+        
+        # Start with the first point
+        points.append(startPos)
+        prevPoint = startPos
+        
+        # Check for collisions along the trajectory, segment by segment
+        for i in range(1, numPoints + 1):
+            t = (i / float(numPoints)) * maxTime
+            point = trajectory.getPos(startTime + t)
+            
+            # Check for collision between previous point and current point
+            if hitPoint is None:
+                dist = (point - prevPoint).length()
+                if dist > 0.01:
+                    # Use CollisionSegment to check only this specific segment
+                    collisionSegment.setPointA(prevPoint)
+                    collisionSegment.setPointB(point)
+                    collisionQueue.clearEntries()
+                    collisionTrav.traverse(render)
+                    
+                    if collisionQueue.getNumEntries() > 0:
+                        collisionQueue.sortEntries()
+                        
+                        # Find first valid collision entry (not NearBoss)
+                        validEntry = None
+                        for j in range(collisionQueue.getNumEntries()):
+                            entry = collisionQueue.getEntry(j)
+                            intoNode = entry.getIntoNodePath()
+                            nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
+                            
+                            # Ignore NearBoss collisions completely
+                            if nodeName == 'NearBoss':
+                                continue
+                            
+                            # Check if it's toon geometry
+                            checkNode = intoNode
+                            isToonGeometry = False
+                            while not checkNode.isEmpty():
+                                if checkNode == self:
+                                    isToonGeometry = True
+                                    break
+                                parent = checkNode.getParent()
+                                if parent == self:
+                                    isToonGeometry = True
+                                    break
+                                checkNode = parent
+                            
+                            # Use this entry if it's not NearBoss
+                            if validEntry is None:
+                                validEntry = entry
+                        
+                        if validEntry is None:
+                            # Continue to next segment
+                            points.append(point)
+                            prevPoint = point
+                            continue
+                        
+                        entry = validEntry
+                        intoNode = entry.getIntoNodePath()
+                        nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
+                        
+                        # Get the collision point in render space
+                        hitPoint = entry.getSurfacePoint(render)
+                        
+                        # Calculate distance from start position
+                        distanceFromStart = (hitPoint - startPos).length()
+                        
+                        # Get the surface normal for orienting the target
+                        if entry.hasSurfaceNormal():
+                            surfaceNormal = entry.getSurfaceNormal(render)
+                            surfaceNormal.normalize()
+                        
+                        # Verify the hit point is actually between prevPoint and point
+                        hitDist = (hitPoint - prevPoint).length()
+                        # Minimum distance from start to avoid false positives near hand (especially in crane game)
+                        minDistanceFromStart = 2.0  # Ignore collisions within 2 units of hand
+                        if hitDist <= dist + 0.1 and distanceFromStart >= minDistanceFromStart:  # Allow small tolerance and minimum distance
+                            points.append(hitPoint)
+                            break
+                        # If hit point is too far or too close, ignore it and continue
+                        hitPoint = None
+                        surfaceNormal = None
+            
+            # If no collision found yet, add this point
+            if hitPoint is None:
+                points.append(point)
+                prevPoint = point
+            else:
+                break
+        
+        segmentNodePath.removeNode()
+        
+        # Create line
+        if len(points) < 2:
+            return
+        
+        lines = LineSegs('trajectoryLine')
+        lines.setColor(1, 1, 0, 0.6)  # Yellow, semi-transparent
+        lines.setThickness(3.5)
+        
+        # Draw the line
+        for i, point in enumerate(points):
+            if i == 0:
+                lines.moveTo(point.getX(), point.getY(), point.getZ())
+            else:
+                lines.drawTo(point.getX(), point.getY(), point.getZ())
+        
+        # Create node path for the line
+        self.__trajectoryLine = render.attachNewNode(lines.create())
+        self.__trajectoryLine.setTransparency(TransparencyAttrib.MAlpha)
+        self.__trajectoryLine.setDepthWrite(False)
+        self.__trajectoryLine.setBin('fixed', 0)
+        
+        # Create target indicator at landing point
+        landingPoint = points[-1]
+        self.__createTrajectoryTarget(landingPoint, surfaceNormal)
+    
+    def __updateTrajectoryLine(self, power):
+        """Update the trajectory line based on current power"""
+        if self.__presentingPie:
+            self.__createTrajectoryLine(power)
+    
+    def __updateTrajectoryAfterCharge(self, task):
+        """Update trajectory line after charging stops, following toon movement until pie is released"""
+        # Check if pie is still being presented (hasn't been released yet)
+        if not self.__presentingPie:
+            # Pie has been released, stop updating
+            self.__finalPiePower = None
+            return Task.done
+        
+        # Update trajectory line with final power but current toon position/orientation
+        if self.__finalPiePower is not None:
+            self.__createTrajectoryLine(self.__finalPiePower)
+        
+        return Task.cont
+    
+    def __removeTrajectoryLine(self):
+        """Remove the trajectory line"""
+        if self.__trajectoryLine:
+            self.__trajectoryLine.removeNode()
+            self.__trajectoryLine = None
+    
+    def __createTrajectoryTarget(self, landingPoint, surfaceNormal=None):
+        """Create a target indicator (red circle with +) at the landing point, oriented to the surface"""
+        from panda3d.core import LineSegs, TransparencyAttrib, Point3, Vec3
+        import math
+        
+        # Remove existing target if any
+        self.__removeTrajectoryTarget()
+        
+        # Create circle
+        circle = LineSegs('trajectoryTarget')
+        circle.setColor(1, 0, 0, 0.8)  # Red, semi-transparent
+        circle.setThickness(3.0)
+        
+        radius = 1.0
+        crossSize = 0.8
+        numSegments = 32
+        
+        # If we have a surface normal, orient the target to the surface
+        if surfaceNormal is not None:
+            # Create a coordinate system on the surface plane
+            # Use the surface normal as the Z axis (up from surface)
+            up = Vec3(surfaceNormal)
+            up.normalize()
+            
+            # Create a right vector (perpendicular to up)
+            # Use world up (0,0,1) as reference, but if surface normal is too close to it, use (1,0,0)
+            worldUp = Vec3(0, 0, 1)
+            if abs(up.dot(worldUp)) > 0.9:
+                worldUp = Vec3(1, 0, 0)
+            
+            # Right vector is perpendicular to both up and worldUp
+            right = up.cross(worldUp)
+            right.normalize()
+            
+            # Forward vector completes the orthonormal basis
+            forward = right.cross(up)
+            forward.normalize()
+            
+            # Draw circle in the surface plane
+            for i in range(numSegments + 1):
+                angle = (i / float(numSegments)) * 360.0
+                rad = math.radians(angle)
+                # Create point in the plane using right and forward vectors
+                offset = right * (radius * math.cos(rad)) + forward * (radius * math.sin(rad))
+                point = landingPoint + offset
+                if i == 0:
+                    circle.moveTo(point.getX(), point.getY(), point.getZ())
+                else:
+                    circle.drawTo(point.getX(), point.getY(), point.getZ())
+            
+            # Draw crosshair (+) in the surface plane
+            # Horizontal line (along right vector)
+            p1 = landingPoint - right * crossSize
+            p2 = landingPoint + right * crossSize
+            circle.moveTo(p1.getX(), p1.getY(), p1.getZ())
+            circle.drawTo(p2.getX(), p2.getY(), p2.getZ())
+            # Vertical line (along forward vector)
+            p3 = landingPoint - forward * crossSize
+            p4 = landingPoint + forward * crossSize
+            circle.moveTo(p3.getX(), p3.getY(), p3.getZ())
+            circle.drawTo(p4.getX(), p4.getY(), p4.getZ())
+        else:
+            # No surface normal - draw flat on horizontal plane (default behavior)
+            for i in range(numSegments + 1):
+                angle = (i / float(numSegments)) * 360.0
+                rad = math.radians(angle)
+                x = landingPoint.getX() + radius * math.cos(rad)
+                y = landingPoint.getY() + radius * math.sin(rad)
+                z = landingPoint.getZ()
+                if i == 0:
+                    circle.moveTo(x, y, z)
+                else:
+                    circle.drawTo(x, y, z)
+            
+            # Create crosshair (+)
+            # Horizontal line
+            circle.moveTo(landingPoint.getX() - crossSize, landingPoint.getY(), landingPoint.getZ())
+            circle.drawTo(landingPoint.getX() + crossSize, landingPoint.getY(), landingPoint.getZ())
+            # Vertical line
+            circle.moveTo(landingPoint.getX(), landingPoint.getY() - crossSize, landingPoint.getZ())
+            circle.drawTo(landingPoint.getX(), landingPoint.getY() + crossSize, landingPoint.getZ())
+        
+        # Create node path for the target
+        self.__trajectoryTarget = render.attachNewNode(circle.create())
+        self.__trajectoryTarget.setTransparency(TransparencyAttrib.MAlpha)
+        self.__trajectoryTarget.setDepthWrite(False)
+        self.__trajectoryTarget.setBin('fixed', 0)
+    
+    def __removeTrajectoryTarget(self):
+        """Remove the trajectory target"""
+        if self.__trajectoryTarget:
+            self.__trajectoryTarget.removeNode()
+            self.__trajectoryTarget = None
 
     def interruptPie(self):
         self.cleanupPieInHand()
         self.__stopPresentPie()
         if self.__piePowerMeter:
             self.__piePowerMeter.hide()
+        # Stop trajectory update task if running
+        updateTaskName = self.uniqueName('updateTrajectoryAfterCharge')
+        taskMgr.remove(updateTaskName)
+        self.__finalPiePower = None
+        self.__removeTrajectoryLine()
+        self.__removeTrajectoryTarget()
         pie = self.pieTracks.get(self.__pieSequence)
         if pie and pie.getT() < 14.0 / 24.0:
             del self.pieTracks[self.__pieSequence]
@@ -660,6 +988,13 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         pieBubble = self.getPieBubble().instanceTo(NodePath())
 
         def pieFlies(self = self, pos = pos, hpr = hpr, sequence = sequence, power = power, timestamp32 = timestamp32, pieBubble = pieBubble):
+            # Remove trajectory line when pie leaves hand
+            # Stop the trajectory update task
+            updateTaskName = self.uniqueName('updateTrajectoryAfterCharge')
+            taskMgr.remove(updateTaskName)
+            self.__finalPiePower = None
+            self.__removeTrajectoryLine()
+            self.__removeTrajectoryTarget()
             self.sendUpdate('tossPie', [pos[0],
              pos[1],
              pos[2],

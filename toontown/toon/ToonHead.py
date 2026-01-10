@@ -1007,16 +1007,20 @@ class ToonHead(Actor.Actor):
         modelStyle = getattr(style, 'modelStyle', 0) if hasattr(style, 'modelStyle') else (1 if base.settings.get('want-legacy-models') else 0)
         # Retro models always use joint_pupil*, modern models use def_*_pupil or joint_pupil* depending on want-new-anims
         useNewAnims = base.config.GetBool('want-new-anims', 1) and modelStyle == MODEL_STYLE_MODERN
+        animalType = style.getAnimal()
+        # For retro dog models, draw pupils behind eyes to prevent them showing through when blinking
+        # For other models, draw pupils in front of eyes
+        pupilMode = 1 if (modelStyle == MODEL_STYLE_RETRO and animalType == 'dog') else -1
         if self.hasLOD():
             for lodName in self.getLODNames():
                 self.drawInFront('eyes*', 'head-front*', mode, lodName=lodName)
                 if useNewAnims:
                     if not self.find('**/joint_pupil*').isEmpty():
-                        self.drawInFront('joint_pupil*', 'eyes*', -1, lodName=lodName)
+                        self.drawInFront('joint_pupil*', 'eyes*', pupilMode, lodName=lodName)
                     else:
-                        self.drawInFront('def_*_pupil', 'eyes*', -1, lodName=lodName)
+                        self.drawInFront('def_*_pupil', 'eyes*', pupilMode, lodName=lodName)
                 else:
-                    self.drawInFront('joint_pupil*', 'eyes*', -1, lodName=lodName)
+                    self.drawInFront('joint_pupil*', 'eyes*', pupilMode, lodName=lodName)
 
             # Get eyes from LOD - for retro models, this should still work
             self.__eyes = self.getLOD(1000).find('**/eyes*')
@@ -1071,13 +1075,16 @@ class ToonHead(Actor.Actor):
                             self.__lod250rPupil = lod250Root.find('**/joint_pupilR*')
         else:
             self.drawInFront('eyes*', 'head-front*', mode)
+            # For retro dog models, draw pupils behind eyes to prevent them showing through when blinking
+            # For other models, draw pupils in front of eyes
+            pupilMode = 1 if (modelStyle == MODEL_STYLE_RETRO and animalType == 'dog') else -1
             if useNewAnims:
                 if not self.find('joint_pupil*').isEmpty():
-                    self.drawInFront('joint_pupil*', 'eyes*', -1)
+                    self.drawInFront('joint_pupil*', 'eyes*', pupilMode)
                 else:
-                    self.drawInFront('def_*_pupil', 'eyes*', -1)
+                    self.drawInFront('def_*_pupil', 'eyes*', pupilMode)
             else:
-                self.drawInFront('joint_pupil*', 'eyes*', -1)
+                self.drawInFront('joint_pupil*', 'eyes*', pupilMode)
             self.__eyes = self.find('**/eyes*')
         if not self.__eyes.isEmpty():
             self.__eyes.setColorOff()
@@ -1146,6 +1153,9 @@ class ToonHead(Actor.Actor):
         return
 
     def __setPupilDirection(self, x, y):
+        # Check if pupils exist before trying to set their position
+        if self.__lpupil is None or self.__rpupil is None:
+            return
         if y < 0.0:
             y2 = -y
             left1 = self.LeftAD + (self.LeftD - self.LeftAD) * y2
@@ -1172,6 +1182,9 @@ class ToonHead(Actor.Actor):
         self.__rpupil.setPos(right)
 
     def __lookPupilsAt(self, node, point):
+        # Check if pupils exist before trying to look at point
+        if self.__lpupil is None or self.__rpupil is None:
+            return
         if node != None:
             mat = node.getMat(self.__eyes)
             point = mat.xformPoint(point)
@@ -1556,6 +1569,11 @@ class ToonHead(Actor.Actor):
             return 0
         head = self.getPart('head', lodName)
         startHpr = head.getHpr()
+        # Check if pupils exist before trying to use them
+        if self.__lpupil is None or self.__rpupil is None:
+            # If no pupils, just do head movement
+            self.__lookHeadAt(None, point, lod=lodName, freaky = freaky)
+            return 0
         startLpupil = self.__lpupil.getPos()
         startRpupil = self.__rpupil.getPos()
         self.__lookHeadAt(None, point, lod=lodName, freaky = freaky)

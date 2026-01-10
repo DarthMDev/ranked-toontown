@@ -165,8 +165,12 @@ class DistributedCashbotBossBoomBarrow(DistributedObject):
             Func(self.resetCooldown)
         ).start()
         
-        # Play a sound effect (Sellbot Boss cage sound)
-        base.playSfx(base.loader.loadSfx('phase_9/audio/sfx/CHQ_SOS_pies_restock.ogg'))
+        # Play TNT fuse/preparation sound effect (first 0.7 seconds only)
+        # This is the appropriate gag sfx for TNT - the fuse/prepare sound
+        from direct.interval.SoundInterval import SoundInterval
+        tntSound = base.loader.loadSfx('phase_5/audio/sfx/TL_dynamite.ogg')
+        if tntSound:
+            SoundInterval(tntSound, duration=0.7, volume=2.0, node=self.model).start()
 
     def resetCooldown(self):
         """Reset the touch cooldown."""

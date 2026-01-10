@@ -16,6 +16,7 @@ from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSa
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.coghq.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
 from toontown.coghq.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
+from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
@@ -50,6 +51,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.treasures = {}
         self.grabbingTreasures = {}
         self.boomBarrows = []  # List to hold boom barrow objects
+        self.floatingPlatforms = []  # List to hold floating platform objects
         self.recycledTreasures = []
         self.boss = None
 
@@ -452,6 +454,23 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 boomBarrow.generateWithRequired(self.zoneId)
                 boomBarrow.b_setIndex(boomBarrowIndex)
                 self.boomBarrows.append(boomBarrow)
+            
+            # Generate floating platforms near door and vault (in front of and behind CFO)
+            # CFO is at approximately (120, -315, 0)
+            # Door is at (84, -201, -6) - towards positive Y from CFO
+            # Vault is behind CFO - towards negative Y from CFO
+            # Platform positions: one in front of CFO (towards door), one behind CFO (towards vault)
+            # Positioned further away and at appropriate height so toons can reach them
+            platformPositions = [
+                (120, -278, 4),   # Front platform (towards door, in front of CFO) - 40 units away
+                (120, -357, 4),   # Back platform (behind CFO, towards vault) - 40 units away
+            ]
+            for platformIndex, (x, y, z) in enumerate(platformPositions):
+                platform = DistributedFloatingPlatformAI(self.air, self, platformIndex)
+                platform.generateWithRequired(self.zoneId)
+                platform.b_setIndex(platformIndex)
+                platform.setPosition(x, y, z)
+                self.floatingPlatforms.append(platform)
 
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
@@ -494,6 +513,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         for boomBarrow in self.boomBarrows:
             boomBarrow.requestDelete()
         self.boomBarrows.clear()
+        
+        # Clean up floating platforms
+        for platform in self.floatingPlatforms:
+            platform.requestDelete()
+        self.floatingPlatforms.clear()
 
         for goon in self.goons:
             goon.request('Off')
@@ -1133,12 +1157,19 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # The CFO is already dizzy, OR the crane is None, so get outta here
         # But if forceStun is True, we should still process the stun even if crane is None
-        if not forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
+        # Also allow processing if isGoon=True (goon hits should always process for fast recovery)
+        # BUT: if CFO is already stunned, goon hits should just deal damage and return (don't interfere with stun)
+        if not forceStun and not isGoon and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         # If forceStun is True but CFO is already stunned, don't do anything that would affect the stun state
         # This prevents Xplodey and Stunna from canceling an existing stun
         if forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or self.boss.attackCode == ToontownGlobals.BossCogDizzyNow):
+            return
+        
+        # If CFO is already stunned and this is a goon hit (regular goons or Xplodey), just deal damage and return
+        # Don't process flinch/recovery logic that might interfere with the stun
+        if isGoon and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or self.boss.attackCode == ToontownGlobals.BossCogDizzyNow):
             return
 
         self.boss.stopHelmets()
@@ -1150,7 +1181,12 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             hitMeetsStunRequirements = (self.boss.attackCode != ToontownGlobals.BossCogDizzy and 
                                         self.boss.attackCode != ToontownGlobals.BossCogDizzyNow)
         else:
-            hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
+            # For goon hits (isGoon=True), don't check stun requirements if crane is None
+            # Goon hits should just flinch and recover quickly, not stun
+            if isGoon and crane is None:
+                hitMeetsStunRequirements = False
+            else:
+                hitMeetsStunRequirements = (self.boss.considerStun(crane, damage, impact) or forceStun) and self.boss.attackCode != ToontownGlobals.BossCogDizzy
         
         if hitMeetsStunRequirements:
             # A particularly good hit (when he's not already
@@ -1165,8 +1201,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 # Regular crane stun
                 points = crane.getPointsForStun()
             elif forceStun and crane is None:
-                # Pie stun - give 30 points
-                points = 30
+                # Check if this is Stunna drone (objId=999999) or pie stun
+                if objId == 999999:
+                    # Stunna drone - give 10 points
+                    points = 10
+                else:
+                    # Pie stun - give 30 points
+                    points = 30
             else:
                 # Fallback for other cases
                 points = self.ruleset.POINTS_STUN // 2

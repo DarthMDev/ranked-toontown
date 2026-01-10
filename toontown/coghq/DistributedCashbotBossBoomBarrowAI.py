@@ -19,7 +19,7 @@ class DistributedCashbotBossBoomBarrowAI(DistributedObjectAI):
         # Create collision node so goons can detect and avoid the boom barrow
         # This matches how safes are detected by goons
         self.collisionNode = CollisionNode('boomBarrow')
-        self.collisionNode.addSolid(CollisionSphere(0, 0, 0, 2.5))  # Smaller radius for goon detection
+        self.collisionNode.addSolid(CollisionSphere(0, 0, 0, 4))  # for goon detection
         self.collisionNode.setIntoCollideMask(ToontownGlobals.CashbotBossObjectBitmask)
         # Create a NodePath manually since we don't extend DistributedSmoothNodeAI
         self.collisionNodePath = NodePath(self.collisionNode)

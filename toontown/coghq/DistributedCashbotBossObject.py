@@ -46,6 +46,10 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         # An attribute to cache the last 7 speeds and velocities for the object
         self.speeds = []
         self.velocities = []
+        
+        # Reference to the platform this object is on (if any)
+        # This allows the object to move with the platform when in Free state
+        self.platformNode = None
             
         # A CollisionNode to keep me out of walls and floors, and to
         # keep others from bumping into me.  We use PieBitmask instead
@@ -173,6 +177,17 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.acceptOnce(self.collideName + '-headTarget', self.__hitBoss)
             self.accept(self.collideName + '-dropPlane', self.__hitDropPlane)
             self.accept(self.collideName + '-shield', self.__hitShield)
+            # Platform collisions: FloatingPlatform collision nodes keep their MovingPlatform name
+            # but we can detect them by checking if the name contains 'MovingPlatform' or by tag
+            # Accept both 'platform' (if renamed) and 'MovingPlatform-*' patterns
+            self.accept(self.collideName + '-platform', self.__hitPlatform)
+            # Also listen for MovingPlatform collision events (pattern: collideName-MovingPlatform-*)
+            # We'll need to use a wildcard pattern or check in the handler
+            # For now, let's add a generic handler that checks the collision node name
+            self.accept(self.collideName + '-MovingPlatform', self.__hitPlatform)
+            # Also check for any MovingPlatform-* pattern by accepting a pattern
+            # Note: Panda3D collision events use the exact node name, so we need to handle this differently
+            # We'll check in __handleCollisions or use a more generic approach
 
     def deactivatePhysics(self):
         if self.physicsActivated:
@@ -183,6 +198,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.ignore(self.collideName + '-goon')
             self.ignore(self.collideName + '-headTarget')
             self.ignore(self.collideName + '-dropPlane')
+            self.ignore(self.collideName + '-platform')
 
     def hideShadows(self):
         pass
@@ -197,6 +213,33 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.collisionNodePath.unstash()
 
     def __hitFloor(self, entry):
+        # Clear platform reference since we hit the floor, not a platform
+        self.platformNode = None
+        
+        if self.state == 'Falling':
+            self.doHitFloor()
+
+        if self.state in ('Dropped', 'LocalDropped'):
+            self.d_hitFloor()
+            self.demand('SlidingFloor', localAvatar.doId)
+    
+    def __hitPlatform(self, entry):
+        """Called when object hits a platform. Behaves the same as hitting the floor."""
+        # Find the platform's model node so we can parent to it later
+        if entry:
+            intoNodePath = entry.getIntoNodePath()
+            if intoNodePath and not intoNodePath.isEmpty():
+                # The collision node is part of the MovingPlatform, which is parented to
+                # the DistributedFloatingPlatform's model node (named 'FloatingPlatform-{index}')
+                # Traverse up to find the model node
+                current = intoNodePath
+                while current and not current.isEmpty():
+                    nodeName = current.getName()
+                    if nodeName and nodeName.startswith('FloatingPlatform-'):
+                        self.platformNode = current
+                        break
+                    current = current.getParent()
+        
         if self.state == 'Falling':
             self.doHitFloor()
 
@@ -455,7 +498,14 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         if self.state in ['LocalGrabbed', 'LocalDropped', 'Grabbed', 'Dropped']:
             return
         else:
-            self.setPosHpr(x, y, z, h, p, r)
+            # If we're parented to a platform, don't update position from AI
+            # The platform movement will handle our position
+            if self.platformNode and not self.platformNode.isEmpty() and self.getParent() == self.platformNode:
+                # We're on a platform, don't override with AI position
+                # Just update rotation if needed
+                self.setHpr(h, p, r)
+            else:
+                self.setPosHpr(x, y, z, h, p, r)
 
     ### FSM States ###
 
@@ -481,6 +531,16 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
 
         # We're not allowed to drop the object directly from this
         # state.
+        
+        # Unparent from platform if we were on one
+        if self.platformNode and not self.platformNode.isEmpty() and self.getParent() == self.platformNode:
+            currentPos = self.getPos(render)
+            currentHpr = self.getHpr(render)
+            self.reparentTo(render)
+            self.setPos(currentPos)
+            self.setHpr(currentHpr)
+            self.platformNode = None
+        
         self.avId = avId
         self.craneId = craneId
 
@@ -524,6 +584,15 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                 # turns out someone else grabbed it instead.
                 self.crane.dropObject(self)
                 self.prepareRelease()
+        
+        # Unparent from platform if we were on one
+        if self.platformNode and not self.platformNode.isEmpty() and self.getParent() == self.platformNode:
+            currentPos = self.getPos(render)
+            currentHpr = self.getHpr(render)
+            self.reparentTo(render)
+            self.setPos(currentPos)
+            self.setHpr(currentHpr)
+            self.platformNode = None
         
         self.avId = avId
         self.craneId = craneId
@@ -655,6 +724,27 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.resetSpeedCaching()
         self.avId = 0
         self.craneId = 0
+        
+        # If we're on a platform, parent to it so we move with the platform
+        # Otherwise, the AI will set our position via updateClientPositions
+        if self.platformNode and not self.platformNode.isEmpty():
+            # Get our current position relative to render
+            currentPos = self.getPos(render)
+            currentHpr = self.getHpr(render)
+            # Parent to the platform
+            self.reparentTo(self.platformNode)
+            # Set position relative to platform (maintain relative position)
+            # The platform's model is at (0,0,0) relative to itself, so we need to
+            # calculate our position relative to the platform
+            platformPos = self.platformNode.getPos(render)
+            relativePos = currentPos - platformPos
+            self.setPos(relativePos)
+            self.setHpr(currentHpr)
+        else:
+            # Not on a platform, clear any previous platform parenting
+            if not self.getParent().isEmpty() and self.getParent().getName().startswith('FloatingPlatform-'):
+                self.reparentTo(render)
+            self.platformNode = None
 
     def exitFree(self):
         pass
