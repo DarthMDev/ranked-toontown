@@ -126,6 +126,8 @@ class OnlinePlayerManager(DistributedObjectGlobal):
             onlineToon = OnlineToon(avId, newName, newDna)
             self.__cacheOnlineToon(onlineToon)
 
+        messenger.send(f"avatar-query-response-{avId}", [avId])
+
         # Tell the client repository we received this information
         base.cr.handleGetAvatarDetailsResp(avId, fields=fields)
 

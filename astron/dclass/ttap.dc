@@ -3665,6 +3665,7 @@ struct NameMapping {
 
 struct LeaderboardEntry {
   uint16 ranking;
+  uint32 avId;
   string name;
   int32 sr;
   uint32 wins;
