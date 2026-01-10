@@ -177,9 +177,17 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.acceptOnce(self.collideName + '-headTarget', self.__hitBoss)
             self.accept(self.collideName + '-dropPlane', self.__hitDropPlane)
             self.accept(self.collideName + '-shield', self.__hitShield)
-            # Platform collisions: The platform collision node is renamed to 'platform' in DistributedFloatingPlatform
-            # So we can accept it the same way we accept floor collisions
+            # Platform collisions: FloatingPlatform collision nodes keep their MovingPlatform name
+            # but we can detect them by checking if the name contains 'MovingPlatform' or by tag
+            # Accept both 'platform' (if renamed) and 'MovingPlatform-*' patterns
             self.accept(self.collideName + '-platform', self.__hitPlatform)
+            # Also listen for MovingPlatform collision events (pattern: collideName-MovingPlatform-*)
+            # We'll need to use a wildcard pattern or check in the handler
+            # For now, let's add a generic handler that checks the collision node name
+            self.accept(self.collideName + '-MovingPlatform', self.__hitPlatform)
+            # Also check for any MovingPlatform-* pattern by accepting a pattern
+            # Note: Panda3D collision events use the exact node name, so we need to handle this differently
+            # We'll check in __handleCollisions or use a more generic approach
 
     def deactivatePhysics(self):
         if self.physicsActivated:

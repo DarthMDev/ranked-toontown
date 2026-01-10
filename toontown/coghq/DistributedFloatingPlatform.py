@@ -34,20 +34,26 @@ class DistributedFloatingPlatform(DistributedObject):
             self.notify.warning('Failed to load platform model!')
             return
         
+        # Create a parent node for positioning first
+        # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
+        # This must be created before setupCopyModel so we can pass it as the parentingNode
+        self.model = render.attachNewNode('FloatingPlatform-%s' % self.index)
+        
         # Use MovingPlatform to properly set up the platform with its built-in collision
         # This is the same approach used by DistributedSinkingPlatform
+        # Pass self.model as parentingNode so avatars get parented to the model node (which has "FloatingPlatform" in its name)
         self.platform = MovingPlatform.MovingPlatform()
-        self.platform.setupCopyModel(self.uniqueName('platform'), model, 'platformcollision')
-        # Rename the collision node to 'platform' so Cashbot Boss objects can detect it
-        # The MovingPlatform sets the name to something like 'MovingPlatform-platform-12345'
-        # We'll rename it to just 'platform' so it can be detected by the collision handler
+        self.platform.setupCopyModel(self.uniqueName('platform'), model, 'platformcollision', parentingNode=self.model)
+        # The MovingPlatform sets collision node names to self._name (e.g., 'MovingPlatform-...')
+        # We need to keep this name for the collision events to work, but we can add a tag
+        # for Cashbot Boss objects to detect it, and also add a Python tag for identification
         platformCollisions = self.platform.findAllMatches('**/MovingPlatform-*')
         for collision in platformCollisions:
-            collision.setName('platform')
+            # Keep the original name for MovingPlatform collision events to work
+            # But add a tag so other systems can find it
+            collision.setTag('platform', '1')
+            collision.setPythonTag('FloatingPlatform', True)
         
-        # Create a parent node for positioning
-        # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
-        self.model = render.attachNewNode('FloatingPlatform-%s' % self.index)
         self.platform.reparentTo(self.model)
         self.platform.setPos(0, 0, 0)
         
@@ -77,6 +83,14 @@ class DistributedFloatingPlatform(DistributedObject):
         # This prevents them from being sent to oblivion when the platform moves during knockback
         self.accept('LocalSetOuchMode', self.onToonHit)
         self.accept('toonStunned-' + str(base.localAvatar.doId), self.onToonStunned)
+        
+        # Listen to MovingPlatform enter/exit events to track when local toon is on platform
+        # This allows CustomGravityWalker to detect when landing on a FloatingPlatform
+        if hasattr(self, 'platform') and self.platform:
+            enterEvent = self.platform.getEnterEvent()
+            exitEvent = self.platform.getExitEvent()
+            self.accept(enterEvent, self.onToonEnter)
+            self.accept(exitEvent, self.onToonExit)
     
     def onToonHit(self):
         """Called when the local toon gets hit. Release them from the platform."""
@@ -89,6 +103,18 @@ class DistributedFloatingPlatform(DistributedObject):
         if isStunned and hasattr(self, 'platform') and self.platform:
             # Release the toon from the platform when they get stunned (hit)
             self.platform.releaseLocalToon()
+    
+    def onToonEnter(self, collEntry=None):
+        """Called when the local toon enters the platform."""
+        # Set a flag on the local avatar so CustomGravityWalker can detect it
+        if hasattr(base, 'localAvatar') and base.localAvatar:
+            base.localAvatar._onFloatingPlatform = True
+    
+    def onToonExit(self, collEntry=None):
+        """Called when the local toon exits the platform."""
+        # Clear the flag
+        if hasattr(base, 'localAvatar') and base.localAvatar:
+            base.localAvatar._onFloatingPlatform = False
 
     def setPosition(self, x, y, z):
         """Set the platform position and start hovering animation."""
@@ -153,6 +179,14 @@ class DistributedFloatingPlatform(DistributedObject):
         self.ignore('LocalSetOuchMode')
         if hasattr(base, 'localAvatar') and base.localAvatar:
             self.ignore('toonStunned-' + str(base.localAvatar.doId))
+        # Stop listening to platform enter/exit events
+        if hasattr(self, 'platform') and self.platform:
+            self.ignore(self.platform.getEnterEvent())
+            self.ignore(self.platform.getExitEvent())
+        # Clear the flag if toon is still on platform
+        if hasattr(base, 'localAvatar') and base.localAvatar:
+            if hasattr(base.localAvatar, '_onFloatingPlatform'):
+                base.localAvatar._onFloatingPlatform = False
         if self.hoverIval:
             self.hoverIval.pause()
             self.hoverIval = None

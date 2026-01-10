@@ -93,22 +93,12 @@ class CustomGravityWalker(GravityWalker):
                 impact = self.lifter.getImpactVelocity()
                 
                 # Check if we're landing on a Floating Platform
-                # MovingPlatform parents the toon to the platform when on it
+                # MovingPlatform sets a flag on localAvatar when entering/exiting the platform
                 isFloatingPlatform = False
                 if hasattr(base, 'localAvatar') and base.localAvatar:
-                    parentPath = base.localAvatar.getParent()
-                    if parentPath and not parentPath.isEmpty():
-                        # Check if the parent node path name contains "FloatingPlatform"
-                        parentName = parentPath.getName()
-                        if 'FloatingPlatform' in parentName:
-                            isFloatingPlatform = True
-                        # Also check parent's parent in case of nested nodes
-                        if not isFloatingPlatform:
-                            parentParent = parentPath.getParent()
-                            if parentParent and not parentParent.isEmpty():
-                                parentParentName = parentParent.getName()
-                                if 'FloatingPlatform' in parentParentName:
-                                    isFloatingPlatform = True
+                    # Check if the flag is set (set by DistributedFloatingPlatform.onToonEnter)
+                    if hasattr(base.localAvatar, '_onFloatingPlatform') and base.localAvatar._onFloatingPlatform:
+                        isFloatingPlatform = True
                 
                 if isFloatingPlatform:
                     # Landing on Floating Platform - use very short delay
