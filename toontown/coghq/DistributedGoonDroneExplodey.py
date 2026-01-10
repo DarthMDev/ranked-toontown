@@ -443,6 +443,10 @@ class DistributedGoonDroneExplodey(DistributedGoonDroneBase):
         if hasattr(self, 'collisionCheckTask'):
             taskMgr.remove(self.collisionCheckTask)
         
+        # Clean up any ongoing gear attacks immediately to prevent them from completing
+        if self.boss and hasattr(self.boss, 'cleanupAttacks'):
+            self.boss.cleanupAttacks()
+        
         # Notify AI that we hit the CFO
         self.sendUpdate('requestExplode', [])
         
