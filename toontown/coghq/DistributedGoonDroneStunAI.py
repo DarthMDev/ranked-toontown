@@ -56,11 +56,13 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
         # Stun immediately - no delay to prevent gear attacks from completing
         if hasattr(self.boss, 'game') and self.boss.game:
             # Record hit with 0 damage but forceStun=True to stun
+            # Use objId=999999 to identify this as Stunna drone (for 10 point stun reward)
+            # This large number won't conflict with real object IDs
             self.boss.game.recordHit(
                 0,
                 impact=0.99,
                 craneId=-1,
-                objId=0,
+                objId=999999,  # Special objId to identify Stunna drone
                 isGoon=False,
                 isDOT=False,
                 avIdOverride=self.ownerId,
@@ -70,6 +72,15 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
         # Check if CFO has a helmet - remove it AFTER stun (with delay to let drone explode first)
         def removeHelmet(_=None):
             if hasattr(self.boss, 'heldObject') and self.boss.heldObject is not None:
+                # Award 10 points for knocking off helmet with Stunna
+                if hasattr(self.boss, 'game') and self.boss.game:
+                    from toontown.coghq import CraneLeagueGlobals
+                    self.boss.game.addScore(
+                        self.ownerId,
+                        10,
+                        reason=CraneLeagueGlobals.ScoreReason.REMOVE_HELMET
+                    )
+                
                 # Remove the helmet
                 helmet = self.boss.heldObject
                 # Use a special craneId that won't trigger __hitBoss collision

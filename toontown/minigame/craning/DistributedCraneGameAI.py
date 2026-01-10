@@ -1134,12 +1134,18 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # The CFO is already dizzy, OR the crane is None, so get outta here
         # But if forceStun is True, we should still process the stun even if crane is None
         # Also allow processing if isGoon=True (goon hits should always process for fast recovery)
+        # BUT: if CFO is already stunned, goon hits should just deal damage and return (don't interfere with stun)
         if not forceStun and not isGoon and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or not crane):
             return
 
         # If forceStun is True but CFO is already stunned, don't do anything that would affect the stun state
         # This prevents Xplodey and Stunna from canceling an existing stun
         if forceStun and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or self.boss.attackCode == ToontownGlobals.BossCogDizzyNow):
+            return
+        
+        # If CFO is already stunned and this is a goon hit (regular goons or Xplodey), just deal damage and return
+        # Don't process flinch/recovery logic that might interfere with the stun
+        if isGoon and (self.boss.attackCode == ToontownGlobals.BossCogDizzy or self.boss.attackCode == ToontownGlobals.BossCogDizzyNow):
             return
 
         self.boss.stopHelmets()
@@ -1171,8 +1177,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 # Regular crane stun
                 points = crane.getPointsForStun()
             elif forceStun and crane is None:
-                # Pie stun - give 30 points
-                points = 30
+                # Check if this is Stunna drone (objId=999999) or pie stun
+                if objId == 999999:
+                    # Stunna drone - give 10 points
+                    points = 10
+                else:
+                    # Pie stun - give 30 points
+                    points = 30
             else:
                 # Fallback for other cases
                 points = self.ruleset.POINTS_STUN // 2
