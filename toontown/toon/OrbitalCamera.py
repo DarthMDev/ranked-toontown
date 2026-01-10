@@ -350,12 +350,31 @@ class OrbitalCamera(FSM, NodePath, ParamObj):
         if self.oobeEnabled():
             return Task.cont
 
-        self._cTrav.traverse(self.subject.getGeom())
+        # Import once for Panda3D 1.11.0 compatibility error checking
+        from otp.otpbase.OTPBase import OTPBase
 
-        if self.firstPerson or self.subject.isDisguised:
-            self.subject.getGeomNode().hide()
-        else:
-            self.subject.getGeomNode().show()
+        try:
+            self._cTrav.traverse(self.subject.getGeom())
+        except AssertionError as e:
+            # Catch Panda3D 1.11.0 cull traverser errors
+            if OTPBase.isPanda311CullTraverserError(e):
+                if hasattr(self, 'notify'):
+                    self.notify.warning('Panda3D 1.11.0 compatibility error in collision traversal (ignored): %s' % str(e))
+                return Task.cont
+            raise
+
+        try:
+            if self.firstPerson or self.subject.isDisguised:
+                self.subject.getGeomNode().hide()
+            else:
+                self.subject.getGeomNode().show()
+        except AssertionError as e:
+            # Catch Panda3D 1.11.0 cull traverser errors when showing/hiding geometry
+            if OTPBase.isPanda311CullTraverserError(e):
+                if hasattr(self, 'notify'):
+                    self.notify.warning('Panda3D 1.11.0 compatibility error showing geometry (ignored): %s' % str(e))
+            else:
+                raise
 
         if self._cHandlerQueue.getNumEntries() == 0:
             for i in range(self._cHandlerQueue.getNumEntries()):
@@ -377,10 +396,18 @@ class OrbitalCamera(FSM, NodePath, ParamObj):
             camera.setZ(0)
 
             if not self.firstPerson:
-                if self.subject.isDisguised:
-                    self.subject.getGeomNode().hide()
-                else:
-                    self.subject.getGeomNode().show()
+                try:
+                    if self.subject.isDisguised:
+                        self.subject.getGeomNode().hide()
+                    else:
+                        self.subject.getGeomNode().show()
+                except AssertionError as e:
+                    # Catch Panda3D 1.11.0 cull traverser errors when showing/hiding geometry
+                    if OTPBase.isPanda311CullTraverserError(e):
+                        if hasattr(self, 'notify'):
+                            self.notify.warning('Panda3D 1.11.0 compatibility error showing geometry (ignored): %s' % str(e))
+                    else:
+                        raise
 
             return task.cont
 
@@ -389,11 +416,27 @@ class OrbitalCamera(FSM, NodePath, ParamObj):
         camera.setPos(cPoint + cNormal * offset)
         distance = camera.getDistance(self)
         if not self.firstPerson:
-            if distance < 1.8 or self.subject.isDisguised:
-                self.subject.getGeomNode().hide()
+            try:
+                if distance < 1.8 or self.subject.isDisguised:
+                    self.subject.getGeomNode().hide()
+                else:
+                    self.subject.getGeomNode().show()
+            except AssertionError as e:
+                # Catch Panda3D 1.11.0 cull traverser errors when showing/hiding geometry
+                if OTPBase.isPanda311CullTraverserError(e):
+                    if hasattr(self, 'notify'):
+                        self.notify.warning('Panda3D 1.11.0 compatibility error showing geometry (ignored): %s' % str(e))
+                else:
+                    raise
+        try:
+            self.subject.ccPusherTrav.traverse(render)
+        except AssertionError as e:
+            # Catch Panda3D 1.11.0 cull traverser errors in pusher traversal
+            if OTPBase.isPanda311CullTraverserError(e):
+                if hasattr(self, 'notify'):
+                    self.notify.warning('Panda3D 1.11.0 compatibility error in pusher traversal (ignored): %s' % str(e))
             else:
-                self.subject.getGeomNode().show()
-        self.subject.ccPusherTrav.traverse(render)
+                raise
         return Task.cont
 
     def _stopCollisionCheck(self):
