@@ -688,7 +688,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         collisionSegment = CollisionSegment()
         collisionNode = CollisionNode('trajectorySegment')
         collisionNode.addSolid(collisionSegment)
-        collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask)
+        # Include PieBitmask and TNTBitmask to detect CFO shield, but exclude NearBoss
+        from toontown.toonbase import ToontownGlobals
+        collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         collisionNode.setIntoCollideMask(BitMask32.allOff())
         segmentNodePath = render.attachNewNode(collisionNode)
         collisionTrav.addCollider(segmentNodePath, collisionQueue)
@@ -714,19 +716,64 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                     
                     if collisionQueue.getNumEntries() > 0:
                         collisionQueue.sortEntries()
-                        entry = collisionQueue.getEntry(0)
+                        
+                        # Find first valid collision entry (not NearBoss)
+                        validEntry = None
+                        for j in range(collisionQueue.getNumEntries()):
+                            entry = collisionQueue.getEntry(j)
+                            intoNode = entry.getIntoNodePath()
+                            nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
+                            
+                            # Ignore NearBoss collisions completely
+                            if nodeName == 'NearBoss':
+                                continue
+                            
+                            # Check if it's toon geometry
+                            checkNode = intoNode
+                            isToonGeometry = False
+                            while not checkNode.isEmpty():
+                                if checkNode == self:
+                                    isToonGeometry = True
+                                    break
+                                parent = checkNode.getParent()
+                                if parent == self:
+                                    isToonGeometry = True
+                                    break
+                                checkNode = parent
+                            
+                            # Use this entry if it's not NearBoss
+                            if validEntry is None:
+                                validEntry = entry
+                        
+                        if validEntry is None:
+                            # Continue to next segment
+                            points.append(point)
+                            prevPoint = point
+                            continue
+                        
+                        entry = validEntry
+                        intoNode = entry.getIntoNodePath()
+                        nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
+                        
                         # Get the collision point in render space
                         hitPoint = entry.getSurfacePoint(render)
+                        
+                        # Calculate distance from start position
+                        distanceFromStart = (hitPoint - startPos).length()
+                        
                         # Get the surface normal for orienting the target
                         if entry.hasSurfaceNormal():
                             surfaceNormal = entry.getSurfaceNormal(render)
                             surfaceNormal.normalize()
+                        
                         # Verify the hit point is actually between prevPoint and point
                         hitDist = (hitPoint - prevPoint).length()
-                        if hitDist <= dist + 0.1:  # Allow small tolerance
+                        # Minimum distance from start to avoid false positives near hand (especially in crane game)
+                        minDistanceFromStart = 2.0  # Ignore collisions within 2 units of hand
+                        if hitDist <= dist + 0.1 and distanceFromStart >= minDistanceFromStart:  # Allow small tolerance and minimum distance
                             points.append(hitPoint)
                             break
-                        # If hit point is too far, ignore it and continue
+                        # If hit point is too far or too close, ignore it and continue
                         hitPoint = None
                         surfaceNormal = None
             
@@ -745,7 +792,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         
         lines = LineSegs('trajectoryLine')
         lines.setColor(1, 1, 0, 0.6)  # Yellow, semi-transparent
-        lines.setThickness(2.0)
+        lines.setThickness(3.5)
         
         # Draw the line
         for i, point in enumerate(points):
