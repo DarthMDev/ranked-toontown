@@ -377,11 +377,15 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         # Check if this is a TNT pie (pieType 8)
         isTNT = (pieType == 8)
         isAlreadyStunned = (self.attackCode == ToontownGlobals.BossCogDizzy or self.attackCode == ToontownGlobals.BossCogDizzyNow)
+        hasHelmet = (self.heldObject is not None)
         
-        print('[CFO] pieHitBoss: isTNT=%s, isAlreadyStunned=%s' % (isTNT, isAlreadyStunned))
+        print('[CFO] pieHitBoss: isTNT=%s, isAlreadyStunned=%s, hasHelmet=%s' % (isTNT, isAlreadyStunned, hasHelmet))
         
-        # If TNT, always deal 5 damage (even if already stunned)
+        # If TNT, check if CFO has helmet - if so, don't deal damage or stun
         if isTNT:
+            if hasHelmet:
+                print('[CFO] pieHitBoss: TNT hit but CFO has helmet - no damage or stun')
+                return
             print('[CFO] pieHitBoss: TNT hit - dealing 5 damage')
             self.game.recordHit(
                 10,  # 5 damage for TNT
