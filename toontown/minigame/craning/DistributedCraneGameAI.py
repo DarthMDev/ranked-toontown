@@ -462,8 +462,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             # Platform positions: one in front of CFO (towards door), one behind CFO (towards vault)
             # Positioned further away and at appropriate height so toons can reach them
             platformPositions = [
-                (120, -275, 3),   # Front platform (towards door, in front of CFO) - 40 units away
-                (120, -356, 3),   # Back platform (behind CFO, towards vault) - 40 units away
+                (120, -278, 4),   # Front platform (towards door, in front of CFO) - 40 units away
+                (120, -357, 4),   # Back platform (behind CFO, towards vault) - 40 units away
             ]
             for platformIndex, (x, y, z) in enumerate(platformPositions):
                 platform = DistributedFloatingPlatformAI(self.air, self, platformIndex)
