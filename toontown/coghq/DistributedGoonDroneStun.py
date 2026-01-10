@@ -404,14 +404,19 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
                 blendType='easeIn'
             )
             
-            # Animate thickness from 5.0 to 0.0 by recreating geometry with new thickness
-            # Thickness reaches 0.0 at 90% of the animation duration
+            # Animate thickness from 5.0 to 0.1 by recreating geometry with new thickness
+            # Thickness reaches 0.1 at 90% of the animation duration (never go to 0.0 to avoid OpenGL errors)
             def updateThickness(thickness, node=ringNode, ringIdx=i, geomDict=geomNodes):
-                # Remove old geometry node
+                # Clamp thickness to minimum of 0.1 to avoid OpenGL invalid value errors
+                clampedThickness = max(0.1, thickness)
+                # Remove old geometry node if it exists
                 if node in geomDict and geomDict[node]:
-                    geomDict[node].removeNode()
+                    oldGeomNode = geomDict[node]
+                    if not oldGeomNode.isEmpty():
+                        oldGeomNode.removeNode()
+                    geomDict[node] = None
                 # Create new geometry with updated thickness
-                newGeom = createShockwaveRingGeometry(ringIdx, thickness)
+                newGeom = createShockwaveRingGeometry(ringIdx, clampedThickness)
                 geomNode = node.attachNewNode(newGeom)
                 geomNode.setLightOff()
                 geomNode.setFogOff()
@@ -423,16 +428,28 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
             thicknessTrack = LerpFunc(
                 updateThickness,
                 fromData=5.0,  # Start at thickness 5.0
-                toData=0.0,    # End at thickness 0.0
+                toData=0.1,    # End at thickness 0.1 (not 0.0 to avoid OpenGL errors)
                 duration=thicknessDuration,  # Complete at 90% of ringDuration
                 blendType='easeIn'
             )
+            
+            # Cleanup function to properly remove geometry before removing parent node
+            def cleanupRingNode(node=ringNode, geomDict=geomNodes):
+                # Remove geometry node first if it exists
+                if node in geomDict and geomDict[node]:
+                    geomNode = geomDict[node]
+                    if not geomNode.isEmpty():
+                        geomNode.removeNode()
+                    geomDict[node] = None
+                # Then remove the parent node
+                if not node.isEmpty():
+                    node.removeNode()
             
             # Combine scale, fade, and thickness animation, then remove the node
             ringTrack = Sequence(
                 Wait(startDelay),
                 Parallel(scaleTrack, fadeTrack, thicknessTrack),
-                Func(ringNode.removeNode)
+                Func(cleanupRingNode)
             )
             
             shockwaveTracks.append(ringTrack)
