@@ -2,10 +2,13 @@ from openskill.models import PlackettLuce, PlackettLuceRating
 
 from toontown.matchmaking.zero_sum_elo_model import ZeroSumEloModel, ZeroSumEloRating
 
-# The starting SR and hidden MMR for a player to default to if they are new.
-STARTING_RATING = 1000
+# The starting hidden MMR for a player to default to when they are new. Used for skill based matchmaking.
+STARTING_MMR = 1000
+
+# The starting SR for a player to default to if they are new. Purely used for rank display.
+STARTING_RATING = STARTING_MMR - 400
 # The starting uncertainty rating for a player to default to if they are new. Should be default rating / 3.
-STARTING_UNCERTAINTY = STARTING_RATING / 3
+STARTING_UNCERTAINTY = STARTING_MMR / 3
 
 # The base SR rate for winning and losing. Modified based on the context of the game using this as a base.
 BASE_SR_CHANGE = 20

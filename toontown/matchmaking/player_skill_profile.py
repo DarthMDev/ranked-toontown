@@ -3,8 +3,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, ClassVar
 
-from toontown.matchmaking.skill_globals import MODEL, RATING_CLASS, STARTING_RATING, STARTING_UNCERTAINTY, \
-    ZERO_SUM_MODEL, MODEL_CLASS
+from toontown.matchmaking.skill_globals import MODEL, RATING_CLASS, STARTING_MMR, STARTING_UNCERTAINTY, \
+    ZERO_SUM_MODEL, MODEL_CLASS, STARTING_RATING
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.matchmaking.zero_sum_elo_model import ZeroSumEloModel
 
@@ -73,7 +73,7 @@ class PlayerSkillProfile:
         if key_inst is not None:
             model = key_inst.get_model()
 
-        rating = model.rating(mu=STARTING_RATING, sigma=STARTING_UNCERTAINTY, name=str(avId))
+        rating = model.rating(mu=STARTING_MMR, sigma=STARTING_UNCERTAINTY, name=str(avId))
         return cls(
             identifier=avId,
             key=key,

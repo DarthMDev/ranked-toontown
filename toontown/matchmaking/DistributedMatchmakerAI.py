@@ -9,7 +9,7 @@ from direct.distributed.DistributedObjectGlobalAI import DistributedObjectGlobal
 from direct.task import Task
 
 from toontown.groups.DistributedGroupManagerAI import DistributedGroupManagerAI
-from toontown.matchmaking.player_skill_profile import STARTING_RATING
+from toontown.matchmaking.player_skill_profile import STARTING_MMR
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.MinigameCreatorAI import GeneratedMinigame
 from toontown.toonbase import ToontownGlobals
@@ -47,7 +47,7 @@ class MatchmakingPlayer:
         """
         profile = self.avatar.getSkillProfile(key)
         if profile is None:
-            return STARTING_RATING
+            return STARTING_MMR
 
         return profile.mu
 
