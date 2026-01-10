@@ -26,6 +26,7 @@ from otp.otpbase import OTPLocalizer
 from direct.controls.GhostWalker import GhostWalker
 from direct.controls.GravityWalker import GravityWalker
 from direct.controls.ObserverWalker import ObserverWalker
+from otp.avatar.CustomGravityWalker import CustomGravityWalker
 from direct.controls.PhysicsWalker import PhysicsWalker
 from direct.controls.SwimWalker import SwimWalker
 from direct.controls.TwoDWalker import TwoDWalker
@@ -375,7 +376,7 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
         return False
 
     def setupControls(self, avatarRadius = 1.4, floorOffset = OTPGlobals.FloorOffset, reach = 4.0, wallBitmask = OTPGlobals.WallBitmask, floorBitmask = OTPGlobals.FloorBitmask, ghostBitmask = OTPGlobals.GhostBitmask):
-        walkControls = GravityWalker(legacyLifter=self.wantLegacyLifter())
+        walkControls = CustomGravityWalker(legacyLifter=self.wantLegacyLifter(), hardLandingDelay=0.2, normalLandingDelay=0.2, gravity=64.348, standableGround=0.707, hardLandingForce=16.0)
         walkControls.setWallBitMask(wallBitmask)
         walkControls.setFloorBitMask(floorBitmask)
         walkControls.initializeCollisions(self.cTrav, self, avatarRadius, floorOffset, reach)

@@ -40,6 +40,7 @@ class DistributedFloatingPlatform(DistributedObject):
         self.platform.setupCopyModel(self.uniqueName('platform'), model, 'platformcollision')
         
         # Create a parent node for positioning
+        # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
         self.model = render.attachNewNode('FloatingPlatform-%s' % self.index)
         self.platform.reparentTo(self.model)
         self.platform.setPos(0, 0, 0)
