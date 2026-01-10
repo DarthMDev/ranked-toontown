@@ -539,8 +539,15 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             return
         if self.__pieInHand():
             return
-        if getattr(self.controlManager.currentControls, 'isAirborne', 0):
-            return
+        # Check if we're airborne - allow TNT to be charged while in the air
+        isAirborne = getattr(self.controlManager.currentControls, 'isAirborne', 0)
+        if isAirborne:
+            # Check if this is TNT - allow TNT to be charged while airborne
+            from toontown.toonbase import ToontownBattleGlobals
+            pieName = ToontownBattleGlobals.pieNames[self.pieType]
+            if pieName != 'tnt':
+                # Regular pies cannot be charged while airborne
+                return
         messenger.send('wakeup')
         self.localPresentPie(time)
         taskName = self.uniqueName('updatePiePower')
