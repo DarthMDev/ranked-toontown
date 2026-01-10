@@ -10,7 +10,30 @@ WANT_GIFTS = True
 # Map each ball type to an integer value.
 TRANSLATE_DATA = {'r': 0, 'b': 1, 'g': 2, 'w': 3, 'k': 4, 'l': 5, 'y': 6, 'o': 7, 'a': 8, 's': 9, 'R': 10, 'B': 11}
 
-# Board data, indicates what golf balls to spawn at which positions.
+# Board data, indicates what golf balls to give players and where to spawn at which positions.
+# The first element of a tuple is the available types of balls to give the player for a puzzle.
+# The remaining elements correspond to the rows of the puzzle board.
+# Every row of the puzzle board must have 9 balls each. Use underscores for blank spaces.
+# You should not have more than 10 rows for a puzzle board.
+# Here's a cheat sheet of what the characters mean:
+
+# The following can be used as available balls to the player to shoot as well as spots in the puzzle board.
+# r: Red
+# g: Green
+# b: Blue
+# y: Yellow
+# l: Purple
+
+# The following can be used only as available balls to the player. Do not use these in the puzzle board.
+# o: Explosive (Can only be used as an available ball)
+# a: All (Wild) (Can only be used as an available ball)
+
+# The following can only be used in the puzzle board. Do not allow the players to shoot these.
+# _: Empty space
+# s: Barrier (Nothing can remove. Can only be placed in the puzzle.)
+# B: Blue-Wildcard (Next ball is wild ball. Only can be placed in the puzzle.)
+# R: Red-Explosive (Next ball is explosive. Only can be placed in the puzzle)
+# w: Win Condition (Destroy all to beat the puzzle. Can only be placed in the puzzle)
 BOARD_DATA = [
     ('rbygl', 'r_______b', 'byyywgggr', 'r_______b', 'bggyyyggr', 'r_______b', 'byylllyyr', 'r_______b', 'Blllllllr'),
     ('rgby', 'rrrgggbbb', 'rwrgggbwb', 'rrryyybbb', 'bByyyyyRr'),
