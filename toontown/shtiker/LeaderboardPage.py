@@ -173,6 +173,7 @@ class LeaderboardPage(ShtikerPage):
 
     def __change_gamemode(self, delta: int):
 
+        messenger.send('wakeup')
         # Update the member by doing some indexing math.
         modes = list(SkillProfileKey)
         index = modes.index(self.current_mode)
@@ -207,6 +208,7 @@ class LeaderboardPage(ShtikerPage):
         self._players_range_label['text'] = f"Players #{self._top_ranking}-{self._top_ranking+9}"
 
     def __change_player_page(self, delta: int):
+        messenger.send('wakeup')
         self.ignore('leaderboard-ranking-response')
         self.acceptOnce('leaderboard-ranking-response', self.__handle_rankings_update)
         if delta > 0:
