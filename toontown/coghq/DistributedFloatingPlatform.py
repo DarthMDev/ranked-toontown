@@ -38,6 +38,12 @@ class DistributedFloatingPlatform(DistributedObject):
         # This is the same approach used by DistributedSinkingPlatform
         self.platform = MovingPlatform.MovingPlatform()
         self.platform.setupCopyModel(self.uniqueName('platform'), model, 'platformcollision')
+        # Rename the collision node to 'platform' so Cashbot Boss objects can detect it
+        # The MovingPlatform sets the name to something like 'MovingPlatform-platform-12345'
+        # We'll rename it to just 'platform' so it can be detected by the collision handler
+        platformCollisions = self.platform.findAllMatches('**/MovingPlatform-*')
+        for collision in platformCollisions:
+            collision.setName('platform')
         
         # Create a parent node for positioning
         # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
