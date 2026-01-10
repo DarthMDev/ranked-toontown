@@ -178,32 +178,51 @@ Phase6AnimList = (('headdown-putt', 'headdown-putt'),
 Phase9AnimList = (('push', 'push'),)
 Phase10AnimList = (('leverReach', 'leverReach'), ('leverPull', 'leverPull'), ('leverNeutral', 'leverNeutral'))
 Phase12AnimList = ()
+# Model style constants: 0 = modern/TTR, 1 = retro/Clash
+MODEL_STYLE_MODERN = 0
+MODEL_STYLE_RETRO = 1
+
+def getLegDict(modelStyle=0):
+    """Get leg dictionary based on model style. 0 = modern/TTR, 1 = retro/Clash"""
+    if not base.config.GetBool('want-new-anims', 1):
+        return {'s': '/models/char/dogSS_Shorts-legs-',
+         'm': '/models/char/dogMM_Shorts-legs-',
+         'l': '/models/char/dogLL_Shorts-legs-'}
+    else:
+        return {'s': '/models/char/tt_a_chr_dgs_shorts_legs_',
+         'm': '/models/char/tt_a_chr_dgm_shorts_legs_',
+         'l': '/models/char/tt_a_chr_dgl_shorts_legs_'}
+
+def getTorsoDict(modelStyle=0):
+    """Get torso dictionary based on model style. 0 = modern/TTR, 1 = retro/Clash"""
+    if not base.config.GetBool('want-new-anims', 1):
+        return {'s': '/models/char/dogSS_Naked-torso-',
+         'm': '/models/char/dogMM_Naked-torso-',
+         'l': '/models/char/dogLL_Naked-torso-',
+         'ss': '/models/char/dogSS_Shorts-torso-',
+         'ms': '/models/char/dogMM_Shorts-torso-',
+         'ls': '/models/char/dogLL_Shorts-torso-',
+         'sd': '/models/char/dogSS_Skirt-torso-',
+         'md': '/models/char/dogMM_Skirt-torso-',
+         'ld': '/models/char/dogLL_Skirt-torso-'}
+    else:
+        return {'s': '/models/char/dogSS_Naked-torso-',
+         'm': '/models/char/dogMM_Naked-torso-',
+         'l': '/models/char/dogLL_Naked-torso-',
+         'ss': '/models/char/tt_a_chr_dgs_shorts_torso_',
+         'ms': '/models/char/tt_a_chr_dgm_shorts_torso_',
+         'ls': '/models/char/tt_a_chr_dgl_shorts_torso_',
+         'sd': '/models/char/tt_a_chr_dgs_skirt_torso_',
+         'md': '/models/char/tt_a_chr_dgm_skirt_torso_',
+         'ld': '/models/char/tt_a_chr_dgl_skirt_torso_'}
+
+# For backward compatibility
 if not base.config.GetBool('want-new-anims', 1):
-    LegDict = {'s': '/models/char/dogSS_Shorts-legs-',
-     'm': '/models/char/dogMM_Shorts-legs-',
-     'l': '/models/char/dogLL_Shorts-legs-'}
-    TorsoDict = {'s': '/models/char/dogSS_Naked-torso-',
-     'm': '/models/char/dogMM_Naked-torso-',
-     'l': '/models/char/dogLL_Naked-torso-',
-     'ss': '/models/char/dogSS_Shorts-torso-',
-     'ms': '/models/char/dogMM_Shorts-torso-',
-     'ls': '/models/char/dogLL_Shorts-torso-',
-     'sd': '/models/char/dogSS_Skirt-torso-',
-     'md': '/models/char/dogMM_Skirt-torso-',
-     'ld': '/models/char/dogLL_Skirt-torso-'}
+    LegDict = getLegDict(MODEL_STYLE_RETRO)
+    TorsoDict = getTorsoDict(MODEL_STYLE_RETRO)
 else:
-    LegDict = {'s': '/models/char/tt_a_chr_dgs_shorts_legs_',
-     'm': '/models/char/tt_a_chr_dgm_shorts_legs_',
-     'l': '/models/char/tt_a_chr_dgl_shorts_legs_'}
-    TorsoDict = {'s': '/models/char/dogSS_Naked-torso-',
-     'm': '/models/char/dogMM_Naked-torso-',
-     'l': '/models/char/dogLL_Naked-torso-',
-     'ss': '/models/char/tt_a_chr_dgs_shorts_torso_',
-     'ms': '/models/char/tt_a_chr_dgm_shorts_torso_',
-     'ls': '/models/char/tt_a_chr_dgl_shorts_torso_',
-     'sd': '/models/char/tt_a_chr_dgs_skirt_torso_',
-     'md': '/models/char/tt_a_chr_dgm_skirt_torso_',
-     'ld': '/models/char/tt_a_chr_dgl_skirt_torso_'}
+    LegDict = getLegDict(MODEL_STYLE_MODERN)
+    TorsoDict = getTorsoDict(MODEL_STYLE_MODERN)
 
 def loadModels():
     global Preloaded
@@ -905,7 +924,9 @@ class Toon(Avatar.Avatar, ToonHead):
 
     def generateToonLegs(self, copy = 1):
         legStyle = self.style.legs
-        filePrefix = LegDict.get(legStyle)
+        modelStyle = getattr(self.style, 'modelStyle', 0)
+        legDict = getLegDict(modelStyle)
+        filePrefix = legDict.get(legStyle)
         if filePrefix is None:
             self.notify.error('unknown leg style: %s' % legStyle)
         self.loadModel('phase_3' + filePrefix + '1000', 'legs', '1000', copy)
@@ -941,7 +962,9 @@ class Toon(Avatar.Avatar, ToonHead):
 
     def generateToonTorso(self, copy = 1, genClothes = 1):
         torsoStyle = self.style.torso
-        filePrefix = TorsoDict.get(torsoStyle)
+        modelStyle = getattr(self.style, 'modelStyle', 0)
+        torsoDict = getTorsoDict(modelStyle)
+        filePrefix = torsoDict.get(torsoStyle)
         if filePrefix is None:
             self.notify.error('unknown torso style: %s' % torsoStyle)
         self.loadModel('phase_3' + filePrefix + '1000', 'torso', '1000', copy)

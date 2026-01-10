@@ -21,6 +21,7 @@ class BodyShop(StateData.StateData):
         self.legChoice = 0
         self.headChoice = 0
         self.speciesChoice = 0
+        self.modelStyleChoice = 0  # 0 = Modern, 1 = Retro
         return
 
     def enter(self, toon, shopsVisited = []):
@@ -51,10 +52,13 @@ class BodyShop(StateData.StateData):
         for button in self.speciesButtons:
             button.setColor(self.dna.getHeadColor())
 
+        # Initialize model style choice from toon's DNA
+        self.modelStyleChoice = getattr(self.dna, 'modelStyle', 0)
         self.__swapSpecies(self.dna.head[0])
         self.__swapHead(0)
         self.__swapTorso(0)
         self.__swapLegs(0)
+        self.__updateModelStyleButtons()
         choicePool = [ToonDNA.toonHeadTypes, torsoPool, ToonDNA.toonLegTypes]
         self.shuffleButton.setChoicePool(choicePool)
         self.accept(self.shuffleFetchMsg, self.changeBody)
@@ -72,11 +76,15 @@ class BodyShop(StateData.StateData):
     def showButtons(self):
         self.parentFrame.show()
         self.speciesFrame.show()
+        if hasattr(self, 'modelStyleFrame'):
+            self.modelStyleFrame.show()
 
     def hideButtons(self):
         self.parentFrame.hide()
         self.speciesFrame.hide()
         self.memberButton.hide()
+        if hasattr(self, 'modelStyleFrame'):
+            self.modelStyleFrame.hide()
 
     def exit(self):
         try:
@@ -109,6 +117,18 @@ class BodyShop(StateData.StateData):
             relief=None,
             pos=(0.2, 0, 0),
         )
+
+        # Model style selector frame (Modern/Retro) - matches Head/Body/Legs pattern
+        self.modelStyleFrame = DirectFrame(parent=self.parentFrame, image=shuffleFrame, image_scale=halfButtonInvertScale, relief=None, pos=(0, 0, -0.1), hpr=(0, 0, 1), scale=0.9, frameColor=(1, 1, 1, 1), text='Model Style', text_scale=0.0625, text_pos=(-0.001, -0.015), text_fg=(1, 1, 1, 1))
+        self.modelStyleLButton = DirectButton(parent=self.modelStyleFrame, relief=None, image=(shuffleArrowUp,
+         shuffleArrowDown,
+         shuffleArrowRollover,
+         shuffleArrowDisabled), image_scale=halfButtonScale, image1_scale=halfButtonHoverScale, image2_scale=halfButtonHoverScale, pos=(-0.2, 0, 0), command=self.__swapModelStyle, extraArgs=[-1])
+        self.modelStyleRButton = DirectButton(parent=self.modelStyleFrame, relief=None, image=(shuffleArrowUp,
+         shuffleArrowDown,
+         shuffleArrowRollover,
+         shuffleArrowDisabled), image_scale=halfButtonInvertScale, image1_scale=halfButtonInvertHoverScale, image2_scale=halfButtonInvertHoverScale, pos=(0.2, 0, 0), command=self.__swapModelStyle, extraArgs=[1])
+        self.modelStyleChoice = 0  # 0 = Modern, 1 = Retro
 
         self.speciesButtons = []
 
@@ -164,6 +184,32 @@ class BodyShop(StateData.StateData):
         self.shuffleButton = ShuffleButton.ShuffleButton(self, self.shuffleFetchMsg)
         return
 
+    def __swapModelStyle(self, offset):
+        """Swap model style: 0 = Modern, 1 = Retro"""
+        length = 2  # Modern and Retro
+        modelStyleStart = 0
+        self.modelStyleChoice = (self.modelStyleChoice + offset) % length
+        self.__updateScrollButtons(self.modelStyleChoice, length, modelStyleStart, self.modelStyleLButton, self.modelStyleRButton)
+        self.__updateModelStyleButtons()
+        # Update toon's model style
+        if self.toon and hasattr(self.toon, 'style'):
+            self.toon.style.modelStyle = self.modelStyleChoice
+            # Regenerate toon parts with new model style
+            currentHead = self.toon.style.head
+            currentTorso = self.toon.style.torso
+            currentLegs = self.toon.style.legs
+            self.toon.swapToonHead(currentHead)
+            self.toon.swapToonTorso(currentTorso)
+            self.toon.swapToonLegs(currentLegs)
+            self.toon.loop('neutral', 0)
+            self.toon.swapToonColor(self.toon.style)
+
+    def __updateModelStyleButtons(self):
+        """Update model style button display"""
+        modelStyleNames = ['Modern', 'Retro']
+        # Update frame text to show current selection
+        self.modelStyleFrame['text'] = modelStyleNames[self.modelStyleChoice]
+
     def unload(self):
         self.gui.removeNode()
         del self.gui
@@ -186,6 +232,10 @@ class BodyShop(StateData.StateData):
         self.legLButton.destroy()
         self.legRButton.destroy()
         self.memberButton.destroy()
+        if hasattr(self, 'modelStyleFrame'):
+            self.modelStyleFrame.destroy()
+            self.modelStyleLButton.destroy()
+            self.modelStyleRButton.destroy()
         del self.parentFrame
         del self.speciesFrame
         del self.headFrame
