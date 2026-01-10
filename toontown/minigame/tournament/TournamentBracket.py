@@ -139,19 +139,63 @@ class RoundRobinBracket(TournamentBracket):
     notify = directNotify.newCategory('RoundRobinBracket')
     
     def generateMatches(self):
-        """Generate all round robin match pairings"""
+        """
+        Generate all round robin match pairings using the circle method.
+        This ensures optimal match distribution across rounds.
+        """
         self.matches = []
         matchId = 0
         
-        # Generate every possible pairing
-        for i, p1 in enumerate(self.participants):
-            for p2 in self.participants[i+1:]:
-                match = TournamentMatch(matchId, p1, p2)
-                self.matches.append(match)
-                self.notify.debug(f"Generated match {matchId}: {p1} vs {p2}")
-                matchId += 1
+        numPlayers = len(self.participants)
+        if numPlayers < 2:
+            self.notify.warning("Cannot generate matches with less than 2 participants")
+            return
+        
+        # Circle method algorithm
+        # If odd number of players, add a BYE (represented as None)
+        players = list(self.participants)
+        hasBye = (numPlayers % 2 == 1)
+        if hasBye:
+            players.append(None)  # BYE player
+            numPlayers += 1
+        
+        # Number of rounds = numPlayers - 1 (for even) or numPlayers (for odd, but we made it even)
+        numRounds = numPlayers - 1
+        
+        # Fix first player, rotate others clockwise each round
+        for roundNum in range(numRounds):
+            # Create pairs: top vs bottom, second vs second-to-last, etc.
+            numMatchesInRound = numPlayers // 2
+            
+            for i in range(numMatchesInRound):
+                # Pair positions: (0, n-1), (1, n-2), (2, n-3), etc.
+                pos1 = i
+                pos2 = numPlayers - 1 - i
                 
-        self.notify.info(f"Generated {len(self.matches)} round robin matches")
+                player1 = players[pos1]
+                player2 = players[pos2]
+                
+                # Skip matches involving BYE (None)
+                if player1 is None or player2 is None:
+                    continue
+                
+                # Create match (always put lower ID first for consistency)
+                if player1 < player2:
+                    match = TournamentMatch(matchId, player1, player2)
+                else:
+                    match = TournamentMatch(matchId, player2, player1)
+                
+                self.matches.append(match)
+                self.notify.debug(f"Round {roundNum + 1}, Match {matchId}: {match.player1} vs {match.player2}")
+                matchId += 1
+            
+            # Rotate players clockwise (except first player stays fixed)
+            # Move last player to second position, shift others right
+            if roundNum < numRounds - 1:  # Don't rotate after last round
+                # Rotate: [0, 1, 2, ..., n-1] -> [0, n-1, 1, 2, ..., n-2]
+                players = [players[0]] + [players[-1]] + players[1:-1]
+                
+        self.notify.info(f"Generated {len(self.matches)} round robin matches in {numRounds} rounds using circle method")
         
         # Initialize standings for all participants
         for participant in self.participants:
