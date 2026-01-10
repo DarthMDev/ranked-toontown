@@ -16,6 +16,7 @@ from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSa
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.coghq.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
 from toontown.coghq.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
+from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
@@ -50,6 +51,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.treasures = {}
         self.grabbingTreasures = {}
         self.boomBarrows = []  # List to hold boom barrow objects
+        self.floatingPlatforms = []  # List to hold floating platform objects
         self.recycledTreasures = []
         self.boss = None
 
@@ -452,6 +454,23 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 boomBarrow.generateWithRequired(self.zoneId)
                 boomBarrow.b_setIndex(boomBarrowIndex)
                 self.boomBarrows.append(boomBarrow)
+            
+            # Generate floating platforms near door and vault (in front of and behind CFO)
+            # CFO is at approximately (120, -315, 0)
+            # Door is at (84, -201, -6) - towards positive Y from CFO
+            # Vault is behind CFO - towards negative Y from CFO
+            # Platform positions: one in front of CFO (towards door), one behind CFO (towards vault)
+            # Positioned further away and at appropriate height so toons can reach them
+            platformPositions = [
+                (120, -275, 3),   # Front platform (towards door, in front of CFO) - 40 units away
+                (120, -356, 3),   # Back platform (behind CFO, towards vault) - 40 units away
+            ]
+            for platformIndex, (x, y, z) in enumerate(platformPositions):
+                platform = DistributedFloatingPlatformAI(self.air, self, platformIndex)
+                platform.generateWithRequired(self.zoneId)
+                platform.b_setIndex(platformIndex)
+                platform.setPosition(x, y, z)
+                self.floatingPlatforms.append(platform)
 
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
@@ -494,6 +513,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         for boomBarrow in self.boomBarrows:
             boomBarrow.requestDelete()
         self.boomBarrows.clear()
+        
+        # Clean up floating platforms
+        for platform in self.floatingPlatforms:
+            platform.requestDelete()
+        self.floatingPlatforms.clear()
 
         for goon in self.goons:
             goon.request('Off')
