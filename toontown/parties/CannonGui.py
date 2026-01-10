@@ -99,79 +99,159 @@ class CannonGui(DirectObject):
         self.rightPressed = 0
         self.upPressed = 0
         self.downPressed = 0
-        self.accept(base.controls.MOVE_UP, self.__upKeyPressed)
-        self.accept(base.controls.MOVE_DOWN, self.__downKeyPressed)
-        self.accept(base.controls.MOVE_LEFT, self.__leftKeyPressed)
-        self.accept(base.controls.MOVE_RIGHT, self.__rightKeyPressed)
+        # Accept both binds for movement controls
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.accept(bind, self.__upKeyPressed)
+        
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.accept(bind, self.__downKeyPressed)
+        
+        left_binds = base.settings.getControlBinds("MOVE_LEFT")
+        for bind in left_binds:
+            if bind:
+                self.accept(bind, self.__leftKeyPressed)
+        
+        right_binds = base.settings.getControlBinds("MOVE_RIGHT")
+        for bind in right_binds:
+            if bind:
+                self.accept(bind, self.__rightKeyPressed)
 
     def disableAimKeys(self):
-        self.ignore(base.controls.MOVE_UP)
-        self.ignore(base.controls.MOVE_DOWN)
-        self.ignore(base.controls.MOVE_LEFT)
-        self.ignore(base.controls.MOVE_RIGHT)
-        messenger.send(base.controls.MOVE_UP + '-up')
-        messenger.send(base.controls.MOVE_DOWN + '-up')
-        messenger.send(base.controls.MOVE_LEFT + '-up')
-        messenger.send(base.controls.MOVE_RIGHT + '-up')
-        self.ignore(base.controls.MOVE_UP + "-up")
-        self.ignore(base.controls.MOVE_DOWN + "-up")
-        self.ignore(base.controls.MOVE_LEFT + "-up")
-        self.ignore(base.controls.MOVE_RIGHT + "-up")
+        # Ignore both binds for movement controls
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind)
+                messenger.send(bind + '-up')
+                self.ignore(bind + "-up")
+        
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.ignore(bind)
+                messenger.send(bind + '-up')
+                self.ignore(bind + "-up")
+        
+        left_binds = base.settings.getControlBinds("MOVE_LEFT")
+        for bind in left_binds:
+            if bind:
+                self.ignore(bind)
+                messenger.send(bind + '-up')
+                self.ignore(bind + "-up")
+        
+        right_binds = base.settings.getControlBinds("MOVE_RIGHT")
+        for bind in right_binds:
+            if bind:
+                self.ignore(bind)
+                messenger.send(bind + '-up')
+                self.ignore(bind + "-up")
 
     def enableFireKey(self):
-        self.accept(base.controls.JUMP, self.__fireKeyPressed)
+        # Accept both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.accept(bind, self.__fireKeyPressed)
 
     def disableFireKey(self):
-        self.ignore(base.controls.JUMP)
-        self.ignore(base.controls.JUMP + '-up')
+        # Ignore both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
 
     def __fireKeyPressed(self):
-        self.ignore(base.controls.JUMP)
-        self.accept(base.controls.JUMP + '-up', self.__fireKeyReleased)
+        # Ignore all JUMP binds and accept their -up events
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.ignore(bind)
+                self.accept(bind + '-up', self.__fireKeyReleased)
         self.__firePressed()
 
     def __upKeyPressed(self):
-        self.ignore(base.controls.MOVE_UP)
-        self.accept(base.controls.MOVE_UP + '-up', self.__upKeyReleased)
+        # Ignore all MOVE_UP binds and accept their -up events
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind)
+                self.accept(bind + '-up', self.__upKeyReleased)
         self.__upPressed()
 
     def __downKeyPressed(self):
-        self.ignore(base.controls.MOVE_DOWN)
-        self.accept(base.controls.MOVE_DOWN + '-up', self.__downKeyReleased)
+        # Ignore all MOVE_DOWN binds and accept their -up events
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.ignore(bind)
+                self.accept(bind + '-up', self.__downKeyReleased)
         self.__downPressed()
 
     def __leftKeyPressed(self):
-        self.ignore(base.controls.MOVE_LEFT)
-        self.accept(base.controls.MOVE_LEFT + '-up', self.__leftKeyReleased)
+        # Ignore all MOVE_LEFT binds and accept their -up events
+        left_binds = base.settings.getControlBinds("MOVE_LEFT")
+        for bind in left_binds:
+            if bind:
+                self.ignore(bind)
+                self.accept(bind + '-up', self.__leftKeyReleased)
         self.__leftPressed()
 
     def __rightKeyPressed(self):
-        self.ignore(base.controls.MOVE_RIGHT)
-        self.accept(base.controls.MOVE_RIGHT + '-up', self.__rightKeyReleased)
+        # Ignore all MOVE_RIGHT binds and accept their -up events
+        right_binds = base.settings.getControlBinds("MOVE_RIGHT")
+        for bind in right_binds:
+            if bind:
+                self.ignore(bind)
+                self.accept(bind + '-up', self.__rightKeyReleased)
         self.__rightPressed()
 
     def __fireKeyReleased(self):
-        self.ignore(base.controls.JUMP + '-up')
-        self.accept(base.controls.JUMP, self.__fireKeyPressed)
+        # Re-accept all JUMP binds
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.ignore(bind + '-up')
+                self.accept(bind, self.__fireKeyPressed)
 
     def __leftKeyReleased(self):
-        self.ignore(base.controls.MOVE_LEFT + '-up')
-        self.accept(base.controls.MOVE_LEFT, self.__leftKeyPressed)
+        # Re-accept all MOVE_LEFT binds
+        left_binds = base.settings.getControlBinds("MOVE_LEFT")
+        for bind in left_binds:
+            if bind:
+                self.ignore(bind + '-up')
+                self.accept(bind, self.__leftKeyPressed)
         self.__leftReleased()
 
     def __rightKeyReleased(self):
-        self.ignore(base.controls.MOVE_RIGHT + '-up')
-        self.accept(base.controls.MOVE_RIGHT, self.__rightKeyPressed)
+        # Re-accept all MOVE_RIGHT binds
+        right_binds = base.settings.getControlBinds("MOVE_RIGHT")
+        for bind in right_binds:
+            if bind:
+                self.ignore(bind + '-up')
+                self.accept(bind, self.__rightKeyPressed)
         self.__rightReleased()
 
     def __upKeyReleased(self):
-        self.ignore(base.controls.MOVE_UP + '-up')
-        self.accept(base.controls.MOVE_UP, self.__upKeyPressed)
+        # Re-accept all MOVE_UP binds
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind + '-up')
+                self.accept(bind, self.__upKeyPressed)
         self.__upReleased()
 
     def __downKeyReleased(self):
-        self.ignore(base.controls.MOVE_DOWN + '-up')
-        self.accept(base.controls.MOVE_DOWN, self.__downKeyPressed)
+        # Re-accept all MOVE_DOWN binds
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.ignore(bind + '-up')
+                self.accept(bind, self.__downKeyPressed)
         self.__downReleased()
 
     def __upPressed(self):

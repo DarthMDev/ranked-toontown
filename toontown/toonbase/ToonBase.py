@@ -534,85 +534,76 @@ class ToonBase(OTPBase.OTPBase):
     def controls(self) -> ControlSettings:
         return self.settings.controls
 
+    def _acceptControlBinds(self, control_name: str, callback, *args, **kwargs) -> None:
+        """Helper to accept both binds for a control"""
+        binds = self.settings.getControlBinds(control_name)
+        for bind in binds:
+            if bind:
+                self.accept(bind, callback, *args, **kwargs)
+    
+    def _ignoreControlBinds(self, control_name: str) -> None:
+        """Helper to ignore both binds for a control"""
+        binds = self.settings.getControlBinds(control_name)
+        for bind in binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(f"{bind}-up")
+
     def acceptHotkeys(self) -> None:
-        # Accept the screenshot key
-        self.accept(self.controls.SCREENSHOT, self.takeScreenShot)
-        self.accept(
-            self.controls.MAP_PAGE_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.StickerBookHotkey]
-        )
-        self.accept(
-            self.controls.FRIENDS_LIST_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.FriendsListHotkey]
-        )
-        self.accept(
-            self.controls.STREET_MAP_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.MapHotkey]
-        )
-        self.accept(
-            self.controls.INVENTORY_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.InventoryHotkeyOn]
-        )
-        self.accept(
-            f"{self.controls.INVENTORY_HOTKEY}-up",
-            messenger.send,
-            extraArgs=[ToontownGlobals.InventoryHotkeyOff]
-        )
-        self.accept(
-            self.controls.QUEST_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.QuestsHotkeyOn]
-        )
-        self.accept(
-            f"{self.controls.QUEST_HOTKEY}-up",
-            messenger.send,
-            extraArgs=[ToontownGlobals.QuestsHotkeyOff]
-        )
-        self.accept(
-            self.controls.GALLERY_HOTKEY,
-            messenger.send,
-            extraArgs=[ToontownGlobals.GalleryHotkeyOn]
-        )
-        self.accept(
-            f"{self.controls.GALLERY_HOTKEY}-up",
-            messenger.send,
-            extraArgs=[ToontownGlobals.GalleryHotkeyOff]
-        )
-        self.accept(
-            self.controls.CHAT_HOTKEY,
-            messenger.send,
-            extraArgs=["enterNormalChat"]
-        )
-        self.accept(
-            self.controls.MOVE_LEFT,
-            messenger.send,
-            extraArgs=[ToontownGlobals.StickerBookPageLeft]
-        )
-        self.accept(
-            self.controls.MOVE_RIGHT,
-            messenger.send,
-            extraArgs=[ToontownGlobals.StickerBookPageRight]
-        )
+        # Accept the screenshot key (both binds)
+        self._acceptControlBinds("SCREENSHOT", self.takeScreenShot)
+        
+        # Accept MAP_PAGE_HOTKEY (both binds)
+        self._acceptControlBinds("MAP_PAGE_HOTKEY", messenger.send, extraArgs=[ToontownGlobals.StickerBookHotkey])
+        
+        # Accept FRIENDS_LIST_HOTKEY (both binds)
+        self._acceptControlBinds("FRIENDS_LIST_HOTKEY", messenger.send, extraArgs=[ToontownGlobals.FriendsListHotkey])
+        
+        # Accept STREET_MAP_HOTKEY (both binds)
+        self._acceptControlBinds("STREET_MAP_HOTKEY", messenger.send, extraArgs=[ToontownGlobals.MapHotkey])
+        
+        # Accept INVENTORY_HOTKEY (both binds, with -up events)
+        binds = self.settings.getControlBinds("INVENTORY_HOTKEY")
+        for bind in binds:
+            if bind:
+                self.accept(bind, messenger.send, extraArgs=[ToontownGlobals.InventoryHotkeyOn])
+                self.accept(f"{bind}-up", messenger.send, extraArgs=[ToontownGlobals.InventoryHotkeyOff])
+        
+        # Accept QUEST_HOTKEY (both binds, with -up events)
+        binds = self.settings.getControlBinds("QUEST_HOTKEY")
+        for bind in binds:
+            if bind:
+                self.accept(bind, messenger.send, extraArgs=[ToontownGlobals.QuestsHotkeyOn])
+                self.accept(f"{bind}-up", messenger.send, extraArgs=[ToontownGlobals.QuestsHotkeyOff])
+        
+        # Accept GALLERY_HOTKEY (both binds, with -up events)
+        binds = self.settings.getControlBinds("GALLERY_HOTKEY")
+        for bind in binds:
+            if bind:
+                self.accept(bind, messenger.send, extraArgs=[ToontownGlobals.GalleryHotkeyOn])
+                self.accept(f"{bind}-up", messenger.send, extraArgs=[ToontownGlobals.GalleryHotkeyOff])
+        
+        # Accept CHAT_HOTKEY (both binds)
+        self._acceptControlBinds("CHAT_HOTKEY", messenger.send, extraArgs=["enterNormalChat"])
+        
+        # Accept MOVE_LEFT (both binds)
+        self._acceptControlBinds("MOVE_LEFT", messenger.send, extraArgs=[ToontownGlobals.StickerBookPageLeft])
+        
+        # Accept MOVE_RIGHT (both binds)
+        self._acceptControlBinds("MOVE_RIGHT", messenger.send, extraArgs=[ToontownGlobals.StickerBookPageRight])
 
     def ignoreHotkeys(self) -> None:
-        # Ignore the screenshot key
-        self.ignore(self.controls.SCREENSHOT)
-        self.ignore(self.controls.MAP_PAGE_HOTKEY)
-        self.ignore(self.controls.FRIENDS_LIST_HOTKEY)
-        self.ignore(self.controls.STREET_MAP_HOTKEY)
-        self.ignore(self.controls.INVENTORY_HOTKEY)
-        self.ignore(f"{self.controls.INVENTORY_HOTKEY}-up")
-        self.ignore(self.controls.QUEST_HOTKEY)
-        self.ignore(f"{self.controls.QUEST_HOTKEY}-up")
-        self.ignore(self.controls.GALLERY_HOTKEY)
-        self.ignore(f"{self.controls.GALLERY_HOTKEY}-up")
-        self.ignore(self.controls.CHAT_HOTKEY)
-        self.ignore(self.controls.MOVE_LEFT)
-        self.ignore(self.controls.MOVE_RIGHT)
+        # Ignore all hotkey binds
+        self._ignoreControlBinds("SCREENSHOT")
+        self._ignoreControlBinds("MAP_PAGE_HOTKEY")
+        self._ignoreControlBinds("FRIENDS_LIST_HOTKEY")
+        self._ignoreControlBinds("STREET_MAP_HOTKEY")
+        self._ignoreControlBinds("INVENTORY_HOTKEY")
+        self._ignoreControlBinds("QUEST_HOTKEY")
+        self._ignoreControlBinds("GALLERY_HOTKEY")
+        self._ignoreControlBinds("CHAT_HOTKEY")
+        self._ignoreControlBinds("MOVE_LEFT")
+        self._ignoreControlBinds("MOVE_RIGHT")
 
     def enableHotkeys(self) -> None:
         self.ignore("enable-hotkeys")

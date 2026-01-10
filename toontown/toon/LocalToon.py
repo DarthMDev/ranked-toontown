@@ -311,9 +311,18 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         self.archipelagoLog = ArchipelagoOnscreenLog()
 
         controls = base.controls
-        self.accept(controls.SECONDARY_ACTION, self.__zeroPowerToss)
-        self.accept('time-' + controls.ACTION_BUTTON, self.__beginTossPie)
-        self.accept('time-' + controls.ACTION_BUTTON + '-up', self.__endTossPie)
+        # Accept both binds for SECONDARY_ACTION
+        secondary_binds = base.settings.getControlBinds("SECONDARY_ACTION")
+        for bind in secondary_binds:
+            if bind:
+                self.accept(bind, self.__zeroPowerToss)
+        
+        # Accept both binds for ACTION_BUTTON
+        action_binds = base.settings.getControlBinds("ACTION_BUTTON")
+        for bind in action_binds:
+            if bind:
+                self.accept('time-' + bind, self.__beginTossPie)
+                self.accept('time-' + bind + '-up', self.__endTossPie)
         self.accept('pieHit', self.__pieHit)
         self.accept('interrupt-pie', self.interruptPie)
         self.accept('InputState-jump', self.__toonMoved)
@@ -1361,15 +1370,33 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
     # Update pie throw keys without needing a game restart
     def disableOldPieKeys(self) -> None:
         controls = base.controls
-        self.ignore(controls.SECONDARY_ACTION)
-        self.ignore('time-' + controls.ACTION_BUTTON)
-        self.ignore('time-' + controls.ACTION_BUTTON + '-up')
+        # Ignore both binds for SECONDARY_ACTION
+        secondary_binds = base.settings.getControlBinds("SECONDARY_ACTION")
+        for bind in secondary_binds:
+            if bind:
+                self.ignore(bind)
+        
+        # Ignore both binds for ACTION_BUTTON
+        action_binds = base.settings.getControlBinds("ACTION_BUTTON")
+        for bind in action_binds:
+            if bind:
+                self.ignore('time-' + bind)
+                self.ignore('time-' + bind + '-up')
 
     def resetPieKeys(self) -> None:
         controls = base.controls
-        self.accept(controls.SECONDARY_ACTION, self.__zeroPowerToss)
-        self.accept('time-' + controls.ACTION_BUTTON, self.__beginTossPie)
-        self.accept('time-' + controls.ACTION_BUTTON + '-up', self.__endTossPie)
+        # Accept both binds for SECONDARY_ACTION
+        secondary_binds = base.settings.getControlBinds("SECONDARY_ACTION")
+        for bind in secondary_binds:
+            if bind:
+                self.accept(bind, self.__zeroPowerToss)
+        
+        # Accept both binds for ACTION_BUTTON
+        action_binds = base.settings.getControlBinds("ACTION_BUTTON")
+        for bind in action_binds:
+            if bind:
+                self.accept('time-' + bind, self.__beginTossPie)
+                self.accept('time-' + bind + '-up', self.__endTossPie)
 
     def updateOverhead(self) -> None:
         if base.laffMeterDisplay:

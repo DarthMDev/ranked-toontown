@@ -507,7 +507,8 @@ class OptionElement(DirectFrame):
         self.optionType = OptionToType[self.optionName]
 
         if self.optionType == OptionTypes.CONTROL:
-            currSetting = self.formatKeybind(base.settings.getControl(name))
+            # For controls, we'll handle the display differently with two buttons
+            currSetting = None  # Not used for controls
         elif self.optionType == OptionTypes.BUTTON_SPEEDCHAT:
             currSetting = self.formatSpeedchat(base.localAvatar.getSpeedChatStyleIndex())
         else:
@@ -526,10 +527,41 @@ class OptionElement(DirectFrame):
         # A separate frame for dropdown options which contains a list of option buttons.
         self.dropdownFrame: Optional[DropdownScrolledFrame] = None
 
-        # Make the button which will appear on the right-hand side of
+        # Make the button(s) which will appear on the right-hand side of
         # the page.
-        if self.optionType in (OptionTypes.BUTTON, OptionTypes.CONTROL, OptionTypes.BUTTON_SPEEDCHAT,
-                               OptionTypes.DROPDOWN):
+        if self.optionType == OptionTypes.CONTROL:
+            # For controls, create two buttons (primary and secondary bind)
+            self.optionModifier = DirectButton(
+                parent=self, relief=None, pos=(0.25, 0, z),
+                text=self.formatKeybind(base.settings.getControl(self.optionName)),
+                text_scale=0.052, image_pos=(0, 0, 0.02),
+                image=(
+                    gui.find("**/QuitBtn_UP"),
+                    gui.find("**/QuitBtn_DN"),
+                    gui.find("**/QuitBtn_RLVR"),
+                ),
+                image_scale=(0.6, 1, 1),
+            )
+            self.optionModifier["command"] = self._updateButtonOption
+            
+            # Secondary bind button
+            self.optionModifier2 = DirectButton(
+                parent=self, relief=None, pos=(0.49, 0, z),
+                text=self.formatKeybind(base.settings.getControlBinds(self.optionName)[1] or "None"),
+                text_scale=0.052, image_pos=(0, 0, 0.02),
+                image=(
+                    gui.find("**/QuitBtn_UP"),
+                    gui.find("**/QuitBtn_DN"),
+                    gui.find("**/QuitBtn_RLVR"),
+                ),
+                image_scale=(0.6, 1, 1),
+            )
+            self.optionModifier2["command"] = self._updateButtonOption2
+            
+            self.checkForDuplicates()
+            self.accept("controls_findDuplicates", self.checkForDuplicates)
+            self.registeringBindIndex = 0  # Track which bind we're currently setting
+        elif self.optionType in (OptionTypes.BUTTON, OptionTypes.BUTTON_SPEEDCHAT, OptionTypes.DROPDOWN):
             self.optionModifier = DirectButton(
                 parent=self, relief=None, pos=(0.37, 0, z),
                 text=self.formatSetting(currSetting),
@@ -545,10 +577,6 @@ class OptionElement(DirectFrame):
                 self.optionModifier["command"] = self._openDropdown
             else:
                 self.optionModifier["command"] = self._updateButtonOption
-
-            if self.optionType == OptionTypes.CONTROL:
-                self.checkForDuplicates()
-                self.accept("controls_findDuplicates", self.checkForDuplicates)
         # Make the slider which will appear on the right-hand side of
         # the page.
         elif self.optionType == OptionTypes.SLIDER:
@@ -586,6 +614,10 @@ class OptionElement(DirectFrame):
 
         self.optionModifier.destroy()
         del self.optionModifier
+        
+        if hasattr(self, "optionModifier2"):
+            self.optionModifier2.destroy()
+            del self.optionModifier2
 
         self.label.destroy()
         del self.label
@@ -594,6 +626,8 @@ class OptionElement(DirectFrame):
 
     @staticmethod
     def formatKeybind(keybind: str) -> str:
+        if not keybind:
+            return "None"
         return " ".join(keybind.split("_")).title()
 
     @staticmethod
@@ -627,25 +661,75 @@ class OptionElement(DirectFrame):
 
         return str(setting)
 
-    def registerKey(self, keybind: str, mouse=None) -> None:
+    def registerKey(self, keybind: str, mouse=None, bind_index: int = 0) -> None:
         """
         Called when we are in the accepting keybind state. If mouse param is not None, that means this was a mouse button
         event and the keybind parameter is garbage. A bit hacky, but it makes event cleanup and management easier.
+        Args:
+            keybind: The keybind string
+            mouse: Mouse button if this was a mouse event
+            bind_index: Which bind to set (0 for primary, 1 for secondary)
         """
+        print(f"[DEBUG] registerKey called: control={self.optionName}, keybind={keybind}, mouse={mouse}, bind_index={bind_index}")
+        
         if mouse is not None:
             keybind = mouse
-        base.settings.setControl(self.optionName, keybind)
-        self.doneRegisterKey()
-
-    def doneRegisterKey(self) -> None:
+            print(f"[DEBUG] Using mouse keybind: {keybind}")
+        
+        # Clear the registering flags to prevent controls_stopListening from interfering
+        if hasattr(self, '_registeringPrimary'):
+            self._registeringPrimary = False
+        if hasattr(self, '_registeringSecondary'):
+            self._registeringSecondary = False
+        
+        # Ignore controls_stopListening before saving to prevent it from interfering
         self.ignore("controls_stopListening")
-        self.ignore(self.controlTask)
+        
+        # Get current binds before setting
+        old_binds = base.settings.getControlBinds(self.optionName)
+        print(f"[DEBUG] Old binds for {self.optionName}: {old_binds}")
+        
+        # Save the keybind
+        base.settings.setControl(self.optionName, keybind, bind_index)
+        
+        # Verify it was saved
+        new_binds = base.settings.getControlBinds(self.optionName)
+        print(f"[DEBUG] New binds for {self.optionName}: {new_binds}")
+        print(f"[DEBUG] Setting bind_index {bind_index} to '{keybind}', result: {new_binds[bind_index] if len(new_binds) > bind_index else 'OUT OF RANGE'}")
+        
+        # Update the UI
+        self.doneRegisterKey(bind_index)
+
+    def doneRegisterKey(self, bind_index: int = 0) -> None:
+        print(f"[DEBUG] doneRegisterKey called: control={self.optionName}, bind_index={bind_index}")
+        self.ignore("controls_stopListening")
+        if hasattr(self, "controlTask"):
+            self.ignore(self.controlTask)
         messenger.send("enable-hotkeys")
 
-        self.optionModifier.configure(
-            text=self.formatKeybind(base.settings.getControl(self.optionName)),
-            image_color=Vec4(1, 1, 1, 1),
-        )
+        if self.optionType == OptionTypes.CONTROL:
+            # Update the appropriate button
+            if bind_index == 0:
+                primary = base.settings.getControl(self.optionName)
+                print(f"[DEBUG] Updating primary bind display: {primary}")
+                self.optionModifier.configure(
+                    text=self.formatKeybind(primary),
+                    image_color=Vec4(1, 1, 1, 1),
+                )
+            elif bind_index == 1:
+                binds = base.settings.getControlBinds(self.optionName)
+                print(f"[DEBUG] Current binds when updating secondary: {binds}")
+                secondary_bind = binds[1] if len(binds) > 1 and binds[1] else ""
+                print(f"[DEBUG] Updating secondary bind display: '{secondary_bind}' (formatted: '{self.formatKeybind(secondary_bind)}')")
+                self.optionModifier2.configure(
+                    text=self.formatKeybind(secondary_bind),
+                    image_color=Vec4(1, 1, 1, 1),
+                )
+        else:
+            self.optionModifier.configure(
+                text=self.formatKeybind(base.settings.getControl(self.optionName)),
+                image_color=Vec4(1, 1, 1, 1),
+            )
 
         messenger.send("controls_findDuplicates")
 
@@ -654,16 +738,48 @@ class OptionElement(DirectFrame):
         duplicates. In the case that there is, change the button color
         to RED, to indicate that.
         """
-        currentKeybind = base.settings.getControl(self.optionName)
-        for control, keybind in base.settings.getControls().items():
-            # This control is different, but the keybind is the same.
-            # Make the button red.
-            if control != self.optionName and keybind == currentKeybind:
-                self.optionModifier["image_color"] = Vec4(1, 0.1, 0.1, 1)
-                return
-
-        # No duplicates were found, keep the color the same.
-        self.optionModifier["image_color"] = Vec4(1, 1, 1, 1)
+        if self.optionType != OptionTypes.CONTROL:
+            return
+            
+        currentBinds = base.settings.getControlBinds(self.optionName)
+        all_controls = base.settings.getControls()
+        
+        # Check primary bind
+        primary_has_duplicate = False
+        if currentBinds[0]:
+            for control, keybinds in all_controls.items():
+                if control == self.optionName:
+                    continue
+                # Handle both old (string) and new (list) formats
+                if isinstance(keybinds, str):
+                    if keybinds == currentBinds[0]:
+                        primary_has_duplicate = True
+                        break
+                elif isinstance(keybinds, list):
+                    if currentBinds[0] in keybinds:
+                        primary_has_duplicate = True
+                        break
+        
+        # Check secondary bind
+        secondary_has_duplicate = False
+        if len(currentBinds) > 1 and currentBinds[1]:
+            for control, keybinds in all_controls.items():
+                if control == self.optionName:
+                    continue
+                # Handle both old (string) and new (list) formats
+                if isinstance(keybinds, str):
+                    if keybinds == currentBinds[1]:
+                        secondary_has_duplicate = True
+                        break
+                elif isinstance(keybinds, list):
+                    if currentBinds[1] in keybinds:
+                        secondary_has_duplicate = True
+                        break
+        
+        # Update button colors
+        self.optionModifier["image_color"] = Vec4(1, 0.1, 0.1, 1) if primary_has_duplicate else Vec4(1, 1, 1, 1)
+        if hasattr(self, "optionModifier2"):
+            self.optionModifier2["image_color"] = Vec4(1, 0.1, 0.1, 1) if secondary_has_duplicate else Vec4(1, 1, 1, 1)
 
     def _openDropdown(self) -> None:
         self.dropdownFrame = DropdownScrolledFrame(
@@ -694,6 +810,7 @@ class OptionElement(DirectFrame):
         self.optionModifier["text"] = self.formatSetting(newSetting)
 
     def _updateButtonOption(self) -> None:
+        """Handle primary bind button click"""
         messenger.send("wakeup")
 
         if self.optionType == OptionTypes.CONTROL:
@@ -701,9 +818,23 @@ class OptionElement(DirectFrame):
             messenger.send("controls_stopListening")
             # Then, listen for that same message on this control in the case
             # of another control being clicked.
-            self.accept("controls_stopListening", self.doneRegisterKey)
+            # Store bind_index in a way that the lambda can access it correctly
+            bind_idx = 0
+            
+            # Create a flag to track if we're currently registering
+            self._registeringPrimary = True
+            
+            def handleStopListening():
+                # Only call doneRegisterKey if we're still registering
+                # This prevents it from being called after the keybind is saved
+                if hasattr(self, '_registeringPrimary') and self._registeringPrimary:
+                    self._registeringPrimary = False
+                    self.doneRegisterKey(bind_idx)
+            
+            self.accept("controls_stopListening", handleStopListening)
 
-            self.controlTask = f"{self.optionName}-updateControl"
+            self.controlTask = f"{self.optionName}-updateControl-0"
+            self.registeringBindIndex = 0
 
             self.optionModifier.configure(text='...', image_color=Vec4(0.2, 0.9, 0.9, 1))
 
@@ -713,7 +844,80 @@ class OptionElement(DirectFrame):
             mw.setButtonDownPattern(self.controlTask)
 
             messenger.send("disable-hotkeys")
-            self.accept(self.controlTask, self.registerKey)
+            # Use the existing registerKey method with the bind_index
+            # The event handler receives the keybind as the first argument
+            # We need to create a wrapper that calls registerKey with the correct bind_index
+            def registerKeyWrapper(keybind, mouse=None):
+                # Mark that we're no longer registering (keybind was received)
+                if hasattr(self, '_registeringPrimary'):
+                    self._registeringPrimary = False
+                # Ignore controls_stopListening before registering to prevent interference
+                self.ignore("controls_stopListening")
+                # Call registerKey with the correct bind_index
+                self.registerKey(keybind, mouse, 0)  # Use 0 directly instead of bind_idx to avoid closure issues
+            
+            self.accept(self.controlTask, registerKeyWrapper)
+            return
+
+    def _updateButtonOption2(self) -> None:
+        """Handle secondary bind button click"""
+        print(f"[DEBUG] _updateButtonOption2 called for {self.optionName}")
+        messenger.send("wakeup")
+
+        if self.optionType == OptionTypes.CONTROL:
+            # Tell any controls that are listening for input to stop doing that.
+            messenger.send("controls_stopListening")
+            # Then, listen for that same message on this control in the case
+            # of another control being clicked.
+            # Store bind_index in a way that the lambda can access it correctly
+            bind_idx = 1
+            
+            # Create a flag to track if we're currently registering
+            self._registeringSecondary = True
+            print(f"[DEBUG] Set _registeringSecondary = True for {self.optionName}")
+            
+            def handleStopListening():
+                print(f"[DEBUG] handleStopListening called for {self.optionName}, _registeringSecondary={getattr(self, '_registeringSecondary', 'NOT SET')}")
+                # Only call doneRegisterKey if we're still registering
+                # This prevents it from being called after the keybind is saved
+                if hasattr(self, '_registeringSecondary') and self._registeringSecondary:
+                    print(f"[DEBUG] Calling doneRegisterKey(1) from handleStopListening")
+                    self._registeringSecondary = False
+                    self.doneRegisterKey(bind_idx)
+                else:
+                    print(f"[DEBUG] Skipping doneRegisterKey - not registering or already registered")
+            
+            self.accept("controls_stopListening", handleStopListening)
+
+            self.controlTask = f"{self.optionName}-updateControl-1"
+            self.registeringBindIndex = 1
+            print(f"[DEBUG] Set controlTask to: {self.controlTask}")
+
+            self.optionModifier2.configure(text='...', image_color=Vec4(0.2, 0.9, 0.9, 1))
+
+            bt = base.buttonThrowers[0].node()
+            mw = base.buttonThrowers[0].getParent().node()
+            bt.setButtonDownEvent(self.controlTask)
+            mw.setButtonDownPattern(self.controlTask)
+            print(f"[DEBUG] Set buttonDownEvent and pattern to: {self.controlTask}")
+
+            messenger.send("disable-hotkeys")
+            # Use the existing registerKey method with the bind_index
+            # The event handler receives the keybind as the first argument
+            # We need to create a wrapper that calls registerKey with the correct bind_index
+            def registerKeyWrapper(keybind, mouse=None):
+                print(f"[DEBUG] registerKeyWrapper called for {self.optionName}: keybind={keybind}, mouse={mouse}")
+                # Mark that we're no longer registering (keybind was received)
+                if hasattr(self, '_registeringSecondary'):
+                    self._registeringSecondary = False
+                    print(f"[DEBUG] Set _registeringSecondary = False")
+                # Ignore controls_stopListening before registering to prevent interference
+                self.ignore("controls_stopListening")
+                # Call registerKey with the correct bind_index
+                self.registerKey(keybind, mouse, 1)  # Use 1 directly instead of bind_idx to avoid closure issues
+            
+            self.accept(self.controlTask, registerKeyWrapper)
+            print(f"[DEBUG] Accepted event: {self.controlTask}")
             return
 
         elif self.optionType == OptionTypes.BUTTON_SPEEDCHAT:

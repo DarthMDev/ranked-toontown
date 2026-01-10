@@ -660,15 +660,26 @@ class DistributedBanquetTable(DistributedObject.DistributedObject, FSM.FSM, Banq
          gui.find('**/CloseBtn_Rllvr'),
          gui.find('**/CloseBtn_UP')), relief=None, scale=2, text=TTLocalizer.BossbotPitcherLeave, text_scale=0.04, text_pos=(0, -0.07), text_fg=VBase4(1, 1, 1, 1), pos=(1.05, 0, -0.82), command=self.__exitPitcher)
         self.accept('escape', self.__exitPitcher)
-        self.accept(base.controls.JUMP, self.__controlPressed)
-        self.accept(base.controls.JUMP + '-up', self.__controlReleased)
+        # Accept both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.accept(bind, self.__controlPressed)
+                self.accept(bind + '-up', self.__controlReleased)
         base.localAvatar.enableCraneControls()
         self.accept('InputState-forward', self.__upArrow)
         self.accept('InputState-reverse', self.__downArrow)
         self.accept('InputState-turnLeft', self.__leftArrow)
         self.accept('InputState-turnRight', self.__rightArrow)
-        self.accept(base.controls.MOVE_UP, self.__upArrowKeyPressed)
-        self.accept(base.controls.MOVE_DOWN, self.__downArrowKeyPressed)
+        # Accept both binds for MOVE_UP and MOVE_DOWN
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.accept(bind, self.__upArrowKeyPressed)
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.accept(bind, self.__downArrowKeyPressed)
         taskMgr.add(self.__watchControls, self.watchControlsName)
         taskMgr.doMethodLater(5, self.__displayPitcherAdvice, self.pitcherAdviceName)
         self.arrowVert = 0
@@ -682,14 +693,25 @@ class DistributedBanquetTable(DistributedObject.DistributedObject, FSM.FSM, Banq
             self.closeButton = None
         self.__cleanupPitcherAdvice()
         self.ignore('escape')
-        self.ignore(base.controls.JUMP)
-        self.ignore(f'{base.controls.JUMP}-up')
+        # Ignore both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(f'{bind}-up')
         self.ignore('InputState-forward')
         self.ignore('InputState-reverse')
         self.ignore('InputState-turnLeft')
         self.ignore('InputState-turnRight')
-        self.ignore(base.controls.MOVE_UP)
-        self.ignore(base.controls.MOVE_DOWN)
+        # Ignore both binds for MOVE_UP and MOVE_DOWN
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind)
+        down_binds = base.settings.getControlBinds("MOVE_DOWN")
+        for bind in down_binds:
+            if bind:
+                self.ignore(bind)
         base.localAvatar.disableCraneControls()
         self.arrowVert = 0
         self.arrowHorz = 0

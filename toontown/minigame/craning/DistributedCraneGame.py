@@ -1996,13 +1996,16 @@ class DistributedCraneGame(DistributedMinigame):
         
         # Only enable drones if the modifier is active
         if self.__areDronesEnabled():
-            # Enable drone deployment keybinds for 3 slots from settings
+            # Enable drone deployment keybinds for 3 slots from settings (both binds)
             slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
             self.droneSlotKeybinds = []
             for i, keyName in enumerate(slotKeyNames):
-                keybind = base.settings.getControl(keyName)
-                self.droneSlotKeybinds.append(keybind)
-                self.accept(keybind, self.__deployDrone, [i])
+                # Get both binds for this slot
+                binds = base.settings.getControlBinds(keyName)
+                for bind in binds:
+                    if bind:
+                        self.droneSlotKeybinds.append(bind)
+                        self.accept(bind, self.__deployDrone, [i])
             
             # Move drone UI next to laff meter (right side) and show it
             # If drone UI doesn't exist (shouldn't happen, but be safe), create it

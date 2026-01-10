@@ -666,64 +666,82 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
          gui.find('**/CloseBtn_Rllvr'),
          gui.find('**/CloseBtn_UP')), relief=None, scale=2, text=TTLocalizer.CashbotCraneLeave, text_scale=0.04, text_pos=(0, -0.07), text_fg=VBase4(1, 1, 1, 1), pos=(1.05, 0, -0.82), command=self.__leaveCrane)
         
-        self.accept(base.controls.CRANE_EXIT_KEY, self.__leaveCrane)
+        # Accept CRANE_EXIT_KEY (both binds)
+        exit_binds = base.settings.getControlBinds("CRANE_EXIT_KEY")
+        for bind in exit_binds:
+            if bind:
+                self.accept(bind, self.__leaveCrane)
         
-        self.accept(base.controls.CRANE_GRAB_KEY, self.__controlPressed)
-        self.accept(base.controls.CRANE_GRAB_KEY + '-up', self.__controlReleased)
+        # Accept CRANE_GRAB_KEY (both binds, with -up events)
+        grab_binds = base.settings.getControlBinds("CRANE_GRAB_KEY")
+        for bind in grab_binds:
+            if bind:
+                self.accept(bind, self.__controlPressed)
+                self.accept(bind + '-up', self.__controlReleased)
         
-        # Cable length adjustment keybinds
+        # Cable length adjustment keybinds (both binds)
         # Handle mouse wheel events differently (they don't have -up events)
-        extendKey = base.controls.CRANE_EXTEND_KEY
-        retractKey = base.controls.CRANE_RETRACT_KEY
+        extend_binds = base.settings.getControlBinds("CRANE_EXTEND_KEY")
+        for extendKey in extend_binds:
+            if not extendKey:
+                continue
+            if extendKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__cableExtendDirect)
+            elif extendKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__cableExtendDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(extendKey, self.__cableExtendPressed)
+                self.accept(extendKey + '-up', self.__cableExtendReleased)
         
-        if extendKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__cableExtendDirect)
-        elif extendKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__cableExtendDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(extendKey, self.__cableExtendPressed)
-            self.accept(extendKey + '-up', self.__cableExtendReleased)
+        retract_binds = base.settings.getControlBinds("CRANE_RETRACT_KEY")
+        for retractKey in retract_binds:
+            if not retractKey:
+                continue
+            if retractKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__cableRetractDirect)
+            elif retractKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__cableRetractDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(retractKey, self.__cableRetractPressed)
+                self.accept(retractKey + '-up', self.__cableRetractReleased)
         
-        if retractKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__cableRetractDirect)
-        elif retractKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__cableRetractDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(retractKey, self.__cableRetractPressed)
-            self.accept(retractKey + '-up', self.__cableRetractReleased)
-        
-        # Speed adjustment keybinds
+        # Speed adjustment keybinds (both binds)
         # Handle mouse wheel events differently (they don't have -up events)
-        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
-        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        speed_increase_binds = base.settings.getControlBinds("CRANE_SPEED_INCREASE_KEY")
+        for speedIncreaseKey in speed_increase_binds:
+            if not speedIncreaseKey:
+                continue
+            if speedIncreaseKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__speedIncreaseDirect)
+            elif speedIncreaseKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__speedIncreaseDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(speedIncreaseKey, self.__speedIncreasePressed)
+                self.accept(speedIncreaseKey + '-up', self.__speedIncreaseReleased)
         
-        if speedIncreaseKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__speedIncreaseDirect)
-        elif speedIncreaseKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__speedIncreaseDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(speedIncreaseKey, self.__speedIncreasePressed)
-            self.accept(speedIncreaseKey + '-up', self.__speedIncreaseReleased)
-        
-        if speedDecreaseKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__speedDecreaseDirect)
-        elif speedDecreaseKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__speedDecreaseDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(speedDecreaseKey, self.__speedDecreasePressed)
-            self.accept(speedDecreaseKey + '-up', self.__speedDecreaseReleased)
+        speed_decrease_binds = base.settings.getControlBinds("CRANE_SPEED_DECREASE_KEY")
+        for speedDecreaseKey in speed_decrease_binds:
+            if not speedDecreaseKey:
+                continue
+            if speedDecreaseKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__speedDecreaseDirect)
+            elif speedDecreaseKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__speedDecreaseDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(speedDecreaseKey, self.__speedDecreasePressed)
+                self.accept(speedDecreaseKey + '-up', self.__speedDecreaseReleased)
 
         base.localAvatar.enableCraneControls()
         self.accept('InputState-forward', self.__upArrow)
@@ -748,40 +766,60 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             self.closeButton.destroy()
             self.closeButton = None
         
-        self.ignore(base.controls.CRANE_EXIT_KEY)
-        self.ignore(base.controls.CRANE_GRAB_KEY)
-        self.ignore(f'{base.controls.CRANE_GRAB_KEY}-up')
-        # Clean up cable length adjustment keybinds
-        extendKey = base.controls.CRANE_EXTEND_KEY
-        retractKey = base.controls.CRANE_RETRACT_KEY
+        # Ignore CRANE_EXIT_KEY (both binds)
+        exit_binds = base.settings.getControlBinds("CRANE_EXIT_KEY")
+        for bind in exit_binds:
+            if bind:
+                self.ignore(bind)
         
-        if extendKey in ('wheel_up', 'wheel_down'):
-            self.ignore(extendKey)
-        else:
-            self.ignore(extendKey)
-            self.ignore(extendKey + '-up')
+        # Ignore CRANE_GRAB_KEY (both binds)
+        grab_binds = base.settings.getControlBinds("CRANE_GRAB_KEY")
+        for bind in grab_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
         
-        if retractKey in ('wheel_up', 'wheel_down'):
-            self.ignore(retractKey)
-        else:
-            self.ignore(retractKey)
-            self.ignore(retractKey + '-up')
+        # Clean up cable length adjustment keybinds (both binds)
+        extend_binds = base.settings.getControlBinds("CRANE_EXTEND_KEY")
+        for extendKey in extend_binds:
+            if not extendKey:
+                continue
+            if extendKey in ('wheel_up', 'wheel_down'):
+                self.ignore(extendKey)
+            else:
+                self.ignore(extendKey)
+                self.ignore(extendKey + '-up')
         
-        # Clean up speed adjustment keybinds
-        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
-        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        retract_binds = base.settings.getControlBinds("CRANE_RETRACT_KEY")
+        for retractKey in retract_binds:
+            if not retractKey:
+                continue
+            if retractKey in ('wheel_up', 'wheel_down'):
+                self.ignore(retractKey)
+            else:
+                self.ignore(retractKey)
+                self.ignore(retractKey + '-up')
         
-        if speedIncreaseKey in ('wheel_up', 'wheel_down'):
-            self.ignore(speedIncreaseKey)
-        else:
-            self.ignore(speedIncreaseKey)
-            self.ignore(speedIncreaseKey + '-up')
+        # Clean up speed adjustment keybinds (both binds)
+        speed_increase_binds = base.settings.getControlBinds("CRANE_SPEED_INCREASE_KEY")
+        for speedIncreaseKey in speed_increase_binds:
+            if not speedIncreaseKey:
+                continue
+            if speedIncreaseKey in ('wheel_up', 'wheel_down'):
+                self.ignore(speedIncreaseKey)
+            else:
+                self.ignore(speedIncreaseKey)
+                self.ignore(speedIncreaseKey + '-up')
         
-        if speedDecreaseKey in ('wheel_up', 'wheel_down'):
-            self.ignore(speedDecreaseKey)
-        else:
-            self.ignore(speedDecreaseKey)
-            self.ignore(speedDecreaseKey + '-up')
+        speed_decrease_binds = base.settings.getControlBinds("CRANE_SPEED_DECREASE_KEY")
+        for speedDecreaseKey in speed_decrease_binds:
+            if not speedDecreaseKey:
+                continue
+            if speedDecreaseKey in ('wheel_up', 'wheel_down'):
+                self.ignore(speedDecreaseKey)
+            else:
+                self.ignore(speedDecreaseKey)
+                self.ignore(speedDecreaseKey + '-up')
         self.ignore('InputState-forward')
         self.ignore('InputState-reverse')
         self.ignore('InputState-turnLeft')

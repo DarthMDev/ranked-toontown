@@ -142,17 +142,34 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
 
     def listenForSprint(self):
         controls = base.controls
-        self.accept(controls.MOVE_UP, self.__handleForwardPress)
-        self.accept(controls.MOVE_UP + '-up', self.__handleForwardRelease)
-        self.accept(controls.SPRINT, self.__handleSprintPress)
-        self.accept(controls.SPRINT + '-up', self.__handleSprintRelease)
+        # Accept both binds for MOVE_UP (for double-tap sprint in TTR mode)
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.accept(bind, self.__handleForwardPress)
+                self.accept(bind + '-up', self.__handleForwardRelease)
+        
+        # Accept both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.accept(bind, self.__handleSprintPress)
+                self.accept(bind + '-up', self.__handleSprintRelease)
 
     def ignoreSprint(self):
-        controls = base.controls
-        self.ignore(controls.MOVE_UP)
-        self.ignore(controls.MOVE_UP + '-up')
-        self.ignore(controls.SPRINT)
-        self.ignore(controls.SPRINT + '-up')
+        # Ignore both binds for MOVE_UP
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
+        
+        # Ignore both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
 
     # Pass in either 'ttcc' or 'ttr'
     def setSprintMode(self, game):
