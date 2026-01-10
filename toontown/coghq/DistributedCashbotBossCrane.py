@@ -224,11 +224,15 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # Also, a solid tube to keep us from running through the
         # control stick itself.  This one scales with the control
         # model.
+        # Also used for TNT detection
         cs = CollisionTube(0, 2.7, 0, 0, 2.7, 3, 1.2)
         cn = CollisionNode('tube')
         cn.addSolid(cs)
-        cn.setIntoCollideMask(OTPGlobals.WallBitmask)
+        # Accept both wall collisions and TNT collisions
+        cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.TNTBitmask)
         self.tube = self.controlModel.attachNewNode(cn)
+        # Tag the node with our doId so we can find the crane from collision
+        self.tube.setTag('craneDoId', str(self.doId))
 
         # And finally, a safe-proof bubble we put over the whole thing
         # to keep safes from falling on us while we're on the controls
@@ -1881,12 +1885,18 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     
     def tntHit(self, toonIdOnCrane=0):
         """Called from server when TNT hits this crane - perform disabling animation on all clients"""
-        # Perform the disabling animation regardless of current state
+        # If crane is controlled, TNT hits are ignored (handled on AI side)
+        # Only perform disable animation if crane is free
+        if self.state == 'Controlled':
+            return
+        
+        # Perform the disabling animation
         # This will handle fade track, restore scale track, and trigger stashing/unstashing
         self.performDisableAnimation()
         
         # Handle animation for toon on crane (local or remote)
         # Use toonIdOnCrane from broadcast (self.avId may already be 0 due to state change)
+        # Note: toonIdOnCrane should always be 0 now since controlled cranes ignore TNT hits
         if toonIdOnCrane != 0:
             toon = base.cr.doId2do.get(toonIdOnCrane)
             if toon and not toon.isEmpty() and toon.hp > 0:

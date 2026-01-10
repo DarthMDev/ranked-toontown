@@ -1422,9 +1422,11 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         ts -= self.smoother.getDelay()
         splat = self.getPieSplatInterval(x, y, z, pieCode)
         splat = Sequence(Func(messenger.send, 'pieSplat', [self, pieCode]), splat)
+        # Always finish the pie track when a collision is detected
+        if lastPieTrack:
+            lastPieTrack.finish()
         if ts > 0:
             startTime = ts
-            lastPieTrack.finish()
         else:
             splat = Sequence(Wait(-ts), splat)
             startTime = 0

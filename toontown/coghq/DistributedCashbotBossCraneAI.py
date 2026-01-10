@@ -105,26 +105,17 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         if avId not in self.boss.avIdList:
             return
         
-        # Capture toon ID (needed for broadcast) before forcing state change
-        toonIdOnCrane = 0
+        # If crane is controlled (has a toon on it), TNT should NOT:
+        # - Knock the toon
+        # - Damage the toon
+        # - Disable the crane
         if self.state == 'Controlled' and self.avId != 0:
-            toonIdOnCrane = self.avId
-            toon = self.air.doId2do.get(self.avId)
-            if toon:
-                # Apply 10 damage to the toon on the crane (same as gear throws)
-                tntDamage = 10
-                if hasattr(self.boss, 'game') and hasattr(self.boss.game, 'damageToon'):
-                    self.boss.game.damageToon(toon, tntDamage)
-                elif hasattr(self.boss, 'damageToon'):
-                    self.boss.damageToon(toon, tntDamage)
-            
-            # Force the crane to Free state on server side to prevent immediate re-entry
-            # This ensures the server state is correct even if client doesn't send requestFree
-            self.request('Free')
+            # Do nothing - TNT hits on controlled cranes are ignored
+            return
         
-        # Broadcast to all clients that the crane was hit (include toon ID that was on it)
-        # Client will handle visual effects and animations
-        self.d_tntHit(toonIdOnCrane)
+        # Only disable the crane if it's not controlled
+        # Broadcast to all clients that the crane was hit (toonIdOnCrane will be 0 since crane is free)
+        self.d_tntHit(0)
     
     def d_tntHit(self, toonIdOnCrane=0):
         """Broadcast to all clients that TNT hit this crane"""

@@ -3176,8 +3176,40 @@ class Toon(Avatar.Avatar, ToonHead):
         def getVelocity(toon = self, relVel = relVel):
             return render.getRelativeVector(toon, relVel)
 
+        # Check if this is TNT and apply special scaling and rotation
+        isTNT = (pieName == 'tnt')
+        tntScale = self.pieScale * 1.25 if isTNT else self.pieScale  # Make TNT 1.25x bigger
+        
         toss = Track((0, Sequence(Func(self.setPosHpr, x, y, z, h, p, r), Func(pie.reparentTo, self.rightHand), Func(pie.setPosHpr, 0, 0, 0, 0, 0, 0), Parallel(ActorInterval(self, 'throw', startFrame=48), animPie), Func(self.loop, 'neutral'))), (16.0 / 24.0, Func(pie.detachNode)))
-        fly = Track((14.0 / 24.0, SoundInterval(sound, node=self)), (16.0 / 24.0, Sequence(Func(flyPie.reparentTo, render), Func(flyPie.setScale, self.pieScale), Func(flyPie.setPosHpr, self, 0.52, 0.97, 2.24, 89.42, -10.56, 87.94), beginFlyIval, ProjectileInterval(flyPie, startVel=getVelocity, duration=3), Func(flyPie.detachNode))))
+        
+        # Create fly sequence with optional TNT rotation
+        flySequence = Sequence(
+            Func(flyPie.reparentTo, render),
+            Func(flyPie.setScale, tntScale),
+            Func(flyPie.setPosHpr, self, 0.52, 0.97, 2.24, 89.42, -10.56, 87.94),
+            beginFlyIval
+        )
+        
+        # Add smooth rotation for TNT
+        if isTNT:
+            # Smooth, moderate rotation: ~2 full rotations on yaw, 0.75 rotation on pitch, 1 rotation on roll
+            # Using a single smooth interval for consistent rotation without wonkiness
+            rotationInterval = LerpHprInterval(
+                flyPie,
+                duration=3,
+                startHpr=Point3(0, 0, 0),
+                hpr=Point3(720, 270, 360),  # Yaw: 2 rotations, Pitch: 0.75 rotation, Roll: 1 rotation
+                blendType='noBlend'  # Linear interpolation for smooth, consistent rotation
+            )
+            flySequence.append(Parallel(
+                ProjectileInterval(flyPie, startVel=getVelocity, duration=3),
+                rotationInterval
+            ))
+        else:
+            flySequence.append(ProjectileInterval(flyPie, startVel=getVelocity, duration=3))
+        
+        flySequence.append(Func(flyPie.detachNode))
+        fly = Track((14.0 / 24.0, SoundInterval(sound, node=self)), (16.0 / 24.0, flySequence))
         return (toss, fly, flyPie)
 
     def getPieSplatInterval(self, x, y, z, pieCode, goonsDestroyed=False):
@@ -3191,33 +3223,53 @@ class Toon(Avatar.Avatar, ToonHead):
             from toontown.battle import MovieUtil, BattleProps
             explosionPoint = Point3(x, y, z)
             
-            # Add kapow prop for KABLAM text (always shown)
-            kapow = BattleProps.globalPropPool.getProp('kapow')
-            kapow.setBillboardPointEye()
-            kapowTrack = Sequence(
-                Func(kapow.reparentTo, render),
-                Func(kapow.setPos, explosionPoint),
-                Func(kapow.setZ, explosionPoint.getZ() + 1),
-                Func(kapow.setScale, 0.11 * 1.1),  # Scale down to match explosion
-                ActorInterval(kapow, 'kapow'),
-                Func(MovieUtil.removeProp, kapow)
-            )
-            
-            # If goons were destroyed, only show KAPOW (no explosion effects)
+            # If goons were destroyed, only show explosion effects (no kapow)
             if goonsDestroyed:
-                return kapowTrack
+                # Create a simple explosion for goon destruction
+                from toontown.suit import GoonDeath
+                from toontown.battle import BattleParticles
+                BattleParticles.loadParticles()
+                scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions
+                particleScale = 1.5  # Bigger particle spread
+                
+                deathNode = NodePath('tntDeath')
+                deathNode.setPos(explosionPoint)
+                deathNode.setScale(particleScale)
+                
+                explosion = loader.loadModel('phase_3.5/models/props/explosion.bam')
+                explosion.getChild(0).setScale(scale)
+                explosion.reparentTo(deathNode)
+                explosion.setBillboardPointEye()
+                explosion.setPos(0, 0, 2)
+                explosionTrack = Sequence(
+                    Func(deathNode.reparentTo, render),
+                    Wait(0.6),
+                    Func(deathNode.detachNode)
+                )
+                
+                smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=10)
+                bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=5)
+                deathSound = loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
+                
+                particleTrack = Parallel(
+                    explosionTrack,
+                    SoundInterval(deathSound),
+                    ParticleInterval(smallGearExplosion, deathNode, worldRelative=0, duration=4.3, cleanup=True),
+                    ParticleInterval(bigGearExplosion, deathNode, worldRelative=0, duration=1.0, cleanup=True)
+                )
+                return particleTrack
             
             # Otherwise, show full explosion with particles and sound
             from toontown.suit import GoonDeath
             from toontown.battle import BattleParticles
             BattleParticles.loadParticles()
-            scale = VBase3(0.4, 0.4, 0.4)  # Smaller scale for TNT pies
-            particleScale = 0.8  # Scale for particles (smaller spread)
+            scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions
+            particleScale = 1.5  # Bigger particle spread
             
-            # Create death node and scale it to reduce particle spread
+            # Create death node and scale it for bigger explosion
             deathNode = NodePath('tntDeath')
             deathNode.setPos(explosionPoint)
-            deathNode.setScale(particleScale)  # Scale the node to reduce particle spread
+            deathNode.setScale(particleScale)
             
             # Create explosion track (scaled model)
             explosion = loader.loadModel('phase_3.5/models/props/explosion.bam')
@@ -3231,9 +3283,9 @@ class Toon(Avatar.Avatar, ToonHead):
                 Func(deathNode.detachNode)
             )
             
-            # Create smaller particle effects (fewer particles)
-            smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=5)  # Reduced from 10
-            bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=1)  # Reduced from 30
+            # Create bigger particle effects
+            smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=10)
+            bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=5)
             deathSound = loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
             
             # Create particle intervals on scaled deathNode
@@ -3244,9 +3296,7 @@ class Toon(Avatar.Avatar, ToonHead):
                 ParticleInterval(bigGearExplosion, deathNode, worldRelative=0, duration=1.0, cleanup=True)
             )
             
-            # Combine all effects
-            ival = Parallel(particleTrack, kapowTrack)
-            return ival
+            return particleTrack
         
         splatName = 'splat-%s' % pieName
         if pieName == 'lawbook':
