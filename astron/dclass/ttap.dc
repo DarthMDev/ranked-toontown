@@ -3997,6 +3997,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   requestMatchReady(uint32[], uint32, uint32) broadcast ram;
   startMatchCountdown() broadcast ram;
   setMatchReady() clsend airecv;
+  setPlayerReadyStatus(uint32, bool) broadcast ram;
   declareTournamentWinner(uint32 winnerId) broadcast;
   removeModifier(uint32 modifierEnum) airecv clsend;
   requestForfeit() airecv clsend;

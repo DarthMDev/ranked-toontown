@@ -8,7 +8,7 @@ from direct.fsm import ClassicFSM
 from direct.fsm import State
 from direct.gui.OnscreenText import OnscreenText
 from direct.interval.FunctionInterval import Func, Wait
-from direct.interval.LerpInterval import LerpPosHprInterval
+from direct.interval.LerpInterval import LerpPosHprInterval, LerpScaleInterval, LerpColorScaleInterval
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.showbase.MessengerGlobal import messenger
 from otp.otpbase.PythonUtil import reduceAngle
@@ -98,6 +98,9 @@ class DistributedCraneGame(DistributedMinigame):
         self.matchPlayers = []
         self.matchReadyUI = None  # UI elements for match ready-up
         self.matchReadyButton = None  # Ready button
+        self.matchReadyPlayerHeads = {}  # Track toon heads for cleanup
+        self.matchReadyStatusLabels = {}  # Track ready status labels
+        self.matchReadyAnimTrack = None  # Track entrance animation
         self.tournamentProgressLabel = None  # Label showing tournament progress
         self.tournamentPanel = None  # Tournament panel (like modifiers panel)
         self.tournamentPanelVisible = False  # Is tournament panel visible?
@@ -3856,10 +3859,35 @@ class DistributedCraneGame(DistributedMinigame):
         if not self.waitingForMatchReady:
             return
         self.sendUpdate('setMatchReady', [])
+        
         # Update button to show ready state
         if self.matchReadyButton:
             self.matchReadyButton['text'] = 'Ready!'
             self.matchReadyButton['state'] = 'disabled'
+        
+        # Update status label for local player immediately
+        localAvId = base.localAvatar.getDoId()
+        if localAvId in self.matchReadyStatusLabels:
+            statusLabel = self.matchReadyStatusLabels[localAvId]
+            statusLabel['text'] = 'Ready!'
+            statusLabel['text_fg'] = (0.2, 0.7, 0.2, 1)
+    
+    def setPlayerReadyStatus(self, avId, isReady):
+        """
+        Update ready status for a player (called when any player readies up).
+        
+        Args:
+            avId: Avatar ID of the player
+            isReady: True if ready, False if not ready
+        """
+        if avId in self.matchReadyStatusLabels:
+            statusLabel = self.matchReadyStatusLabels[avId]
+            if isReady:
+                statusLabel['text'] = 'Ready!'
+                statusLabel['text_fg'] = (0.2, 0.7, 0.2, 1)
+            else:
+                statusLabel['text'] = 'Waiting...'
+                statusLabel['text_fg'] = (0.6, 0.6, 0.6, 1)
     
     def __positionCameraForMatchReady(self):
         """Position camera during match ready break phase (same as prepare phase)"""
@@ -3885,7 +3913,11 @@ class DistributedCraneGame(DistributedMinigame):
         cameraInterval.start()
     
     def __showMatchReadyUI(self, player1, player2):
-        """Show matchup display and ready button - styled to match crane game UI"""
+        """
+        Show enhanced matchup display with toon heads, animations, and ready status.
+        Styled to match crane game UI with improved visual hierarchy.
+        """
+        from toontown.toon import ToonHead
         
         # Hide any existing UI
         self.__hideMatchReadyUI()
@@ -3893,77 +3925,163 @@ class DistributedCraneGame(DistributedMinigame):
         # Get button geometry (same as other crane game buttons)
         btnGeom = loader.loadModel('phase_3/models/gui/quit_button')
         
-        # Get player names
+        # Get player toons and names
         p1Toon = self.cr.getDo(player1) if player1 else None
         p2Toon = self.cr.getDo(player2) if player2 else None
         p1Name = p1Toon.getName() if p1Toon else "Player 1"
         p2Name = p2Toon.getName() if p2Toon else "Player 2"
         
-        # Create frame using same styling as settings panel
+        # Get tournament progress info if available
+        matchInfo = ""
+        if hasattr(self, 'tournamentProgress') and self.tournamentProgress:
+            currentMatch = self.tournamentProgress.get('currentMatch', 0)
+            totalMatches = self.tournamentProgress.get('totalMatches', 0)
+            if totalMatches > 0:
+                matchInfo = f"Match {currentMatch}/{totalMatches}"
+        
+        # Create larger frame for side-by-side layout
         self.matchReadyUI = DirectFrame(
             relief=None,
             image=DGG.getDefaultDialogGeom(),
             image_color=ToontownGlobals.GlobalDialogColor,
-            image_scale=(1.2, 1, 0.6),
+            image_scale=(2.0, 1, 0.85),
             pos=(0, 0, 0),
             parent=aspect2d
         )
         
-        # Match title - styled like settings panel title
+        # Start hidden for animation
+        self.matchReadyUI.setScale(0.01)
+        self.matchReadyUI.setColorScale(1, 1, 1, 0)
+        
+        # Match title with tournament info
+        titleText = "Next Match"
+        if matchInfo:
+            titleText = f"{titleText} - {matchInfo}"
         matchLabel = DirectLabel(
-            text="Next Match",
-            text_scale=0.08,
-            text_fg=(0, 0, 0, 1),
+            text=titleText,
+            text_scale=0.09,
+            text_fg=(0.1, 0.1, 0.4, 1),
             text_font=ToontownGlobals.getInterfaceFont(),
             relief=None,
-            pos=(0, 0, 0.2),
+            pos=(0, 0, 0.32),
             parent=self.matchReadyUI
         )
         
-        # Player names - styled consistently
+        localAvId = base.localAvatar.getDoId()
+        
+        # Player 1 section (left side) - closer to center
+        p1Frame = DirectFrame(
+            relief=None,
+            frameSize=(-0.6, 0.0, -0.3, 0.2),
+            pos=(-0.35, 0, 0.05),
+            parent=self.matchReadyUI
+        )
+        
+        # Player 1 toon head - larger and correct orientation
+        if p1Toon and hasattr(p1Toon, 'style'):
+            p1HeadNode = p1Frame.attachNewNode('p1Head')
+            p1HeadNode.setPosHprScale(-0.3, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2)
+            p1HeadModel = ToonHead.ToonHead()
+            p1HeadModel.setupHead(p1Toon.style, forGui=1)
+            p1HeadModel.fitAndCenterHead(0.175, forGui=1)
+            p1HeadModel.reparentTo(p1HeadNode)
+            p1HeadModel.startBlink()
+            p1HeadModel.startLookAround()
+            self.matchReadyPlayerHeads[player1] = p1HeadModel
+        
+        # Player 1 name
         p1Label = DirectLabel(
             text=p1Name,
-            text_scale=0.06,
+            text_scale=0.07,
             text_fg=(0, 0, 0, 1),
             text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(-0.3, 0, -0.15),
+            parent=p1Frame,
+            text_align=TextNode.ACenter
+        )
+        
+        # Player 1 ready status - start as "Waiting..." for everyone
+        p1StatusLabel = DirectLabel(
+            text="Waiting...",
+            text_scale=0.055,
+            text_fg=(0.6, 0.6, 0.6, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(-0.3, 0, -0.22),
+            parent=p1Frame,
+            text_align=TextNode.ACenter
+        )
+        self.matchReadyStatusLabels[player1] = p1StatusLabel
+        
+        # VS label in center - closer to players
+        vsLabel = DirectLabel(
+            text="VS",
+            text_scale=0.08,
+            text_fg=(0.4, 0.4, 0.4, 1),
+            text_font=ToontownGlobals.getCompetitionFont(),
             relief=None,
             pos=(0, 0, 0.05),
             parent=self.matchReadyUI
         )
         
-        vsLabel = DirectLabel(
-            text="VS",
-            text_scale=0.05,
-            text_fg=(0.5, 0.5, 0.5, 1),
-            text_font=ToontownGlobals.getInterfaceFont(),
+        # Player 2 section (right side) - closer to center
+        p2Frame = DirectFrame(
             relief=None,
-            pos=(0, 0, -0.05),
+            frameSize=(0.0, 0.6, -0.3, 0.2),
+            pos=(0.35, 0, 0.05),
             parent=self.matchReadyUI
         )
         
+        # Player 2 toon head - larger and correct orientation
+        if p2Toon and hasattr(p2Toon, 'style'):
+            p2HeadNode = p2Frame.attachNewNode('p2Head')
+            p2HeadNode.setPosHprScale(0.3, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2)
+            p2HeadModel = ToonHead.ToonHead()
+            p2HeadModel.setupHead(p2Toon.style, forGui=1)
+            p2HeadModel.fitAndCenterHead(0.175, forGui=1)
+            p2HeadModel.reparentTo(p2HeadNode)
+            p2HeadModel.startBlink()
+            p2HeadModel.startLookAround()
+            self.matchReadyPlayerHeads[player2] = p2HeadModel
+        
+        # Player 2 name
         p2Label = DirectLabel(
             text=p2Name,
-            text_scale=0.06,
+            text_scale=0.07,
             text_fg=(0, 0, 0, 1),
             text_font=ToontownGlobals.getInterfaceFont(),
             relief=None,
-            pos=(0, 0, -0.15),
-            parent=self.matchReadyUI
+            pos=(0.3, 0, -0.15),
+            parent=p2Frame,
+            text_align=TextNode.ACenter
         )
         
+        # Player 2 ready status - start as "Waiting..." for everyone
+        p2StatusLabel = DirectLabel(
+            text="Waiting...",
+            text_scale=0.055,
+            text_fg=(0.6, 0.6, 0.6, 1),
+            text_font=ToontownGlobals.getInterfaceFont(),
+            relief=None,
+            pos=(0.3, 0, -0.22),
+            parent=p2Frame,
+            text_align=TextNode.ACenter
+        )
+        self.matchReadyStatusLabels[player2] = p2StatusLabel
+        
         # Ready button (only show if local player is in match) - styled like other buttons
-        localAvId = base.localAvatar.getDoId()
         if localAvId in self.matchPlayers:
             self.matchReadyButton = DirectButton(
                 relief=None,
                 text="Ready Up",
-                text_scale=0.055,
+                text_scale=0.06,
                 text_pos=(0, -0.02),
                 geom=(btnGeom.find('**/QuitBtn_UP'),
                       btnGeom.find('**/QuitBtn_DN'),
                       btnGeom.find('**/QuitBtn_RLVR')),
-                geom_scale=(0.8, 1, 1),
-                pos=(0, 0, -0.3),
+                geom_scale=(0.9, 1, 1),
+                pos=(0, 0, -0.35),
                 parent=self.matchReadyUI,
                 command=self.setMatchReady
             )
@@ -3971,18 +4089,45 @@ class DistributedCraneGame(DistributedMinigame):
             # Spectator - show waiting message
             waitLabel = DirectLabel(
                 text="Waiting for players to ready up...",
-                text_scale=0.05,
+                text_scale=0.055,
                 text_fg=(0.5, 0.5, 0.5, 1),
                 text_font=ToontownGlobals.getInterfaceFont(),
                 relief=None,
-                pos=(0, 0, -0.3),
+                pos=(0, 0, -0.35),
                 parent=self.matchReadyUI
             )
+        
+        # Animate entrance: scale and fade in
+        self.matchReadyAnimTrack = Sequence(
+            Parallel(
+                LerpScaleInterval(self.matchReadyUI, 0.25, 1.05, 0.01, blendType='easeOut'),
+                LerpColorScaleInterval(self.matchReadyUI, 0.25, Vec4(1, 1, 1, 1), Vec4(1, 1, 1, 0), blendType='easeOut')
+            ),
+            LerpScaleInterval(self.matchReadyUI, 0.1, 1.0, 1.05, blendType='easeIn')
+        )
+        self.matchReadyAnimTrack.start()
         
         self.matchReadyUI.show()
     
     def __hideMatchReadyUI(self):
-        """Hide match ready UI"""
+        """Hide match ready UI and cleanup resources"""
+        # Stop any running animations
+        if self.matchReadyAnimTrack:
+            self.matchReadyAnimTrack.finish()
+            self.matchReadyAnimTrack = None
+        
+        # Clean up toon heads
+        for avId, headModel in list(self.matchReadyPlayerHeads.items()):
+            if headModel:
+                headModel.stopBlink()
+                headModel.stopLookAroundNow()
+                headModel.delete()
+        self.matchReadyPlayerHeads.clear()
+        
+        # Clean up status labels
+        self.matchReadyStatusLabels.clear()
+        
+        # Destroy UI
         if self.matchReadyUI:
             self.matchReadyUI.destroy()
             self.matchReadyUI = None

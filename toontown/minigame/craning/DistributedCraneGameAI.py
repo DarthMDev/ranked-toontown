@@ -1518,8 +1518,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         if self.matchReadyBarrier is not None:
             self.matchReadyBarrier.clear(avId)
+            # Broadcast ready status to all clients
+            self.d_setPlayerReadyStatus(avId, True)
         else:
             print(f"[DistributedCraneGameAI] WARNING: Received setMatchReady from {avId} but no barrier exists")
+    
+    def d_setPlayerReadyStatus(self, avId, isReady):
+        """Broadcast player ready status to all clients"""
+        self.sendUpdate('setPlayerReadyStatus', [avId, isReady])
     
     def d_requestMatchReady(self, matchPlayers, player1, player2):
         """Notify clients to show match ready-up UI"""
