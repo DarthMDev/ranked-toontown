@@ -38,6 +38,7 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         self.ringRotationTask = None
         self._shatterEffectCreated = False  # Flag to prevent duplicate shatter effects
         self.droneVanished = False  # Track if drone has already vanished
+        self._isNaturalExpiration = False  # Flag to track if shield expired naturally
     
     def getDroneType(self):
         return CraneLeagueGlobals.DroneType.SHIELD
@@ -74,6 +75,7 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         
         self.shieldActive = True
         self.shieldStartTime = globalClock.getFrameTime()
+        self._isNaturalExpiration = False  # Reset flag when shield activates
         
         # Create shield bubble visual
         self.createShieldBubble(owner)
@@ -368,6 +370,11 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
             owner._shieldActive = False
         
         self.shieldActive = False
+        # Clear natural expiration flag if shield is being broken by a hit
+        # (will be set to True in expireShield if it's natural expiration)
+        if grantIframes:
+            # Enemy hit - definitely not natural expiration
+            self._isNaturalExpiration = False
         
         # Stop pulse task first to prevent manipulation of removed nodes
         if self.pulseTask:
@@ -428,7 +435,42 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         
         # Create shield break visual effect (only if shield still exists)
         if self.shieldBubble and not self.shieldBubble.isEmpty():
-            self.createShieldBreakEffect(grantIframes)
+            # Check if this is a natural expiration (grantIframes=0 from AI when shield expires naturally)
+            # Safe hits also use grantIframes=0, but they typically happen earlier in the shield's lifetime
+            # Natural expiration happens at exactly 8 seconds, so we can detect it by timing
+            isNaturalExpiration = self._isNaturalExpiration  # Check flag first
+            if not isNaturalExpiration and not grantIframes:
+                # Check if the expiration task is still pending (most reliable indicator)
+                if taskMgr.hasTaskNamed(self.uniqueName('expireShield')):
+                    isNaturalExpiration = True
+                    self._isNaturalExpiration = True
+                    # Cancel the local expiration task since AI already expired it
+                    taskMgr.remove(self.uniqueName('expireShield'))
+                elif self.shieldStartTime is not None:
+                    # Check if shield is at or past expiration time (with wider tolerance for network latency)
+                    # Natural expiration happens at exactly 8 seconds, safe hits happen randomly before that
+                    elapsed = globalClock.getFrameTime() - self.shieldStartTime
+                    timeRemaining = self.shieldDuration - elapsed
+                    # If we're at or past 7.5 seconds (within 0.5 seconds of expiration),
+                    # and shield is still active, it's almost certainly natural expiration
+                    # Safe hits would have broken it much earlier (typically within first 6-7 seconds)
+                    if elapsed >= 7.5:
+                        # Shield expired at or near the expected time - treat as natural expiration
+                        isNaturalExpiration = True
+                        self._isNaturalExpiration = True
+            
+            if isNaturalExpiration:
+                # Natural expiration - fade out smoothly (no shattering effect)
+                # Import Sequence here to avoid scoping issues with local import in grantIframes block
+                from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Func
+                fadeSequence = Sequence(
+                    LerpColorScaleInterval(self.shieldBubble, 1.0, (1.0, 1.0, 1.0, 0.0)),
+                    Func(self.removeShieldBubble)
+                )
+                fadeSequence.start()
+            else:
+                # Shield broken by hit (enemy or safe) - create shatter effect
+                self.createShieldBreakEffect(grantIframes)
         else:
             # Shield already removed, just clean up
             self.removeShieldBubble()
@@ -614,6 +656,8 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
                 return Task.done
             return
         
+        # Mark as natural expiration
+        self._isNaturalExpiration = True
         self.shieldActive = False
         
         # Update owner's shield state

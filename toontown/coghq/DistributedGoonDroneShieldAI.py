@@ -104,9 +104,10 @@ class DistributedGoonDroneShieldAI(DistributedGoonDroneBaseAI):
         
         self.notify.debug(f'Shield expired for toon {self.ownerId}')
         
-        # Don't send breakShield update - client handles natural expiration with fade-out
-        # (no shattering effect on natural expiration)
-        # The client's own timer will call expireShield which does a smooth fade-out
+        # Send breakShield update with grantIframes=0 to ensure client immediately clears shieldActive
+        # This prevents timing issues where AI removes shield but client still thinks it's active
+        # The client will handle the visual fade-out (no shattering effect on natural expiration)
+        self.sendUpdate('breakShield', [0])  # grantIframes=0 for natural expiration
         
         # Don't vanish drone here - it should already be vanished after 1 second of activation
         # Shield cleanup is handled by client

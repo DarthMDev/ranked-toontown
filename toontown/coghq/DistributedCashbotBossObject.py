@@ -218,7 +218,8 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     
     def __hitShield(self, entry):
         """Called when safe hits a shield."""
-        if self.state in ('Dropped', 'LocalDropped', 'Falling'):
+        # Only safes in 'Dropped' state can break shields
+        if self.state == 'Dropped':
             # Get the shield owner ID from the collision node tag
             shieldNodePath = entry.getIntoNodePath()
             if shieldNodePath and not shieldNodePath.isEmpty():
