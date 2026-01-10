@@ -233,3 +233,26 @@ class OTPBase(ShowBase):
         if self.win != None:
             return self.win.isValid()
         return 0
+
+    def __collisionLoop(self, task):
+        """
+        Override ShowBase's __collisionLoop to catch AssertionError from Panda3D 1.11.0
+        shadow traversal when nodes don't have proper geometry bounding volumes.
+        This is a workaround for the stricter bounds checking in Panda3D 1.11.0.
+        """
+        try:
+            # Perform shadow traversal with error handling for Panda3D 1.11.0 compatibility
+            if hasattr(self, 'shadowTrav') and self.shadowTrav:
+                self.shadowTrav.traverse(self.render)
+        except AssertionError as e:
+            # Check if this is the specific shadow traversal error from Panda3D 1.11.0
+            error_msg = str(e).lower()
+            if 'node_gbv' in error_msg or 'culltraverserdata' in error_msg or 'culltraverser' in error_msg:
+                # Log the error but don't crash - this is a compatibility issue with Panda3D 1.11.0
+                # where nodes without proper geometry bounding volumes cause crashes
+                if hasattr(self, 'notify'):
+                    self.notify.warning('Shadow traversal error caught (Panda3D 1.11.0 compatibility issue): %s' % str(e))
+            else:
+                # Re-raise if it's a different AssertionError
+                raise
+        return task.cont
