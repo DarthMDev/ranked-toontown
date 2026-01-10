@@ -684,10 +684,10 @@ class DistributedCraneGame(DistributedMinigame):
         from direct.gui.DirectButton import DirectButton
         from toontown.toonbase import TTLocalizer
         btnGeom = loader.loadModel('phase_3/models/gui/quit_button')
-        
 
         # Create play button next to settings
         self.playButton = DirectButton(
+            parent=base.a2dTopLeft,
             relief=None,
             text='Play',
             text_scale=0.055,
@@ -696,13 +696,14 @@ class DistributedCraneGame(DistributedMinigame):
                   btnGeom.find('**/QuitBtn_DN'),
                   btnGeom.find('**/QuitBtn_RLVR')),
             geom_scale=(0.7, 1, 1),
-            pos=(-1.15, 0, 0.85),
+            pos=(0.7, 0, -0.2),
             command=self.__handlePlayButton
         )
         self.playButton.hide()  # Play button starts hidden
         
         # Create modifiers button next to play button (was participants)
         self.modifiersButton = DirectButton(
+            parent=base.a2dTopLeft,
             relief=None,
             text='Modifiers',
             text_scale=0.055,
@@ -711,13 +712,14 @@ class DistributedCraneGame(DistributedMinigame):
                   btnGeom.find('**/QuitBtn_DN'),
                   btnGeom.find('**/QuitBtn_RLVR')),
             geom_scale=(0.7, 1, 1),
-            pos=(-0.75, 0, 0.85),
+            pos=(1, 0, -0.2),
             command=self.__handleModifiersButton
         )
         self.modifiersButton.hide()  # Modifiers button starts hidden
         
         # Create best of button next to modifiers button
         self.bestOfButton = DirectButton(
+            parent=base.a2dTopLeft,
             relief=None,
             text=f'Best of {self.bestOfValue}',
             text_scale=0.055,
@@ -726,13 +728,14 @@ class DistributedCraneGame(DistributedMinigame):
                   btnGeom.find('**/QuitBtn_DN'),
                   btnGeom.find('**/QuitBtn_RLVR')),
             geom_scale=(0.7, 1, 1),
-            pos=(-0.35, 0, 0.85),
+            pos=(1.3, 0, -0.2),
             command=self.__handleBestOfButton
         )
         self.bestOfButton.hide()  # Best of button starts hidden
         
         # Create tournament button next to best of button
         self.tournamentButton = DirectButton(
+            parent=base.a2dTopLeft,
             relief=None,
             text='Tournament',
             text_scale=0.055,
@@ -741,7 +744,7 @@ class DistributedCraneGame(DistributedMinigame):
                   btnGeom.find('**/QuitBtn_DN'),
                   btnGeom.find('**/QuitBtn_RLVR')),
             geom_scale=(0.7, 1, 1),
-            pos=(0.05, 0, 0.85),
+            pos=(1.6, 0, -0.2),
             command=self.__handleTournamentButton
         )
         self.tournamentButton.hide()  # Tournament button starts hidden
