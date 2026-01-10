@@ -111,30 +111,72 @@ class TournamentManagerAI:
         """
         Setup the minigame for the next tournament match.
         Configures who plays vs who spectates.
+        Skips matches where players have disconnected.
         
         Returns:
             True if there's a match to play, False if tournament is complete
         """
         if not self.isActive:
             return False
+        
+        # Keep trying to find a valid match (skip invalid ones)
+        maxAttempts = len(self.bracket.matches) if self.bracket else 0
+        attempts = 0
+        
+        while attempts < maxAttempts:
+            currentMatch = self.getCurrentMatch()
             
-        currentMatch = self.getCurrentMatch()
+            if currentMatch is None:
+                # No more matches in current bracket
+                if self.tournamentStages == TournamentStage.TWO_STAGE and self.currentStage == 1:
+                    # Transition to stage 2
+                    return self._startStage2()
+                else:
+                    # Tournament is complete
+                    self.notify.info("No more matches, tournament complete")
+                    return False
+            
+            # Skip if match is already complete (e.g., from a previous forfeit)
+            if currentMatch.isComplete():
+                self.bracket.advanceToNextMatch()
+                attempts += 1
+                continue
+            
+            # Validate both players still exist
+            allParticipants = self.minigameAI.getParticipants()
+            p1Exists = currentMatch.player1 in allParticipants
+            p2Exists = currentMatch.player2 in allParticipants
+            
+            if not p1Exists and not p2Exists:
+                # Both players disconnected - void match (no win awarded)
+                self.notify.warning(f"Match {currentMatch.matchId}: Both players ({currentMatch.player1}, {currentMatch.player2}) disconnected, voiding match")
+                self._recordForfeit(currentMatch, None, None)  # No winner, no loser
+                self.bracket.advanceToNextMatch()
+                attempts += 1
+                continue
+            elif not p1Exists:
+                # Player 1 disconnected - void match (no win awarded to player 2)
+                self.notify.warning(f"Match {currentMatch.matchId}: Player {currentMatch.player1} disconnected, match voided (no win awarded to {currentMatch.player2})")
+                self._recordForfeit(currentMatch, currentMatch.player2, currentMatch.player1)
+                self.bracket.advanceToNextMatch()
+                attempts += 1
+                continue
+            elif not p2Exists:
+                # Player 2 disconnected - void match (no win awarded to player 1)
+                self.notify.warning(f"Match {currentMatch.matchId}: Player {currentMatch.player2} disconnected, match voided (no win awarded to {currentMatch.player1})")
+                self._recordForfeit(currentMatch, currentMatch.player1, currentMatch.player2)
+                self.bracket.advanceToNextMatch()
+                attempts += 1
+                continue
+            
+            # Both players exist - setup the match
+            self._setupMatchParticipants(currentMatch)
+            self.notify.info(f"Setup match {currentMatch.matchId}: {currentMatch.player1} vs {currentMatch.player2}")
+            return True
         
-        if currentMatch is None:
-            # No more matches in current bracket
-            if self.tournamentStages == TournamentStage.TWO_STAGE and self.currentStage == 1:
-                # Transition to stage 2
-                return self._startStage2()
-            else:
-                # Tournament is complete
-                self.notify.info("No more matches, tournament complete")
-                return False
-                
-        # Configure minigame for this specific match
-        self._setupMatchParticipants(currentMatch)
-        
-        self.notify.info(f"Setup match {currentMatch.matchId}: {currentMatch.player1} vs {currentMatch.player2}")
-        return True
+        # If we've exhausted all matches trying to find a valid one, tournament is effectively complete
+        self.notify.warning("No valid matches found (all remaining matches have disconnected players)")
+        return False
         
     def _setupMatchParticipants(self, match):
         """
@@ -151,6 +193,29 @@ class TournamentManagerAI:
         self.minigameAI.b_setSpectators(spectators)
         
         self.notify.debug(f"Match participants: {matchPlayers}, Spectators: {spectators}")
+    
+    def _recordForfeit(self, match, remainingPlayer, disconnectedPlayer):
+        """
+        Record a forfeit result for a match where a player disconnected.
+        Marks the match as complete but does NOT award a win to the remaining player.
+        
+        Args:
+            match: TournamentMatch that was forfeited
+            remainingPlayer: Avatar ID of the player who didn't disconnect (None if both disconnected)
+            disconnectedPlayer: Avatar ID of the player who disconnected (None if both disconnected)
+        """
+        # Mark match as complete but don't update standings
+        # This allows the tournament to advance without giving credit for beating a disconnected player
+        from .TournamentGlobals import MatchState
+        match.state = MatchState.COMPLETE
+        match.winner = None  # No winner for forfeit matches
+        match.loser = None  # No loser either
+        match.scores = {}  # No scores recorded
+        
+        if remainingPlayer is None:
+            self.notify.info(f"Match {match.matchId} voided: Both players disconnected")
+        else:
+            self.notify.info(f"Match {match.matchId} voided: {disconnectedPlayer} disconnected, no win awarded to {remainingPlayer}")
         
     def recordMatchResult(self, winner, scores):
         """
