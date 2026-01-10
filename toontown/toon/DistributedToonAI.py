@@ -39,10 +39,7 @@ from toontown.catalog import CatalogAccessoryItem
 from . import ModuleListAI
 
 from ..archipelago.definitions.death_reason import DeathReason
-from ..matchmaking import skill_rating
-from ..matchmaking.player_skill_profile import PlayerSkillProfile, STARTING_RATING
-from ..shtiker import CogPageGlobals
-from ..util.astron.AstronDict import AstronDict
+from ..matchmaking.player_skill_profile import PlayerSkillProfile, STARTING_MMR
 
 class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoothNodeAI.DistributedSmoothNodeAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedToonAI')
