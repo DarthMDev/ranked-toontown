@@ -1135,8 +1135,18 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.boss.b_setBossDamage(self.boss.bossDamage + damage, avId=avId, objId=objId, isGoon=isGoon, isDOT=isDOT)
 
         # Award bonus points for hits with maximum impact (but not for DOT)
-        if impact == 1.0 and not isDOT:
-            self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneLeagueGlobals.ScoreReason.FULL_IMPACT)
+        # Check if impact cap is removed - if so, award for impact >= 1.0, otherwise for impact == 1.0
+        removeCap = False
+        if hasattr(self.ruleset, 'REMOVE_IMPACT_CAP'):
+            removeCap = self.ruleset.REMOVE_IMPACT_CAP
+        
+        if not isDOT:
+            if removeCap:
+                if impact >= 1.0:
+                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneLeagueGlobals.ScoreReason.FULL_IMPACT)
+            else:
+                if impact == 1.0:
+                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneLeagueGlobals.ScoreReason.FULL_IMPACT)
         self.addScore(avId, damage)
 
         # DOT damage should not contribute to combos

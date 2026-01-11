@@ -311,7 +311,14 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             vel = max(self.velocities)
             vel = self.crane.root.getRelativeVector(render, vel)
             vel.normalize()
-            clash_impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
+            # Check if impact cap should be removed
+            removeCap = False
+            if hasattr(self.boss, 'ruleset') and hasattr(self.boss.ruleset, 'REMOVE_IMPACT_CAP'):
+                removeCap = self.boss.ruleset.REMOVE_IMPACT_CAP
+            if removeCap:
+                clash_impact = max(pow(speed, 1.75)/466.475, 0.0)
+            else:
+                clash_impact = min(1.0, max(pow(speed, 1.75)/466.475, 0.0))
             ttr_impact = vel[1]
             impact = max(clash_impact, ttr_impact)
 

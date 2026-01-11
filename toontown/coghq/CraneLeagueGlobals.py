@@ -145,6 +145,9 @@ class CraneGameRuleset:
         # Drone mechanic
         self.WANT_DRONES = False
 
+        # Remove impact cap modifier
+        self.REMOVE_IMPACT_CAP = False  # When true, removes the 1.0 cap on impact calculations
+
         self.HEAVY_CRANE_DAMAGE_MULTIPLIER = 1.25
 
         self.MIN_GOON_IMPACT = 0.1  # How much impact should a goon hit need to register?
@@ -311,6 +314,7 @@ class CraneGameRuleset:
             self.SAFES_STUN_GOONS,
             self.GOONS_ALWAYS_WAKE_WHEN_GRABBED,
             self.WANT_DRONES,
+            self.REMOVE_IMPACT_CAP,
         ]
 
     @classmethod
@@ -345,6 +349,7 @@ class CraneGameRuleset:
         rulesetInstance.SAFES_STUN_GOONS = attrs[26]
         rulesetInstance.GOONS_ALWAYS_WAKE_WHEN_GRABBED = attrs[27]
         rulesetInstance.WANT_DRONES = attrs[28]
+        rulesetInstance.REMOVE_IMPACT_CAP = attrs[29]
         return rulesetInstance
 
     def __str__(self):
@@ -1584,6 +1589,30 @@ class ModifierBoomBarrowsEnabler(CFORulesetModifierBase):
         # Pie stands and side cranes are mutually exclusive peripherals
         cfoRuleset.WANT_SIDECRANES = False
         cfoRuleset.WANT_BOOM_BARROWS = True
+
+
+# (+) Uncapped Impact
+# --------------------------------
+# - Removes the 1.0 cap on impact calculations, allowing for higher impact values
+class ModifierRemoveImpactCap(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 38
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Uncapped Impact'
+
+    def getDescription(self):
+        return 'Removes the %(color_start)s1.0 impact cap%(color_end)s, allowing for higher impact values'
+
+    def getHeat(self):
+        return -2  # Helpful modifier, reduces difficulty by allowing higher damage
+
+    def apply(self, cfoRuleset):
+        cfoRuleset.REMOVE_IMPACT_CAP = True
 
 
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point

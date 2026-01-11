@@ -390,7 +390,17 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
 
     def hitBoss(self, impact, craneId):
         avId = self.air.getAvatarIdFromSender()
-        self.validate(avId, 1.0 >= impact >= 0, 'invalid hitBoss impact %s' % impact)
+        
+        # Check if impact cap should be removed
+        removeCap = False
+        if hasattr(self.boss, 'ruleset') and hasattr(self.boss.ruleset, 'REMOVE_IMPACT_CAP'):
+            removeCap = self.boss.ruleset.REMOVE_IMPACT_CAP
+        
+        # Validate impact based on whether cap is removed
+        if removeCap:
+            self.validate(avId, impact >= 0, 'invalid hitBoss impact %s' % impact)
+        else:
+            self.validate(avId, 1.0 >= impact >= 0, 'invalid hitBoss impact %s' % impact)
         if avId not in self.boss.avIdList:
             return
 

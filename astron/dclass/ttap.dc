@@ -1386,6 +1386,7 @@ struct CraneLeagueRuleset {
   bool SAFES_STUN_GOONS;
   bool GOONS_ALWAYS_WAKE_WHEN_GRABBED;
   bool WANT_DRONES;
+  bool REMOVE_IMPACT_CAP;
 };
 
 struct CraneLeagueModifier {
