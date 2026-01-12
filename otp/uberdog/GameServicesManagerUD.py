@@ -320,7 +320,7 @@ class LoginOperation(GameOperation):
 
     def enterCreateAccount(self):
         # Creates a brand new account & stores it in the database.
-        self.account = {'ACCOUNT_AV_SET': [0] * 6,
+        self.account = {'ACCOUNT_AV_SET': [0] * 1,
                         'ESTATE_ID': 0,
                         'ACCOUNT_AV_SET_DEL': [],
                         'CREATED': time.ctime(),
@@ -464,8 +464,8 @@ class AvatarOperation(GameOperation):
         self.avList = self.account['ACCOUNT_AV_SET']
 
         # Sanitize the avList, just in case it is too long/short.
-        self.avList = self.avList[:6]
-        self.avList += [0] * (6 - len(self.avList))
+        self.avList = self.avList[:1]
+        self.avList += [0] * (1 - len(self.avList))
 
         # We're done; enter the postAccountState.
         self.demand(self.postAccountState)

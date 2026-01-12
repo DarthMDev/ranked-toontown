@@ -145,7 +145,7 @@ class LoadEstateOperation(FSM):
         self.demand('QueryAvatars')
 
     def enterQueryAvatars(self):
-        self.avIds = self.accFields.get('ACCOUNT_AV_SET', [0] * 6)
+        self.avIds = self.accFields.get('ACCOUNT_AV_SET', [0] * 1)
         self.avatars = {}
         for index, avId in enumerate(self.avIds):
             if avId == 0:

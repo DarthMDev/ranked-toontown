@@ -171,7 +171,7 @@ class CreateAvatarOperation(GameOperation):
 
     def enterStart(self, dna, index):
         # First, perform some basic sanity checking.
-        if index >= 6:
+        if index >= 1:
             # This index is invalid! Kill the connection.
             self.demand('Kill', 'Invalid index specified!')
             return
@@ -206,8 +206,8 @@ class CreateAvatarOperation(GameOperation):
         self.avList = self.account['ACCOUNT_AV_SET']
 
         # We will now sanitize the avList.
-        self.avList = self.avList[:6]
-        self.avList += [0] * (6 - len(self.avList))
+        self.avList = self.avList[:1]
+        self.avList += [0] * (1 - len(self.avList))
 
         # Check if the index is open:
         if self.avList[self.index]:

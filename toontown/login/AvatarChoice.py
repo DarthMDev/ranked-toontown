@@ -9,19 +9,9 @@ from toontown.toonbase import TTLocalizer
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toontowngui import TeaserPanel
 #from toontown.toonbase import UserFunnel
-NAME_ROTATIONS = (7, -11, 1, -5, 3.5, -5)
-NAME_POSITIONS = ((0, 0, 0.26),
- (-0.03, 0, 0.25),
- (0, 0, 0.27),
- (-0.03, 0, 0.25),
- (0.03, 0, 0.26),
- (0, 0, 0.26))
-DELETE_POSITIONS = ((0.187, 0, -0.26),
- (0.31, 0, -0.167),
- (0.231, 0, -0.241),
- (0.314, 0, -0.186),
- (0.243, 0, -0.233),
- (0.28, 0, -0.207))
+NAME_ROTATIONS = (1,)
+NAME_POSITIONS = ((0, 0, 0.26),)
+DELETE_POSITIONS = ((0.31, 0, -0.167),)
 
 class AvatarChoice(DirectButton):
     notify = DirectNotifyGlobal.directNotify.newCategory('AvatarChoice')
@@ -66,7 +56,10 @@ class AvatarChoice(DirectButton):
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squareBlue'))
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squarePink'))
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squareYellow'))
-        self['image'] = self.buttonBgs[position]
+        # Use green (index 1) for the single toon slot at position 0
+        # This matches the original design where position 1 was green
+        bgIndex = 1 if position == 0 else min(position, len(self.buttonBgs) - 1)
+        self['image'] = self.buttonBgs[bgIndex]
         self.setScale(1.01)
         if self.mode is AvatarChoice.MODE_LOCKED:
             self['command'] = self.__handleTrialer

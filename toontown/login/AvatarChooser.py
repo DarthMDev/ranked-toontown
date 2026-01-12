@@ -10,19 +10,9 @@ from toontown.toonbase import TTLocalizer
 from direct.directnotify import DirectNotifyGlobal
 from direct.interval.IntervalGlobal import *
 import random
-MAX_AVATARS = 6
-POSITIONS = (Vec3(-0.840167, 0, 0.359333),
- Vec3(0.00933349, 0, 0.306533),
- Vec3(0.862, 0, 0.3293),
- Vec3(-0.863554, 0, -0.445659),
- Vec3(0.00999999, 0, -0.5181),
- Vec3(0.864907, 0, -0.445659))
-COLORS = (Vec4(0.917, 0.164, 0.164, 1),
- Vec4(0.152, 0.75, 0.258, 1),
- Vec4(0.598, 0.402, 0.875, 1),
- Vec4(0.133, 0.59, 0.977, 1),
- Vec4(0.895, 0.348, 0.602, 1),
- Vec4(0.977, 0.816, 0.133, 1))
+MAX_AVATARS = 1
+POSITIONS = (Vec3(0.00933349, 0, 0.306533),)
+COLORS = (Vec4(0.152, 0.75, 0.258, 1),)
 chooser_notify = DirectNotifyGlobal.directNotify.newCategory('AvatarChooser')
 
 class AvatarChooser(StateData.StateData):
@@ -112,15 +102,19 @@ class AvatarChooser(StateData.StateData):
                 okToLockout = 1
                 if av.position in AvatarChoice.AvatarChoice.OLD_TRIALER_OPEN_POS:
                     okToLockout = 0
-            panel = AvatarChoice.AvatarChoice(av, position=av.position, paid=isPaid, okToLockout=okToLockout)
-            panel.setPos(POSITIONS[av.position])
-            used_position_indexs.append(av.position)
-            self.panelList.append(panel)
+            # Only create panels for valid positions (0 to MAX_AVATARS-1)
+            if av.position < MAX_AVATARS:
+                panel = AvatarChoice.AvatarChoice(av, position=av.position, paid=isPaid, okToLockout=okToLockout)
+                panel.setPos(POSITIONS[av.position])
+                used_position_indexs.append(av.position)
+                self.panelList.append(panel)
 
+        # Only create empty panels for positions 0 to MAX_AVATARS-1 that aren't already used
         for panelNum in range(0, MAX_AVATARS):
             if panelNum not in used_position_indexs:
                 panel = AvatarChoice.AvatarChoice(position=panelNum, paid=isPaid)
-                panel.setPos(POSITIONS[panelNum])
+                if panelNum < len(POSITIONS):
+                    panel.setPos(POSITIONS[panelNum])
                 self.panelList.append(panel)
 
         if len(self.avatarList) > 0:
@@ -196,7 +190,8 @@ class AvatarChooser(StateData.StateData):
         if len(self.used_panel_indexs) == 0:
             return
         self.IsLookingAt = []
-        for i in range(MAX_AVATARS):
+        # Only initialize for the actual number of panels we have
+        for i in range(len(self.panelList)):
             self.IsLookingAt.append('f')
 
         for panel in self.panelList:
