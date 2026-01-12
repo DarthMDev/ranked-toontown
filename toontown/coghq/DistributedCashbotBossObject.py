@@ -2,6 +2,7 @@ import time
 from enum import IntEnum
 from panda3d.core import *
 from panda3d.physics import *
+from panda3d.core import CollisionHandlerQueue
 from direct.interval.IntervalGlobal import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedSmoothNode
@@ -174,18 +175,52 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.acceptOnce(self.collideName + '-headTarget', self.__hitBoss)
             self.accept(self.collideName + '-dropPlane', self.__hitDropPlane)
             self.accept(self.collideName + '-shield', self.__hitShield)
-            # Platform collisions: FloatingPlatform collision nodes keep their MovingPlatform name
-            # but we can detect them by checking if the name contains 'MovingPlatform' or by tag
-            # Accept both 'platform' (if renamed) and 'MovingPlatform-*' patterns
-            self.accept(self.collideName + '-platform', self.__hitPlatform)
-            # Also listen for MovingPlatform collision events (pattern: collideName-MovingPlatform-*)
-            # We'll need to use a wildcard pattern or check in the handler
-            # For now, let's add a generic handler that checks the collision node name
-            self.accept(self.collideName + '-MovingPlatform', self.__hitPlatform)
-            # Also check for any MovingPlatform-* pattern by accepting a pattern
-            # Note: Panda3D collision events use the exact node name, so we need to handle this differently
-            # We'll check in __handleCollisions or use a more generic approach
+            # Platform collisions: MovingPlatform nodes have dynamic names like 'MovingPlatform-platform-12345'
+            # We need to intercept all collision events and check if they're platform collisions
+            # We'll use a wrapper that catches all collision events for this object
+            self._setupPlatformCollisionDetection()
 
+    def _setupPlatformCollisionDetection(self):
+        """Set up detection for platform collisions with dynamic names."""
+        # Find all FloatingPlatform objects and accept their MovingPlatform collision events
+        # The MovingPlatform collision nodes have names stored in platform._name
+        # We need to find these and accept the collision events for them
+        self._acceptedPlatformEvents = []
+        self._setupPlatformEvents()
+        
+        # Also set up a task to periodically check for new platforms
+        self.platformCheckTask = taskMgr.add(self._checkForNewPlatforms, self.uniqueName('checkForNewPlatforms'))
+    
+    def _setupPlatformEvents(self):
+        """Find all FloatingPlatform objects and accept their collision events."""
+        if not hasattr(base, 'cr') or not base.cr:
+            return
+        
+        # Find all FloatingPlatform objects in the scene
+        for doId, obj in list(base.cr.doId2do.items()):
+            if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
+                # This is a FloatingPlatform, get its MovingPlatform collision node name
+                if hasattr(obj, 'platform') and obj.platform and hasattr(obj.platform, '_name'):
+                    # The MovingPlatform has a _name attribute that's the collision node name
+                    platformCollisionName = obj.platform._name
+                    if platformCollisionName:
+                        # Accept the collision event for this platform
+                        eventName = self.collideName + '-' + platformCollisionName
+                        if eventName not in self._acceptedPlatformEvents:
+                            self.accept(eventName, self.__hitPlatform)
+                            self._acceptedPlatformEvents.append(eventName)
+                            self.notify.debug('Accepted platform collision event: %s' % eventName)
+    
+    def _checkForNewPlatforms(self, task):
+        """Periodically check for new FloatingPlatform objects and accept their collision events."""
+        if not self.physicsActivated:
+            return Task.done
+        
+        # Check for new platforms every 0.5 seconds
+        self._setupPlatformEvents()
+        
+        return Task.cont
+    
     def deactivatePhysics(self):
         if self.physicsActivated:
             self.boss.physicsMgr.removePhysicalNode(self.node())
@@ -195,7 +230,14 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.ignore(self.collideName + '-goon')
             self.ignore(self.collideName + '-headTarget')
             self.ignore(self.collideName + '-dropPlane')
-            self.ignore(self.collideName + '-platform')
+            # Clean up platform collision detection
+            if hasattr(self, '_acceptedPlatformEvents'):
+                for eventName in self._acceptedPlatformEvents:
+                    self.ignore(eventName)
+                del self._acceptedPlatformEvents
+            if hasattr(self, 'platformCheckTask'):
+                taskMgr.remove(self.platformCheckTask)
+                del self.platformCheckTask
 
     def hideShadows(self):
         pass
@@ -210,6 +252,19 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.collisionNodePath.unstash()
 
     def __hitFloor(self, entry):
+        # Check if this is actually a platform collision
+        # MovingPlatform nodes have names like 'MovingPlatform-platform-12345'
+        # and may trigger floor collision events, so we need to check the collision entry
+        if entry:
+            intoNodePath = entry.getIntoNodePath()
+            if intoNodePath and not intoNodePath.isEmpty():
+                nodeName = intoNodePath.getName()
+                # Check for platform tag or MovingPlatform name pattern
+                if intoNodePath.getTag('platform') == '1' or (nodeName and nodeName.startswith('MovingPlatform')):
+                    # This is actually a platform collision, handle it as such
+                    self.__hitPlatform(entry)
+                    return
+        
         # Clear platform reference since we hit the floor, not a platform
         self.platformNode = None
         
