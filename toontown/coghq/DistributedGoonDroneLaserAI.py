@@ -4,7 +4,7 @@ Laser Drone AI - Finds nearest opponent and shoots lasers at them.
 
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
@@ -20,7 +20,7 @@ class DistributedGoonDroneLaserAI(DistributedGoonDroneBaseAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedGoonDroneLaserAI')
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.LASER
+        return CraneGameGlobals.DroneType.LASER
     
     def startBehavior(self):
         """Initialize laser drone behavior."""

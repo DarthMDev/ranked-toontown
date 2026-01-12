@@ -3,7 +3,7 @@ import dataclasses
 from direct.gui.DirectGui import *
 
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedCashbotBossCrane import DistributedCashbotBossCrane
 from toontown.suit.Suit import *
 from direct.task.Task import Task
@@ -166,7 +166,7 @@ def getScoreboardTextRow(scoreboard_frame, unique_id, default_text='', frame_col
 
 @dataclasses.dataclass
 class CachedPointInstance:
-    reason: CraneLeagueGlobals.ScoreReason
+    reason: CraneGameGlobals.ScoreReason
     amount: int
     callback: object
 
@@ -418,7 +418,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
 
         self.inc_ival = None
 
-    def addScore(self, amount, reason: CraneLeagueGlobals.ScoreReason, callback):
+    def addScore(self, amount, reason: CraneGameGlobals.ScoreReason, callback):
 
         # Check if the reason wants a delay
         if reason.want_delay():
@@ -445,11 +445,11 @@ class CashbotBossScoreboardToonRow(DirectObject):
             doLossAnimation(self, diff, old, self.points, localAvFlag=self.avId == base.localAvatar.doId, reason=reason.value)
 
         # This is temporary until we bind the scoreboard to display the counts of certain "events"
-        if reason == CraneLeagueGlobals.ScoreReason.GOON_STOMP:
+        if reason == CraneGameGlobals.ScoreReason.GOON_STOMP:
             self.addStomp()
-        elif reason == CraneLeagueGlobals.ScoreReason.DEFAULT:
+        elif reason == CraneGameGlobals.ScoreReason.DEFAULT:
             self.addDamage(amount)
-        elif reason in (CraneLeagueGlobals.ScoreReason.STUN, CraneLeagueGlobals.ScoreReason.SIDE_STUN):
+        elif reason in (CraneGameGlobals.ScoreReason.STUN, CraneGameGlobals.ScoreReason.SIDE_STUN):
             self.addStun()
 
         callback()
@@ -792,7 +792,7 @@ class CashbotBossScoreboard(DirectObject):
             # Notify the crane game
             messenger.send('spectatedPlayerChanged', [spectatedAvId])
 
-    def addScore(self, avId, amount, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
+    def addScore(self, avId, amount, reason: CraneGameGlobals.ScoreReason = CraneGameGlobals.ScoreReason.DEFAULT):
         """
         Adds score for a toon. Does additional checking and also will delay "special" point reasons if many are being
         received at once.

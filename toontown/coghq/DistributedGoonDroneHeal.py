@@ -8,7 +8,7 @@ from direct.interval.IntervalGlobal import Sequence, Wait, Func, Parallel
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from panda3d.physics import LinearVectorForce
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 import random
 
@@ -32,7 +32,7 @@ class DistributedGoonDroneHeal(DistributedGoonDroneBase):
         self.healingTask = None
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.HEAL
+        return CraneGameGlobals.DroneType.HEAL
     
     def needsOpponents(self):
         """Heal drones don't need opponents to function."""

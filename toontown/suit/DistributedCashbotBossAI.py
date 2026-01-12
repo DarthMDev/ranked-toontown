@@ -11,7 +11,7 @@ from toontown.coghq import DistributedCashbotBossHeavyCraneAI
 from toontown.coghq import DistributedCashbotBossSafeAI
 from toontown.suit import DistributedCashbotBossGoonAI
 from toontown.coghq import DistributedCashbotBossTreasureAI
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from direct.fsm import FSM
 from . import DistributedBossCogAI
 import random
@@ -24,7 +24,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
     def __init__(self, air):
         DistributedBossCogAI.DistributedBossCogAI.__init__(self, air, 'm')
         FSM.FSM.__init__(self, 'DistributedCashbotBossAI')
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.rulesetFallback = self.ruleset  # A fallback ruleset for when we rcr, or change mods mid round
         self.modifiers = []  # A list of CFORulesetModifierBase instances
         self.goonCache = ("Recent emerging side", 0) # Cache for goon spawn bad luck protection
@@ -209,7 +209,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
 
     def setupRuleset(self):
 
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
 
         self.setupTimer()
 
@@ -230,15 +230,15 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
     def rollRandomModifiers(self):
         tierLeftBound = self.ruleset.MODIFIER_TIER_RANGE[0]
         tierRightBound = self.ruleset.MODIFIER_TIER_RANGE[1]
-        pool = [c(random.randint(tierLeftBound, tierRightBound)) for c in CraneLeagueGlobals.NON_SPECIAL_MODIFIER_CLASSES]
+        pool = [c(random.randint(tierLeftBound, tierRightBound)) for c in CraneGameGlobals.NON_SPECIAL_MODIFIER_CLASSES]
         random.shuffle(pool)
 
         self.modifiers = [pool.pop() for _ in range(self.numModsWanted)]
 
         # If we roll a % roll, go ahead and make this a special cfo
         # Doing this last also ensures any rules that the special mod needs to set override
-        if random.randint(0, 99) < CraneLeagueGlobals.SPECIAL_MODIFIER_CHANCE:
-            cls = random.choice(CraneLeagueGlobals.SPECIAL_MODIFIER_CLASSES)
+        if random.randint(0, 99) < CraneGameGlobals.SPECIAL_MODIFIER_CHANCE:
+            cls = random.choice(CraneGameGlobals.SPECIAL_MODIFIER_CLASSES)
             tier = random.randint(tierLeftBound, tierRightBound)
             mod_instance = cls(tier)
             self.modifiers.append(mod_instance)
@@ -315,7 +315,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
             self.cranes = []
             ind = 0
 
-            for _ in CraneLeagueGlobals.NORMAL_CRANE_POSHPR:
+            for _ in CraneGameGlobals.NORMAL_CRANE_POSHPR:
                 crane = DistributedCashbotBossCraneAI.DistributedCashbotBossCraneAI(self.air, self, ind)
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
@@ -323,7 +323,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
 
             # Generate the sidecranes if wanted
             if self.ruleset.WANT_SIDECRANES:
-                for _ in CraneLeagueGlobals.SIDE_CRANE_POSHPR:
+                for _ in CraneGameGlobals.SIDE_CRANE_POSHPR:
                     crane = DistributedCashbotBossSideCraneAI.DistributedCashbotBossSideCraneAI(self.air, self, ind)
                     crane.generateWithRequired(self.zoneId)
                     self.cranes.append(crane)
@@ -331,7 +331,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
 
             # Generate the heavy cranes if wanted
             if self.ruleset.WANT_HEAVY_CRANES:
-                for _ in CraneLeagueGlobals.HEAVY_CRANE_POSHPR:
+                for _ in CraneGameGlobals.HEAVY_CRANE_POSHPR:
                     crane = DistributedCashbotBossHeavyCraneAI.DistributedCashbotBossHeavyCraneAI(self.air, self, ind)
                     crane.generateWithRequired(self.zoneId)
                     self.cranes.append(crane)
@@ -340,7 +340,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI.DistributedBossCogAI, FSM.FS
         if self.safes == None:
             # And all of the safes.
             self.safes = []
-            for index in range(min(self.ruleset.SAFES_TO_SPAWN, len(CraneLeagueGlobals.SAFE_POSHPR))):
+            for index in range(min(self.ruleset.SAFES_TO_SPAWN, len(CraneGameGlobals.SAFE_POSHPR))):
                 safe = DistributedCashbotBossSafeAI.DistributedCashbotBossSafeAI(self.air, self, index)
                 safe.generateWithRequired(self.zoneId)
                 self.safes.append(safe)

@@ -5,7 +5,7 @@ Stun Drone AI - Goes high above CFO, grows, then launches down to stun.
 import random
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 from toontown.toonbase import ToontownGlobals
 
@@ -21,7 +21,7 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedGoonDroneStunAI')
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.STUN
+        return CraneGameGlobals.DroneType.STUN
     
     def startBehavior(self):
         """Initialize stun drone behavior."""
@@ -51,7 +51,7 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
         
         # Stun the CFO immediately to interrupt any ongoing attacks
         # Send visual effect first to trigger flinch on client, then stun immediately
-        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.STUN.value])
+        self.sendUpdate('performVisualEffect', [CraneGameGlobals.DroneType.STUN.value])
         
         # Stun immediately - no delay to prevent gear attacks from completing
         if hasattr(self.boss, 'game') and self.boss.game:
@@ -74,11 +74,11 @@ class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):
             if hasattr(self.boss, 'heldObject') and self.boss.heldObject is not None:
                 # Award 10 points for knocking off helmet with Stunna
                 if hasattr(self.boss, 'game') and self.boss.game:
-                    from toontown.coghq import CraneLeagueGlobals
+                    from toontown.minigame.craning import CraneGameGlobals
                     self.boss.game.addScore(
                         self.ownerId,
                         10,
-                        reason=CraneLeagueGlobals.ScoreReason.REMOVE_HELMET
+                        reason=CraneGameGlobals.ScoreReason.REMOVE_HELMET
                     )
                 
                 # Remove the helmet

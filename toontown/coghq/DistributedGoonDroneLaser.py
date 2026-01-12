@@ -6,7 +6,7 @@ from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 
 
@@ -35,7 +35,7 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
             self.laserPewSfx = None
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.LASER
+        return CraneGameGlobals.DroneType.LASER
     
     def needsOpponents(self):
         """Laser drones need opponents to function."""
@@ -423,11 +423,11 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
     
     def _checkToonHasShield(self, toonId):
         """Check if a toon has an active shield drone."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         # Check all drones in the scene to see if any are shield drones for this toon
         for obj in base.cr.doId2do.values():
             if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
-                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                if obj.getDroneType() == CraneGameGlobals.DroneType.SHIELD:
                     if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
                         if hasattr(obj, 'shieldActive') and obj.shieldActive:
                             return True

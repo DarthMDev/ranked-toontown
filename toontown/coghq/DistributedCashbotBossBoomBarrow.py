@@ -32,8 +32,8 @@ class DistributedCashbotBossBoomBarrow(DistributedObject):
         self.model = loader.loadModel('phase_5.5/models/estate/wheelbarrel.bam')
         
         # Get position from the side crane positions
-        from toontown.coghq import CraneLeagueGlobals
-        poshpr = CraneLeagueGlobals.SIDE_CRANE_POSHPR[self.index]
+        from toontown.minigame.craning import CraneGameGlobals
+        poshpr = CraneGameGlobals.SIDE_CRANE_POSHPR[self.index]
         # Rotate by 90 degrees (H)
         newH = poshpr[3] + 90
         self.model.setPosHpr(poshpr[0], poshpr[1], poshpr[2], newH, poshpr[4], poshpr[5])

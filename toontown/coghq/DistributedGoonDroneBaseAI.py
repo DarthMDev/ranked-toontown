@@ -9,7 +9,7 @@ from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedObjectAI
 from toontown.suit import DistributedGoonAI
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 import math
 
 
@@ -21,7 +21,7 @@ class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
     - Vanishing and cleanup
     
     Subclasses must implement:
-    - getDroneType() - returns the CraneLeagueGlobals.DroneType enum
+    - getDroneType() - returns the CraneGameGlobals.DroneType enum
     - startBehavior() - implements the type-specific AI behavior
     """
     
@@ -42,7 +42,7 @@ class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
     def getDroneType(self):
         """
         Override in subclass to return the drone type enum.
-        Returns: CraneLeagueGlobals.DroneType
+        Returns: CraneGameGlobals.DroneType
         """
         raise NotImplementedError("Subclass must implement getDroneType()")
     
@@ -79,7 +79,7 @@ class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
     def setDroneType(self, droneType):
         """Set the drone type (received from AI)."""
         if isinstance(droneType, int):
-            droneTypeEnum = CraneLeagueGlobals.DroneType(droneType)
+            droneTypeEnum = CraneGameGlobals.DroneType(droneType)
         else:
             droneTypeEnum = droneType
         self.d_setDroneType(droneTypeEnum.value)

@@ -8,7 +8,7 @@ from panda3d.physics import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 from toontown.effects import DustCloud
 import math
@@ -38,7 +38,7 @@ class DistributedGoonDroneGhosty(DistributedGoonDroneBase):
         self.opponentIds = []  # Store opponent IDs to check if local toon should see transparency
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.GHOSTY
+        return CraneGameGlobals.DroneType.GHOSTY
     
     def needsOpponents(self):
         """Ghosty drones need opponents to target their safes."""

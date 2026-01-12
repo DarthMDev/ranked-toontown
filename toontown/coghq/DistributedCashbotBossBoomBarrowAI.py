@@ -29,8 +29,8 @@ class DistributedCashbotBossBoomBarrowAI(DistributedObjectAI):
     def announceGenerate(self):
         DistributedObjectAI.announceGenerate(self)
         # Set position based on side crane positions (same as where boom barrows spawn)
-        from toontown.coghq import CraneLeagueGlobals
-        poshpr = CraneLeagueGlobals.SIDE_CRANE_POSHPR[self.index]
+        from toontown.minigame.craning import CraneGameGlobals
+        poshpr = CraneGameGlobals.SIDE_CRANE_POSHPR[self.index]
         self.collisionNodePath.setPosHpr(poshpr[0], poshpr[1], poshpr[2], poshpr[3], poshpr[4], poshpr[5])
 
     def setIndex(self, index):

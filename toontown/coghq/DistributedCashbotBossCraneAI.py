@@ -1,6 +1,6 @@
 from panda3d.core import *
 from direct.distributed import DistributedObjectAI
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from direct.fsm import FSM
 
 class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM.FSM):
@@ -21,7 +21,7 @@ class DistributedCashbotBossCraneAI(DistributedObjectAI.DistributedObjectAI, FSM
         cs = CollisionSphere(0, -6, 0, 6)
         cn.addSolid(cs)
         self.goonShield = NodePath(cn)
-        self.goonShield.setPosHpr(*CraneLeagueGlobals.ALL_CRANE_POSHPR[self.index])
+        self.goonShield.setPosHpr(*CraneGameGlobals.ALL_CRANE_POSHPR[self.index])
         
         self.avId = 0
         self.objectId = 0

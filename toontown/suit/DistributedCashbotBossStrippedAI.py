@@ -6,7 +6,7 @@ from direct.fsm import FSM
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import Point3
 
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from toontown.coghq import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
 from .DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
@@ -23,7 +23,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
         self.game = game
 
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.rulesetFallback = self.ruleset  # A fallback ruleset for when we rcr, or change mods mid round
         self.oldMaxLaffs = {}
         self.heldObject = None
@@ -234,7 +234,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         isStunned = self.attackCode == ToontownGlobals.BossCogDizzy
         # Are we setting to swat?
         if isStunned and attackCode == ToontownGlobals.BossCogElectricFence:
-            self.game.addScore(avId, self.game.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneLeagueGlobals.UNSTUN)
+            self.game.addScore(avId, self.game.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneGameGlobals.UNSTUN)
 
         # Only show zap animation if toon doesn't have shield
         if not hasShield:
@@ -1133,12 +1133,12 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
             droneType = self.game.getDroneTypeForToon(toonId)
         
         # Default to laser if no type specified
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         if droneType is None:
-            droneType = CraneLeagueGlobals.DroneType.LASER
+            droneType = CraneGameGlobals.DroneType.LASER
         
         # For heal, explodey, stun, and shield drones, we don't need opponents check
-        if droneType == CraneLeagueGlobals.DroneType.LASER:
+        if droneType == CraneGameGlobals.DroneType.LASER:
             # Check if there are any opponents (toons other than the owner)
             if not self.game:
                 return
@@ -1160,22 +1160,22 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         
         # Create the drone with specified type - use specialized classes
         # Select the appropriate drone class based on type
-        if droneType == CraneLeagueGlobals.DroneType.LASER:
+        if droneType == CraneGameGlobals.DroneType.LASER:
             from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
             drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.HEAL:
+        elif droneType == CraneGameGlobals.DroneType.HEAL:
             from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
             drone = DistributedGoonDroneHealAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+        elif droneType == CraneGameGlobals.DroneType.EXPLODEY:
             from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
             drone = DistributedGoonDroneExplodeyAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.STUN:
+        elif droneType == CraneGameGlobals.DroneType.STUN:
             from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
             drone = DistributedGoonDroneStunAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.SHIELD:
+        elif droneType == CraneGameGlobals.DroneType.SHIELD:
             from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
             drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
-        elif droneType == CraneLeagueGlobals.DroneType.GHOSTY:
+        elif droneType == CraneGameGlobals.DroneType.GHOSTY:
             from toontown.coghq.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
             drone = DistributedGoonDroneGhostyAI(self.air, self, toonId)
         else:

@@ -4,7 +4,7 @@ from . import GoonGlobals
 from direct.task.Task import Task
 from toontown.toonbase import ToontownGlobals
 from toontown.coghq import DistributedCashbotBossObjectAI
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from direct.showbase import PythonUtil
 from . import DistributedGoonAI
 import math
@@ -357,7 +357,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         if self.boss.ruleset.GOONS_DIE_ON_STOMP:
             self.b_destroyGoon()
             self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE,
-                               reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+                               reason=CraneGameGlobals.ScoreReason.GOON_KILL)
             return
 
         # Stop the goon right where he is.
@@ -367,7 +367,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         self.boss.makeTreasure(self)
 
         # Update stats and add track combo for points
-        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_STOMP, reason=CraneLeagueGlobals.ScoreReason.GOON_STOMP)
+        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_STOMP, reason=CraneGameGlobals.ScoreReason.GOON_STOMP)
         comboTracker = self.boss.comboTrackers[avId]
         comboTracker.incrementCombo(math.ceil((comboTracker.combo + 1.0) / 4.0))
         DistributedGoonAI.DistributedGoonAI.requestStunned(self, pauseTime)
@@ -403,7 +403,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
             return
 
         if impact <= self.getMinImpact():
-            self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SANDBAG, reason=CraneLeagueGlobals.ScoreReason.LOW_IMPACT)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SANDBAG, reason=CraneGameGlobals.ScoreReason.LOW_IMPACT)
             return
 
         avatar = self.air.doId2do.get(avId)
@@ -459,7 +459,7 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         
         # Award points for TNT goon destruction (same as safe destruction)
         self.notify.debug('destroyedByTNT: Awarding points to avId %d' % avId)
-        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneGameGlobals.ScoreReason.GOON_KILL)
         # Then destroy the goon
         self.b_destroyGoon()
 

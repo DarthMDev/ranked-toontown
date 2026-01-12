@@ -12,7 +12,7 @@ from otp.otpbase import OTPGlobals
 
 from toontown.battle import SuitBattleGlobals
 from toontown.coghq import CogDisguiseGlobals
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from toontown.coghq.CraneLeagueHeatDisplay import CraneLeagueHeatDisplay
 from toontown.estate import GardenGlobals
 from toontown.fishing import FishGlobals
@@ -2289,7 +2289,7 @@ class SetCFOModifiers(MagicWord):
             except:
                 return "Please specify a number!"
 
-            range = (0, len(list(CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.values())))
+            range = (0, len(list(CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.values())))
 
             if n < range[0] or n > range[1]:
                 return "Number of modifiers must be in between %s and %s" % (range[0], range[1])
@@ -2326,7 +2326,7 @@ class SetCFOModifiers(MagicWord):
             except:
                 return "Please provide a number for modifier ID"
 
-            mod = CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(mod_id)
+            mod = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(mod_id)
             if not mod:
                 return "Invalid modifier ID provided"
 
@@ -2361,7 +2361,7 @@ class SetCFOModifiers(MagicWord):
             except:
                 return "Please provide a number for modifier ID"
 
-            mod = CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(mod_id)
+            mod = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(mod_id)
             if not mod:
                 return "Invalid modifier ID provided"
 

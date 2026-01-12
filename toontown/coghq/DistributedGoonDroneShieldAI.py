@@ -4,7 +4,7 @@ Shield Drone AI - Tracks shield state and handles shield protection mechanics.
 
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
@@ -26,7 +26,7 @@ class DistributedGoonDroneShieldAI(DistributedGoonDroneBaseAI):
         self.shieldDuration = 8.0  # 8 seconds
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.SHIELD
+        return CraneGameGlobals.DroneType.SHIELD
     
     def startBehavior(self):
         """Initialize shield drone behavior."""

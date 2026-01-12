@@ -79,7 +79,7 @@ class GameServicesManager(DistributedObjectGlobal):
         if value <= 0:
             exit(0)
 
-        self.__determinePlaytokenAuthenticity(self.playtokenInputEntry.text())
+        self.__determinePlaytokenAuthenticity(self.playtokenInputEntry.get())
 
     def __handleDiscordAuthChoice(self, value):
         # If they said yes, open a tab that will let the user log in. If they consent, they will be logged in!

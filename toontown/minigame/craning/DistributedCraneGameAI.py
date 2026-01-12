@@ -6,9 +6,9 @@ from direct.fsm import State
 from otp.otpbase.PythonUtil import clamp
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.CashbotBossComboTracker import CashbotBossComboTracker
-from toontown.minigame.craning.CraneLeagueGlobals import ScoreReason
+from toontown.minigame.craning.CraneGameGlobals import ScoreReason
 from toontown.coghq.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
 from toontown.coghq.DistributedCashbotBossHeavyCraneAI import DistributedCashbotBossHeavyCraneAI
 from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
@@ -18,7 +18,7 @@ from toontown.coghq.DistributedCashbotBossBoomBarrowAI import DistributedCashbot
 from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.minigame.craning.CraneGamePracticeCheatAI import CraneGamePracticeCheatAI
 from toontown.suit.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
 from toontown.suit.DistributedCashbotBossStrippedAI import DistributedCashbotBossStrippedAI
@@ -41,7 +41,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         air.memoryDebugger.track_weak(self, "CraneGame")
         self.setProfileSkillKey(None)  # By default, no ranked mode.
 
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.modifiers = []  # A list of CFORulesetModifierBase instances
         self.goonCache = ("Recent emerging side", 0) # Cache for goon spawn bad luck protection
         self.cranes = []
@@ -286,7 +286,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.d_setRoundInfo()
 
     def setupRuleset(self):
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.modifiers.clear()
         modifiers = []
         for modifier in self.desiredModifiers:
@@ -297,9 +297,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # Add default competitive modifiers only on first setup for 2+ players
         if len(self.getParticipantsNotSpectating()) >= 2 and not self.defaultModifiersInitialized:
-            invincibleBoss = CraneLeagueGlobals.ModifierInvincibleBoss()
-            timerEnabler = CraneLeagueGlobals.ModifierTimerEnabler(3)
-            sideCranesEnabler = CraneLeagueGlobals.ModifierSideCranesEnabler()
+            invincibleBoss = CraneGameGlobals.ModifierInvincibleBoss()
+            timerEnabler = CraneGameGlobals.ModifierTimerEnabler(3)
+            sideCranesEnabler = CraneGameGlobals.ModifierSideCranesEnabler()
             modifiers.append(invincibleBoss)
             modifiers.append(timerEnabler)
             modifiers.append(sideCranesEnabler)
@@ -317,14 +317,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     # Call to update the ruleset with the modifiers active, note calling more than once can cause unexpected behavior
     # if the ruleset doesn't fallback to an initial value, for example if a cfo hp increasing modifier is active and we
     # call this multiply times, his hp will be 1500 * 1.5 * 1.5 * 1.5 etc etc
-    def applyModifiers(self, modifiers: list[CraneLeagueGlobals.CFORulesetModifierBase], updateClient=False):
+    def applyModifiers(self, modifiers: list[CraneGameGlobals.CFORulesetModifierBase], updateClient=False):
         for modifier in modifiers:
             self.applyModifier(modifier, updateClient=False)
         if updateClient:
             self.d_setRawRuleset()
             self.d_setModifiers()
 
-    def applyModifier(self, modifier: CraneLeagueGlobals.CFORulesetModifierBase, updateClient=False):
+    def applyModifier(self, modifier: CraneGameGlobals.CFORulesetModifierBase, updateClient=False):
         self.modifiers.append(modifier)
         modifier.apply(self.ruleset)
         self.ruleset.validate()
@@ -360,8 +360,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def rollRandomModifiers(self):
         tierLeftBound = self.ruleset.MODIFIER_TIER_RANGE[0]
         tierRightBound = self.ruleset.MODIFIER_TIER_RANGE[1]
-        pool: list[CraneLeagueGlobals.CFORulesetModifierBase] = [c(random.randint(tierLeftBound, tierRightBound)) for c in
-                                                                 CraneLeagueGlobals.NON_SPECIAL_MODIFIER_CLASSES]
+        pool: list[CraneGameGlobals.CFORulesetModifierBase] = [c(random.randint(tierLeftBound, tierRightBound)) for c in
+                                                                 CraneGameGlobals.NON_SPECIAL_MODIFIER_CLASSES]
 
         alreadyApplied = [mod.MODIFIER_ENUM for mod in self.desiredModifiers]
         for choice in list(pool):
@@ -377,8 +377,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # If we roll a % roll, go ahead and make this a special cfo
         # Doing this last also ensures any rules that the special mod needs to set override
-        if random.randint(0, 99) < CraneLeagueGlobals.SPECIAL_MODIFIER_CHANCE:
-            cls = random.choice(CraneLeagueGlobals.SPECIAL_MODIFIER_CLASSES)
+        if random.randint(0, 99) < CraneGameGlobals.SPECIAL_MODIFIER_CHANCE:
+            cls = random.choice(CraneGameGlobals.SPECIAL_MODIFIER_CLASSES)
             tier = random.randint(tierLeftBound, tierRightBound)
             mod_instance = cls(tier)
             modifiers.append(mod_instance)
@@ -433,7 +433,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.cranes.clear()
         ind = 0
 
-        for _ in CraneLeagueGlobals.NORMAL_CRANE_POSHPR:
+        for _ in CraneGameGlobals.NORMAL_CRANE_POSHPR:
             crane = DistributedCashbotBossCraneAI(self.air, self, ind)
             crane.generateWithRequired(self.zoneId)
             self.cranes.append(crane)
@@ -441,14 +441,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # Generate the sidecranes if wanted
         if self.ruleset.WANT_SIDECRANES:
-            for _ in CraneLeagueGlobals.SIDE_CRANE_POSHPR:
+            for _ in CraneGameGlobals.SIDE_CRANE_POSHPR:
                 crane = DistributedCashbotBossSideCraneAI(self.air, self, ind)
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
                 ind += 1
         # Generate boom barrows if wanted (alternative to side cranes)
         elif self.ruleset.WANT_BOOM_BARROWS:
-            for boomBarrowIndex, _ in enumerate(CraneLeagueGlobals.SIDE_CRANE_POSHPR):
+            for boomBarrowIndex, _ in enumerate(CraneGameGlobals.SIDE_CRANE_POSHPR):
                 boomBarrow = DistributedCashbotBossBoomBarrowAI(self.air, self, boomBarrowIndex)
                 boomBarrow.generateWithRequired(self.zoneId)
                 boomBarrow.b_setIndex(boomBarrowIndex)
@@ -473,7 +473,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
-            for _ in CraneLeagueGlobals.HEAVY_CRANE_POSHPR:
+            for _ in CraneGameGlobals.HEAVY_CRANE_POSHPR:
                 crane = DistributedCashbotBossHeavyCraneAI(self.air, self, ind)
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
@@ -481,7 +481,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # And all of the safes.
         self.safes.clear()
-        for index in range(min(self.ruleset.SAFES_TO_SPAWN, len(CraneLeagueGlobals.SAFE_POSHPR))):
+        for index in range(min(self.ruleset.SAFES_TO_SPAWN, len(CraneGameGlobals.SAFE_POSHPR))):
             safe = DistributedCashbotBossSafeAI(self.air, self, index)
             safe.generateWithRequired(self.zoneId)
             self.safes.append(safe)
@@ -803,9 +803,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         for crane in self.cranes:
             # Get crane position based on its type and index
             if isinstance(crane, DistributedCashbotBossSideCraneAI):
-                poshpr = CraneLeagueGlobals.SIDE_CRANE_POSHPR[crane.index - len(CraneLeagueGlobals.NORMAL_CRANE_POSHPR)]
+                poshpr = CraneGameGlobals.SIDE_CRANE_POSHPR[crane.index - len(CraneGameGlobals.NORMAL_CRANE_POSHPR)]
             else:
-                poshpr = CraneLeagueGlobals.NORMAL_CRANE_POSHPR[crane.index]
+                poshpr = CraneGameGlobals.NORMAL_CRANE_POSHPR[crane.index]
             cranePos = (poshpr[0], poshpr[1], poshpr[2])
             if abs(cranePos[0] - x) < minDistance and abs(cranePos[1] - y) < minDistance:
                 return False
@@ -1142,10 +1142,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if not isDOT:
             if removeCap:
                 if impact >= 1.0:
-                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneLeagueGlobals.ScoreReason.FULL_IMPACT)
+                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneGameGlobals.ScoreReason.FULL_IMPACT)
             else:
                 if impact == 1.0:
-                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneLeagueGlobals.ScoreReason.FULL_IMPACT)
+                    self.addScore(avId, self.ruleset.POINTS_IMPACT, reason=CraneGameGlobals.ScoreReason.FULL_IMPACT)
         self.addScore(avId, damage)
 
         # DOT damage should not contribute to combos
@@ -1155,7 +1155,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # The CFO has been defeated, proceed to Victory state
         if self.boss.bossDamage >= self.ruleset.CFO_MAX_HP:
-            self.addScore(avId, self.ruleset.POINTS_KILLING_BLOW, CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+            self.addScore(avId, self.ruleset.POINTS_KILLING_BLOW, CraneGameGlobals.ScoreReason.KILLING_BLOW)
             self.toonsWon = True
             self.gameFSM.request('victory')
             return
@@ -1203,7 +1203,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             delayTime = self.progressValue(20, 5)
             self.boss.b_setAttackCode(ToontownGlobals.BossCogDizzy, delayTime=delayTime)
             isSideCrane = isinstance(crane, DistributedCashbotBossSideCraneAI)
-            reason = CraneLeagueGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneLeagueGlobals.ScoreReason.STUN
+            reason = CraneGameGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneGameGlobals.ScoreReason.STUN
             
             # Determine points based on stun type
             if crane is not None:
@@ -1269,7 +1269,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # The CFO has been defeated, proceed to Victory state
         if self.boss.bossDamage >= self.ruleset.CFO_MAX_HP:
-            self.addScore(attributeToAvId, self.ruleset.POINTS_KILLING_BLOW, CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+            self.addScore(attributeToAvId, self.ruleset.POINTS_KILLING_BLOW, CraneGameGlobals.ScoreReason.KILLING_BLOW)
             self.toonsWon = True
             self.gameFSM.request('victory')
             return
@@ -1294,7 +1294,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if self.ruleset.WANT_MOMENTUM_MECHANIC:
             self.increaseToonOutgoingMultiplier(attributeToAvId, damage)
 
-    def addScore(self, avId: int, amount: int, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
+    def addScore(self, avId: int, amount: int, reason: CraneGameGlobals.ScoreReason = CraneGameGlobals.ScoreReason.DEFAULT):
 
         if amount == 0:
             return
@@ -1307,7 +1307,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # If we are in overtime, check the overtime state. There is a chance this toon overtook 1st place when
         # everyone is dead and should be declared winner.
-        if self.currentlyInOvertime and reason != CraneLeagueGlobals.ScoreReason.COIN_FLIP:
+        if self.currentlyInOvertime and reason != CraneGameGlobals.ScoreReason.COIN_FLIP:
             self.__checkOvertimeState()
 
         # Check if we can award an uber bonus for being low laff
@@ -1351,10 +1351,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             return
 
         # Add additional score if uber bonus is on.
-        self.addScore(avId, uberAmount, reason=CraneLeagueGlobals.ScoreReason.LOW_LAFF)
+        self.addScore(avId, uberAmount, reason=CraneGameGlobals.ScoreReason.LOW_LAFF)
 
 
-    def d_addScore(self, avId: int, amount: int, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
+    def d_addScore(self, avId: int, amount: int, reason: CraneGameGlobals.ScoreReason = CraneGameGlobals.ScoreReason.DEFAULT):
         self.sendUpdate('addScore', [avId, amount, reason.to_astron()])
 
     def setCraneSpawn(self, spawn, toonId):
@@ -1491,7 +1491,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         
         # Calculate how long we should wait to actually start the game.
         # If more than 1 player is present, we want to have a delay present for a cutscene to play.
-        delayTime = CraneLeagueGlobals.PREPARE_LATENCY_FACTOR
+        delayTime = CraneGameGlobals.PREPARE_LATENCY_FACTOR
         if len(self.getParticipantIdsNotSpectating()) != 1:
             delayTime += CraneGameGlobals.PREPARE_DELAY
         print(f"[DistributedCraneGameAI] Scheduling play transition in {delayTime} seconds")
@@ -1632,7 +1632,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         self.currentWinners = self.getParticipantIdsNotSpectating()
 
-        self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
+        self.d_setOvertime(CraneGameGlobals.OVERTIME_FLAG_DISABLE)
 
         # Laff drain?
         if self.ruleset.WANT_LAFF_DRAIN:
@@ -1738,21 +1738,21 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         Marks this game in progress to enter overtime when time is up.
         """
         self.overtimeWillHappen = True
-        self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_ENABLE)
+        self.d_setOvertime(CraneGameGlobals.OVERTIME_FLAG_ENABLE)
 
     def __enterOvertimeMode(self):
         """
         Adjust the state of the boss to force this game to find a winner with more extreme measures.
         """
         self.currentlyInOvertime = True
-        self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_START)
+        self.d_setOvertime(CraneGameGlobals.OVERTIME_FLAG_START)
 
         modifiers = [
-            CraneLeagueGlobals.ModifierGoonCapIncreaser(tier=1),
-            CraneLeagueGlobals.ModifierNoSafeHelmet(tier=1),
-            CraneLeagueGlobals.ModifierTreasureHealDecreaser(tier=2),
-            CraneLeagueGlobals.ModifierLaffDrain(tier=3),
-            CraneLeagueGlobals.ModifierNoRevives(tier=1),
+            CraneGameGlobals.ModifierGoonCapIncreaser(tier=1),
+            CraneGameGlobals.ModifierNoSafeHelmet(tier=1),
+            CraneGameGlobals.ModifierTreasureHealDecreaser(tier=2),
+            CraneGameGlobals.ModifierLaffDrain(tier=3),
+            CraneGameGlobals.ModifierNoRevives(tier=1),
         ]
 
         self.applyModifiers(modifiers, updateClient=True)
@@ -1780,7 +1780,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # If so, assign one lucky person the win.
         # In the future, we can probably determine this another way, but right now I am lazy.
         if allToonsAreDead and len(self.currentWinners) > 1:
-            self.addScore(random.choice(self.currentWinners), 1, CraneLeagueGlobals.ScoreReason.COIN_FLIP)
+            self.addScore(random.choice(self.currentWinners), 1, CraneGameGlobals.ScoreReason.COIN_FLIP)
 
         # End the game if everyone died or if it is literally impossible for the winner to be overtaken.
         if allToonsAreDead or winnerIsAlreadyDetermined:
@@ -1841,7 +1841,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.stopDrainingLaff()
         self.currentlyInOvertime = False
         self.overtimeWillHappen = False
-        self.d_setOvertime(CraneLeagueGlobals.OVERTIME_FLAG_DISABLE)
+        self.d_setOvertime(CraneGameGlobals.OVERTIME_FLAG_DISABLE)
         
         # Clear any pending forfeit requests when exiting play
         self.pendingForfeitRequest = None
@@ -2039,8 +2039,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 return
         
         # Get the modifier class and create instance
-        if modifierEnum in CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES:
-            modifierClass = CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES[modifierEnum]
+        if modifierEnum in CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES:
+            modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES[modifierEnum]
             modifier = modifierClass(tier)
             
             # Add to desired modifiers so it persists across game restarts
@@ -2082,7 +2082,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def __rebuildRuleset(self):
         """Rebuild the ruleset from scratch with current modifiers"""
         # Reset to base ruleset
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()
         
         # Reapply all remaining modifiers
         for modifier in self.modifiers:
@@ -2132,11 +2132,11 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 return
         
         # Get selected drone type for this slot
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         droneType = self.getDroneTypeForToon(avId, slotIndex)
         if droneType is None:
             # Default to laser if no type selected
-            droneType = CraneLeagueGlobals.DroneType.LASER
+            droneType = CraneGameGlobals.DroneType.LASER
         
         # Set cooldown for this specific slot
         self.droneCooldowns[avId][slotIndex] = currentTime + DRONE_COOLDOWN
@@ -2149,29 +2149,29 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def getDroneTypeForToon(self, avId, slotIndex=0):
         """Get the selected drone type for a toon's slot."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         if avId not in self.selectedDroneTypes:
             # Default: all slots are laser
-            return CraneLeagueGlobals.DroneType.LASER
+            return CraneGameGlobals.DroneType.LASER
         slotTypes = self.selectedDroneTypes[avId]
         if slotIndex >= len(slotTypes):
-            return CraneLeagueGlobals.DroneType.LASER
+            return CraneGameGlobals.DroneType.LASER
         return slotTypes[slotIndex]
     
     def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
         """Set the selected drone type for a toon's slot."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         if avId not in self.selectedDroneTypes:
             # Initialize with default (Laser, Heal, Explodey)
             self.selectedDroneTypes[avId] = [
-                CraneLeagueGlobals.DroneType.LASER,
-                CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLODEY
+                CraneGameGlobals.DroneType.LASER,
+                CraneGameGlobals.DroneType.HEAL,
+                CraneGameGlobals.DroneType.EXPLODEY
             ]
         
         # Convert value to enum if needed
         if isinstance(droneTypeValue, int):
-            droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+            droneType = CraneGameGlobals.DroneType(droneTypeValue)
         else:
             droneType = droneTypeValue
         
@@ -2291,14 +2291,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if num_players == 1:
             # Single player game - just subtract their score to put them at 0 or negative
             # No need to give bonus points since they're the only player
-            self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+            self.addScore(forfeiterAvId, -score, reason=CraneGameGlobals.ScoreReason.FORFEIT)
         else:
             # Multi-player game - ensure all other participants have points so forfeiter is last
             for toon in self.getParticipantsNotSpectating():
                 if toon.getDoId() != forfeiterAvId:
-                    self.addScore(toon.getDoId(), 2000, reason=CraneLeagueGlobals.ScoreReason.KILLING_BLOW)
+                    self.addScore(toon.getDoId(), 2000, reason=CraneGameGlobals.ScoreReason.KILLING_BLOW)
             
-            self.addScore(forfeiterAvId, -score, reason=CraneLeagueGlobals.ScoreReason.FORFEIT)
+            self.addScore(forfeiterAvId, -score, reason=CraneGameGlobals.ScoreReason.FORFEIT)
         
         # Clear forfeit request state
         self.pendingForfeitRequest = None

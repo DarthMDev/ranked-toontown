@@ -1,4 +1,4 @@
-# Store various globals for boss cogs, for now this is just a place to throw the old CraneLeagueGlobals stuff that got
+# Store various globals for boss cogs, for now this is just a place to throw the old CraneGameGlobals stuff that got
 # ported to other bosses
 
 POINTS_STUN_VP = 25

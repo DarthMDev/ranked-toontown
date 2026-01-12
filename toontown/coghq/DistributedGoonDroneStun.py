@@ -9,7 +9,7 @@ from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 import math
 
@@ -39,7 +39,7 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         self.skipSafeCollision = False
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.STUN
+        return CraneGameGlobals.DroneType.STUN
     
     def needsOpponents(self):
         """Stun drones don't need opponents to function."""

@@ -7,7 +7,7 @@ from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import DistributedGoon
 from toontown.coghq import DistributedCrushableEntity
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
 from panda3d.core import Vec2, Vec3
@@ -50,7 +50,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         self.boss = None
         self.ownerId = 0  # Toon who deployed this drone
         self.targetId = None  # Target toon ID
-        self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default to laser
+        self.droneType = CraneGameGlobals.DroneType.LASER  # Default to laser
         self.deployTime = 0
         self.propeller = None
         self.propellerSpinTask = None
@@ -70,7 +70,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         
     def setDroneType(self, droneTypeValue):
         """Set the drone type (received from AI)."""
-        self.droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        self.droneType = CraneGameGlobals.DroneType(droneTypeValue)
         # Update hat color based on drone type
         self.updateHatColor()
     
@@ -115,9 +115,9 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
             # Check if behavior hasn't started yet
             if not hasattr(self, 'behaviorSequence') or self.behaviorSequence is None:
                 taskMgr.remove(self.uniqueName('startBehavior'))
-                if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+                if self.droneType == CraneGameGlobals.DroneType.LASER:
                     self.startFlying()
-                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+                elif self.droneType == CraneGameGlobals.DroneType.EXPLODEY:
                     self.startFlyingToCFO()
         
     def generate(self):
@@ -151,9 +151,9 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         # Check if there are any opponents (only for laser drones)
         # Heal and explodey drones don't need opponents
         if not hasattr(self, 'droneType'):
-            self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default
+            self.droneType = CraneGameGlobals.DroneType.LASER  # Default
         
-        if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+        if self.droneType == CraneGameGlobals.DroneType.LASER:
             if not self.hasOpponents():
                 # No opponents, vanish immediately with poof
                 def vanishNoOpponents(task):
@@ -201,16 +201,16 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                 # Wait for drone type and target to be set before starting behavior
                 # Use a small delay to ensure data is received
                 def startBehavior(task):
-                    if self.droneType == CraneLeagueGlobals.DroneType.LASER:
+                    if self.droneType == CraneGameGlobals.DroneType.LASER:
                         if self.targetId:
                             self.startFlying()
                         else:
                             # If still no target after delay, vanish
                             self.vanishWithPoof()
-                    elif self.droneType == CraneLeagueGlobals.DroneType.HEAL:
+                    elif self.droneType == CraneGameGlobals.DroneType.HEAL:
                         # Heal drone doesn't need target, just hover above owner
                         self.startHovering()
-                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+                    elif self.droneType == CraneGameGlobals.DroneType.EXPLODEY:
                         # Explodey drone flies to CFO (targetId should be CFO's doId)
                         if self.targetId or self.boss:
                             self.startFlyingToCFO()
@@ -813,11 +813,11 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
     
     def _checkToonHasShield(self, toonId):
         """Check if a toon has an active shield drone."""
-        from toontown.coghq import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         # Check all drones in the scene to see if any are shield drones for this toon
         for obj in base.cr.doId2do.values():
             if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
-                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                if obj.getDroneType() == CraneGameGlobals.DroneType.SHIELD:
                     if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
                         if hasattr(obj, 'shieldActive') and obj.shieldActive:
                             return True
@@ -931,11 +931,11 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         self.behaviorSequence.start()
 
     def performVisualEffect(self, droneType: int):
-        if droneType == CraneLeagueGlobals.DroneType.STUN.value:
+        if droneType == CraneGameGlobals.DroneType.STUN.value:
             self.performStunVisualEffect()
-        elif droneType == CraneLeagueGlobals.DroneType.HEAL.value:
+        elif droneType == CraneGameGlobals.DroneType.HEAL.value:
             self.performHealVisualEffect()
-        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY.value:
+        elif droneType == CraneGameGlobals.DroneType.EXPLODEY.value:
             self.performExplodeVisualEffect()
     
     def disable(self):

@@ -4,7 +4,7 @@ import typing
 
 from direct.directnotify import DirectNotifyGlobal
 
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.toonbase import ToontownGlobals
 
 if typing.TYPE_CHECKING:
@@ -144,9 +144,9 @@ class CraneGamePracticeCheatAI:
         self.checkCheatModifier()
 
     def checkCheatModifier(self):
-        self.game.removeModifier(CraneLeagueGlobals.ModifierCFOCheatsEnabled)
+        self.game.removeModifier(CraneGameGlobals.ModifierCFOCheatsEnabled)
         if self.cheatIsEnabled():
-            self.game.applyModifier(CraneLeagueGlobals.ModifierCFOCheatsEnabled(tier=1), updateClient=True)
+            self.game.applyModifier(CraneGameGlobals.ModifierCFOCheatsEnabled(tier=1), updateClient=True)
 
     def clearSafes(self):
         """Move all safes far away to clear the field"""
@@ -194,7 +194,7 @@ class CraneGamePracticeCheatAI:
             return  # Toon isn't controlling a crane
 
         # Get crane's position and heading from the predefined positions
-        cranePos = CraneLeagueGlobals.ALL_CRANE_POSHPR[controlledCrane.index]
+        cranePos = CraneGameGlobals.ALL_CRANE_POSHPR[controlledCrane.index]
         craneX = cranePos[0]
         craneY = cranePos[1]
         craneH = cranePos[3]  # Index 3 is the H value in POSHPR

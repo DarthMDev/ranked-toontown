@@ -6,7 +6,7 @@ from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 from toontown.effects import DustCloud
 import math
@@ -41,7 +41,7 @@ class DistributedGoonDroneShield(DistributedGoonDroneBase):
         self._isNaturalExpiration = False  # Flag to track if shield expired naturally
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.SHIELD
+        return CraneGameGlobals.DroneType.SHIELD
     
     def needsOpponents(self):
         """Shield drones don't need opponents to function."""

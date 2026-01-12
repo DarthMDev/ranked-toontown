@@ -1,6 +1,6 @@
 from panda3d.core import *
 
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
 from . import DistributedCashbotBossObjectAI
@@ -54,7 +54,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
         self.safeToSafeNode.setTag('doId', str(self.doId))
 
     def resetToInitialPosition(self):
-        posHpr = CraneLeagueGlobals.SAFE_POSHPR[self.index]
+        posHpr = CraneGameGlobals.SAFE_POSHPR[self.index]
         self.setPosHpr(*posHpr)
         
         
@@ -197,7 +197,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
             return
 
         if impact <= self.getMinImpact():
-            self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SANDBAG, reason=CraneLeagueGlobals.ScoreReason.LOW_IMPACT)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SANDBAG, reason=CraneGameGlobals.ScoreReason.LOW_IMPACT)
             return
 
         # The client reports successfully striking the boss in the
@@ -231,13 +231,13 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
                 self.demand('Grabbed', self.boss.getBoss().doId, self.boss.getBoss().doId)
                 self.boss.getBoss().heldObject = self
 
-                self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SAFEHEAD, reason=CraneLeagueGlobals.ScoreReason.APPLIED_HELMET)
+                self.boss.addScore(avId, self.boss.ruleset.POINTS_PENALTY_SAFEHEAD, reason=CraneGameGlobals.ScoreReason.APPLIED_HELMET)
 
                 # Don't allow this toon to safe helmet again for some period of time.
                 self.boss.getBoss().addSafeHelmetCooldown(avId)
                 
         elif impact >= ToontownGlobals.CashbotBossSafeKnockImpact:
-            self.boss.addScore(avId, self.boss.ruleset.POINTS_DESAFE, reason=CraneLeagueGlobals.ScoreReason.REMOVE_HELMET)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_DESAFE, reason=CraneGameGlobals.ScoreReason.REMOVE_HELMET)
             boss = self.boss.getBoss()
             boss.heldObject.demand('Dropped', avId, self.boss.doId)
             boss.heldObject.avoidHelmet = 1
@@ -395,7 +395,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
         # Check if we've already credited this specific goon
         if goonId not in self._destroyedGoonIds:
             self._destroyedGoonIds.add(goonId)
-            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneGameGlobals.ScoreReason.GOON_KILL)
             # Clean up the goon ID from tracking after a delay to prevent memory leaks
             taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoonIds.discard(gId), self.uniqueName('cleanupDestroyedGoon-%d' % goonId))
 

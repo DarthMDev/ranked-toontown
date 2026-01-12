@@ -4,7 +4,7 @@ from panda3d.core import *
 from panda3d.direct import *
 
 from libotp import *
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from . import SuitDNA
@@ -19,7 +19,7 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
 
     def __init__(self, cr):
         super().__init__(cr)
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
         self.modifiers = []
         self.warningSfx = None
         # By "heldObject", we mean the safe he's currently wearing as
@@ -85,7 +85,7 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
     def setModifiers(self, mods):
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances
         for modStruct in mods:
-            modsToSet.append(CraneLeagueGlobals.CFORulesetModifierBase.fromStruct(modStruct))
+            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
 
         self.modifiers = modsToSet
         self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)

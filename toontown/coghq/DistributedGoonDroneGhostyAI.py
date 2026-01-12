@@ -4,7 +4,7 @@ Ghosty Drone AI - Server-side logic for ghosting opponent safes.
 
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
@@ -24,7 +24,7 @@ class DistributedGoonDroneGhostyAI(DistributedGoonDroneBaseAI):
         self.ghostActive = False
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.GHOSTY
+        return CraneGameGlobals.DroneType.GHOSTY
     
     def startBehavior(self):
         """Initialize ghosty drone behavior."""

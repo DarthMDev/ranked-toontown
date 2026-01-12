@@ -9,7 +9,7 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.ShowBaseGlobal import aspect2d
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
 from toontown.effects import DustCloud
 from toontown.suit import GoonDeath
@@ -42,7 +42,7 @@ class DistributedGoonDroneExplodey(DistributedGoonDroneBase):
         self.shakeStartTime = None  # Track when shaking started for intensity progression
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.EXPLODEY
+        return CraneGameGlobals.DroneType.EXPLODEY
     
     def needsOpponents(self):
         """Explodey drones don't need opponents - they target the boss."""

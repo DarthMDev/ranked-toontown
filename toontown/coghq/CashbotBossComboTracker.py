@@ -1,6 +1,6 @@
 import math
 
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 
 
 class CashbotBossComboTracker:
@@ -42,7 +42,7 @@ class CashbotBossComboTracker:
 
     def __awardCombo(self):
         if self.boss.ruleset.WANT_COMBO_BONUS and self.combo >= 2:
-            self.boss.addScore(self.avId, int(math.ceil(self.pointBonus)), reason=CraneLeagueGlobals.ScoreReason.COMBO)
+            self.boss.addScore(self.avId, int(math.ceil(self.pointBonus)), reason=CraneGameGlobals.ScoreReason.COMBO)
         self.resetCombo()
 
     def cleanup(self):

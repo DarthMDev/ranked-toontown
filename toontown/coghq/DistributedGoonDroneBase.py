@@ -11,7 +11,8 @@ from direct.distributed import DistributedObject
 from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import DistributedGoon, GoonDeath
-from toontown.coghq import DistributedCrushableEntity, CraneLeagueGlobals
+from toontown.coghq import DistributedCrushableEntity
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
 from panda3d.core import Vec2, Vec3
@@ -28,7 +29,7 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
     - Owner and target management
     
     Subclasses must implement:
-    - getDroneType() - returns the CraneLeagueGlobals.DroneType enum
+    - getDroneType() - returns the CraneGameGlobals.DroneType enum
     - startBehavior() - implements the type-specific behavior
     """
     
@@ -48,7 +49,7 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
     def getDroneType(self):
         """
         Override in subclass to return the drone type enum.
-        Returns: CraneLeagueGlobals.DroneType
+        Returns: CraneGameGlobals.DroneType
         """
         raise NotImplementedError("Subclass must implement getDroneType()")
     
@@ -368,12 +369,12 @@ class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrush
     
     def performVisualEffect(self, droneType: int):
         """Handle visual effect request from AI for this drone type."""
-        droneTypeEnum = CraneLeagueGlobals.DroneType(droneType)
-        if droneTypeEnum == CraneLeagueGlobals.DroneType.STUN:
+        droneTypeEnum = CraneGameGlobals.DroneType(droneType)
+        if droneTypeEnum == CraneGameGlobals.DroneType.STUN:
             self.performStunVisualEffect()
-        elif droneTypeEnum == CraneLeagueGlobals.DroneType.HEAL:
+        elif droneTypeEnum == CraneGameGlobals.DroneType.HEAL:
             self.performHealVisualEffect()
-        elif droneTypeEnum == CraneLeagueGlobals.DroneType.EXPLODEY:
+        elif droneTypeEnum == CraneGameGlobals.DroneType.EXPLODEY:
             self.performExplodeVisualEffect()
     
     def performHealVisualEffect(self):

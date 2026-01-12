@@ -21,7 +21,7 @@ from toontown.battle import MovieToonVictory
 from toontown.battle import RewardPanel
 from toontown.distributed import DelayDelete
 from toontown.coghq import CogDisguiseGlobals
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 from panda3d.core import *
 from panda3d.physics import *
 from panda3d.direct import *
@@ -60,7 +60,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
         
         self.wantCustomCraneSpawns = False
         self.customSpawnPositions = {}
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
         self.scoreboard = None
         self.modifiers = []
         self.heatDisplay = CraneLeagueHeatDisplay()
@@ -214,7 +214,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
             self.disableBackWall()
 
     def setRawRuleset(self, attrs):
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset.fromStruct(attrs)
+        self.ruleset = CraneGameGlobals.CraneGameRuleset.fromStruct(attrs)
         self.updateRequiredElements()
         print(('ruleset updated: ' + str(self.ruleset)))
 
@@ -227,7 +227,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
     def setModifiers(self, mods):
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances
         for modStruct in mods:
-            modsToSet.append(CraneLeagueGlobals.CFORulesetModifierBase.fromStruct(modStruct))
+            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
 
         self.modifiers = modsToSet
         self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
@@ -797,7 +797,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
                         toonWantedPosition = self.customSpawnPositions[toonId]
                     except:
                         toonWantedPosition = random.randrange(0, 7)
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     track.append(toon.posHprInterval(0.2, pos, hpr))
@@ -806,7 +806,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
                 toon = base.cr.doId2do.get(toons[i])
                 spawn_index = self.toonSpawnpointOrder[i]
                 if toon:
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     track.append(toon.posHprInterval(0.2, pos, hpr))
@@ -831,7 +831,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
                         toonWantedPosition = random.randrange(0, 7)
                     
                     # Retrieve the position/HPR from the global constants
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[toonWantedPosition]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     
@@ -843,7 +843,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
                 toon = base.cr.doId2do.get(toons[i])
                 if toon:
                     spawn_index = self.toonSpawnpointOrder[i]
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     toon.setPosHpr(pos, hpr)
@@ -1514,7 +1514,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
         self.door2.setZ(0)
 
     def toonDied(self, avId):
-        self.scoreboard.addScore(avId, self.ruleset.POINTS_PENALTY_GO_SAD, CraneLeagueGlobals.WENT_SAD)
+        self.scoreboard.addScore(avId, self.ruleset.POINTS_PENALTY_GO_SAD, CraneGameGlobals.WENT_SAD)
         self.scoreboard.toonDied(avId)
         DistributedBossCog.DistributedBossCog.toonDied(self, avId)
 
@@ -1523,7 +1523,7 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
         self.localToonIsSafe = 1
 
     def killingBlowDealt(self, avId):
-        self.scoreboard.addScore(avId, self.ruleset.POINTS_KILLING_BLOW, CraneLeagueGlobals.KILLING_BLOW)
+        self.scoreboard.addScore(avId, self.ruleset.POINTS_KILLING_BLOW, CraneGameGlobals.KILLING_BLOW)
         
     def updateDamageDealt(self, avId, damageDealt):
         self.scoreboard.addScore(avId, damageDealt)
@@ -1532,21 +1532,21 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
     def updateStunCount(self, avId, craneId):
         crane = base.cr.doId2do.get(craneId)
         if crane:
-            self.scoreboard.addScore(avId, crane.getPointsForStun(), CraneLeagueGlobals.STUN)
+            self.scoreboard.addScore(avId, crane.getPointsForStun(), CraneGameGlobals.STUN)
             self.scoreboard.addStun(avId)
         
     def updateGoonsStomped(self, avId):
-        self.scoreboard.addScore(avId, self.ruleset.POINTS_GOON_STOMP, CraneLeagueGlobals.GOON_STOMP)
+        self.scoreboard.addScore(avId, self.ruleset.POINTS_GOON_STOMP, CraneGameGlobals.GOON_STOMP)
         self.scoreboard.addStomp(avId)
 
     def updateSafePoints(self, avId, points):
-        self.scoreboard.addScore(avId, points, CraneLeagueGlobals.APPLIED_HELMET if points < 0 else CraneLeagueGlobals.REMOVE_HELMET)
+        self.scoreboard.addScore(avId, points, CraneGameGlobals.APPLIED_HELMET if points < 0 else CraneGameGlobals.REMOVE_HELMET)
 
     def updateMaxImpactHits(self, avId):
-        self.scoreboard.addScore(avId, self.ruleset.POINTS_IMPACT, CraneLeagueGlobals.FULL_IMPACT)
+        self.scoreboard.addScore(avId, self.ruleset.POINTS_IMPACT, CraneGameGlobals.FULL_IMPACT)
 
     def updateLowImpactHits(self, avId):
-        self.scoreboard.addScore(avId, self.ruleset.POINTS_PENALTY_SANDBAG, CraneLeagueGlobals.LOW_IMPACT)
+        self.scoreboard.addScore(avId, self.ruleset.POINTS_PENALTY_SANDBAG, CraneGameGlobals.LOW_IMPACT)
 
     def updateCombo(self, avId, comboLength):
         self.scoreboard.setCombo(avId, comboLength)
@@ -1634,10 +1634,10 @@ class DistributedCashbotBoss(DistributedBossCog.DistributedBossCog, FSM.FSM):
             base.localAvatar.stunToon()
 
     def goonKilledBySafe(self, avId):
-        self.scoreboard.addScore(avId, amount=self.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.GOON_KILL)
+        self.scoreboard.addScore(avId, amount=self.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneGameGlobals.GOON_KILL)
 
     def updateUnstun(self, avId):
-        self.scoreboard.addScore(avId, amount=self.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneLeagueGlobals.UNSTUN)
+        self.scoreboard.addScore(avId, amount=self.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneGameGlobals.UNSTUN)
 
     def timesUp(self):
         restartingOrEnding = 'Restarting ' if self.ruleset.RESTART_CRANE_ROUND_ON_FAIL else 'Ending '

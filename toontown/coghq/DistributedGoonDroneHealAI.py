@@ -4,7 +4,7 @@ Heal Drone AI - Heals the deployer over time.
 
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
@@ -26,7 +26,7 @@ class DistributedGoonDroneHealAI(DistributedGoonDroneBaseAI):
         self.healTicksRemaining = 5  # Total of 5 ticks = 50 laff
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.HEAL
+        return CraneGameGlobals.DroneType.HEAL
     
     def startBehavior(self):
         """Initialize heal drone behavior."""
@@ -42,7 +42,7 @@ class DistributedGoonDroneHealAI(DistributedGoonDroneBaseAI):
             return Task.done
         
         # Send visual effect to client to start particles
-        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.HEAL.value])
+        self.sendUpdate('performVisualEffect', [CraneGameGlobals.DroneType.HEAL.value])
         
         # Start healing over time: +10 laff per second, up to 50 laff total (5 ticks)
         self.healingActive = True

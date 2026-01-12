@@ -1,4 +1,4 @@
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.safezone import DistributedSZTreasureAI, DistributedTreasureAI
 
 
@@ -81,6 +81,6 @@ class DistributedCashbotBossTreasureAI(DistributedSZTreasureAI.DistributedSZTrea
                     if boss.ruleset.TREASURE_POINT_PENALTY_FLAT_RATE > 0:
                         amount = boss.ruleset.TREASURE_POINT_PENALTY_FLAT_RATE
 
-                    boss.addScore(avId, -amount, reason=CraneLeagueGlobals.ScoreReason.TOOK_TREASURE)
+                    boss.addScore(avId, -amount, reason=CraneGameGlobals.ScoreReason.TOOK_TREASURE)
 
                 av.toonUp(self.healAmount)

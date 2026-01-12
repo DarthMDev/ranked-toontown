@@ -10,7 +10,7 @@ from direct.distributed import DistributedObject
 from direct.showutil import Rope
 from direct.showbase import PythonUtil
 from direct.task import Task
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
 from otp.otpbase import OTPGlobals
@@ -175,7 +175,7 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.name = 'crane-%s' % self.doId
         self.root.setName(self.name)
         
-        self.root.setPosHpr(*CraneLeagueGlobals.ALL_CRANE_POSHPR[self.index])
+        self.root.setPosHpr(*CraneGameGlobals.ALL_CRANE_POSHPR[self.index])
         
         self.rotateLinkName = self.uniqueName('rotateLink')
         self.snifferEvent = self.uniqueName('sniffer')

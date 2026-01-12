@@ -6,7 +6,7 @@ from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
 from . import DistributedCashbotBossObject
 
-from ..minigame.craning import CraneLeagueGlobals
+from ..minigame.craning import CraneGameGlobals
 
 
 class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbotBossObject):
@@ -178,7 +178,7 @@ class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbot
             self.notify.debug(f'Safe {self.doId} broke shield of toon {shieldOwnerId}')
 
     def resetToInitialPosition(self):
-        posHpr = CraneLeagueGlobals.SAFE_POSHPR[self.index]
+        posHpr = CraneGameGlobals.SAFE_POSHPR[self.index]
         self.setPosHpr(*posHpr)
         self.physicsObject.setVelocity(0, 0, 0)
 

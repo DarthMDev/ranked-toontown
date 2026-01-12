@@ -4,7 +4,7 @@ Explodey Drone AI - Charges at CFO and explodes on impact, dealing damage.
 
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.coghq import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
@@ -23,7 +23,7 @@ class DistributedGoonDroneExplodeyAI(DistributedGoonDroneBaseAI):
         self.hitCFO = False
     
     def getDroneType(self):
-        return CraneLeagueGlobals.DroneType.EXPLODEY
+        return CraneGameGlobals.DroneType.EXPLODEY
     
     def startBehavior(self):
         """Initialize explodey drone behavior."""
@@ -109,7 +109,7 @@ class DistributedGoonDroneExplodeyAI(DistributedGoonDroneBaseAI):
                             self.boss.game.addScore(
                                 self.ownerId,
                                 self.boss.game.ruleset.POINTS_GOON_KILLED_BY_SAFE,
-                                reason=CraneLeagueGlobals.ScoreReason.GOON_KILL
+                                reason=CraneGameGlobals.ScoreReason.GOON_KILL
                             )
                             self.notify.debug(f'Xplodey: Successfully destroyed goon {goonId} via b_destroyGoon and awarded points')
                     else:
@@ -121,7 +121,7 @@ class DistributedGoonDroneExplodeyAI(DistributedGoonDroneBaseAI):
                     # Continue destroying other goons even if one fails
         
         # Send explosion visual to all clients
-        self.sendUpdate('performVisualEffect', [CraneLeagueGlobals.DroneType.EXPLODEY.value])
+        self.sendUpdate('performVisualEffect', [CraneGameGlobals.DroneType.EXPLODEY.value])
         
         # Vanish after explosion
         taskMgr.doMethodLater(0.5, self.vanishWithPoof, self.uniqueName('vanishAfterExplosion'))

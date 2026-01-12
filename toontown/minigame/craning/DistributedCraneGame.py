@@ -19,8 +19,8 @@ from panda3d.physics import LinearVectorForce, ForceNode, LinearEulerIntegrator,
 
 from libotp.nametag import NametagGlobals
 from otp.otpbase import OTPGlobals
-from toontown.minigame.craning import CraneLeagueGlobals
-from toontown.minigame.craning.CraneLeagueGlobals import RED_COUNTDOWN_COLOR, ORANGE_COUNTDOWN_COLOR, \
+from toontown.minigame.craning import CraneGameGlobals
+from toontown.minigame.craning.CraneGameGlobals import RED_COUNTDOWN_COLOR, ORANGE_COUNTDOWN_COLOR, \
     YELLOW_COUNTDOWN_COLOR
 from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimedTimer, BossSpeedrunTimer
 from toontown.coghq.CashbotBossScoreboard import CashbotBossScoreboard
@@ -38,7 +38,7 @@ from direct.gui.DirectLabel import DirectLabel
 from direct.gui.DirectButton import DirectButton
 from direct.showbase.ShowBaseGlobal import aspect2d
 from direct.task import Task
-from toontown.minigame.craning import CraneLeagueGlobals
+from toontown.minigame.craning import CraneGameGlobals
 
 
 class DistributedCraneGame(DistributedMinigame):
@@ -113,7 +113,7 @@ class DistributedCraneGame(DistributedMinigame):
         
         self.boss = None
         self.bossRequest = None
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
+        self.ruleset = CraneGameGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
         self.modifiers = []
         self.heatDisplay = CraneLeagueHeatDisplay()
         self.heatDisplay.hide()
@@ -488,8 +488,8 @@ class DistributedCraneGame(DistributedMinigame):
             self.notify.warning(f"Spawn order too short ({len(self.toonSpawnpointOrder)} < {len(self.avIdList)}), using default sequential order")
             # Use sequential positions as fallback
             for i, toon in enumerate(participants):
-                spawn_index = i if i < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
-                posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                spawn_index = i if i < len(CraneGameGlobals.TOON_SPAWN_POSITIONS) else 0
+                posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                 pos = Point3(*posHpr[0:3])
                 hpr = VBase3(*posHpr[3:6])
                 toon.setPosHpr(pos, hpr)
@@ -502,8 +502,8 @@ class DistributedCraneGame(DistributedMinigame):
             if hasSpectators:
                 # Simple remapping: use sequential positions 0, 1, 2 for non-spectating players
                 for participantIndex, toon in enumerate(participants):
-                    spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    spawn_index = participantIndex if participantIndex < len(CraneGameGlobals.TOON_SPAWN_POSITIONS) else 0
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     toon.setPosHpr(pos, hpr)
@@ -515,24 +515,24 @@ class DistributedCraneGame(DistributedMinigame):
                     if avId not in self.avIdList:
                         self.notify.warning(f"Toon {avId} not found in avIdList, using sequential position")
                         participantIndex = participantIds.index(avId)
-                        spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                        spawn_index = participantIndex if participantIndex < len(CraneGameGlobals.TOON_SPAWN_POSITIONS) else 0
                     else:
                         avIdIndex = self.avIdList.index(avId)
                         # Use the avId's index to get their spawn position from the order
                         if avIdIndex >= len(self.toonSpawnpointOrder):
                             self.notify.warning(f"avIdIndex {avIdIndex} out of range for spawn order, using sequential position")
                             participantIndex = participantIds.index(avId)
-                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                            spawn_index = participantIndex if participantIndex < len(CraneGameGlobals.TOON_SPAWN_POSITIONS) else 0
                         else:
                             spawn_index = self.toonSpawnpointOrder[avIdIndex]
                         
                         # Bounds check to prevent index errors
-                        if spawn_index >= len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS):
+                        if spawn_index >= len(CraneGameGlobals.TOON_SPAWN_POSITIONS):
                             self.notify.warning(f"Invalid spawn index {spawn_index} for avId {avId}, using sequential position")
                             participantIndex = participantIds.index(avId)
-                            spawn_index = participantIndex if participantIndex < len(CraneLeagueGlobals.TOON_SPAWN_POSITIONS) else 0
+                            spawn_index = participantIndex if participantIndex < len(CraneGameGlobals.TOON_SPAWN_POSITIONS) else 0
                     
-                    posHpr = CraneLeagueGlobals.TOON_SPAWN_POSITIONS[spawn_index]
+                    posHpr = CraneGameGlobals.TOON_SPAWN_POSITIONS[spawn_index]
                     pos = Point3(*posHpr[0:3])
                     hpr = VBase3(*posHpr[3:6])
                     toon.setPosHpr(pos, hpr)
@@ -566,14 +566,14 @@ class DistributedCraneGame(DistributedMinigame):
         # This is just an edge case to prevent the client from crashing if somehow everyone is spectating.
         if len(players) <= 0:
             return Sequence(
-                Wait(CraneLeagueGlobals.PREPARE_DELAY + CraneLeagueGlobals.PREPARE_LATENCY_FACTOR),
+                Wait(CraneGameGlobals.PREPARE_DELAY + CraneGameGlobals.PREPARE_LATENCY_FACTOR),
                 Func(self.gameFSM.request, 'play'),
             )
 
         # If this is a solo crane round, we are not going to play a cutscene. Get right into the action.
         if len(players) == 1:
             return Sequence(
-                Wait(CraneLeagueGlobals.PREPARE_LATENCY_FACTOR),
+                Wait(CraneGameGlobals.PREPARE_LATENCY_FACTOR),
                 Func(self.gameFSM.request, 'play'),
             )
 
@@ -581,7 +581,7 @@ class DistributedCraneGame(DistributedMinigame):
         toon = base.localAvatar if not self.localToonSpectating() else self.getParticipantsNotSpectating()[0]
         targetCameraPos = render.getRelativePoint(toon, Vec3(0, -10, toon.getHeight()))
         startCameraHpr = Point3(reduceAngle(camera.getH()), camera.getP(), camera.getR())
-        cameraTrack = LerpPosHprInterval(camera, CraneLeagueGlobals.PREPARE_DELAY / 2.5, Point3(*targetCameraPos), Point3(reduceAngle(toon.getH()), 0, 0), startPos=camera.getPos(), startHpr=startCameraHpr, blendType='easeInOut')
+        cameraTrack = LerpPosHprInterval(camera, CraneGameGlobals.PREPARE_DELAY / 2.5, Point3(*targetCameraPos), Point3(reduceAngle(toon.getH()), 0, 0), startPos=camera.getPos(), startHpr=startCameraHpr, blendType='easeInOut')
 
         # Setup a countdown track to display when the round will start. Also at the end, start the game.
         countdownTrack = Sequence()
@@ -590,9 +590,9 @@ class DistributedCraneGame(DistributedMinigame):
             countdownTrack.append(Func(self.__displayOverlayText, f"{secondsLeft}", color))
             countdownTrack.append(Func(base.playSfx, self.timerTickSfx))
             countdownTrack.append(Wait(1))
-        countdownTrack.append(Func(self.__displayOverlayText, 'GO!', CraneLeagueGlobals.GREEN_COUNTDOWN_COLOR))
+        countdownTrack.append(Func(self.__displayOverlayText, 'GO!', CraneGameGlobals.GREEN_COUNTDOWN_COLOR))
         countdownTrack.append(Func(base.playSfx, self.goSfx))
-        countdownTrack.append(Wait(CraneLeagueGlobals.PREPARE_LATENCY_FACTOR))
+        countdownTrack.append(Wait(CraneGameGlobals.PREPARE_LATENCY_FACTOR))
         countdownTrack.append(Func(self.gameFSM.request, 'play'))
 
         return Parallel(cameraTrack, countdownTrack)
@@ -989,7 +989,7 @@ class DistributedCraneGame(DistributedMinigame):
         availableModClasses = []
         
         # Get all modifier classes and filter out currently active ones
-        for modEnum, modClass in CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.items():
+        for modEnum, modClass in CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.items():
             if modEnum not in currentModEnums:
                 availableModClasses.append(modClass)
         
@@ -1045,7 +1045,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __modifierHasParameters(self, modifierEnum):
         # Get the modifier class
-        modifierClass = CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
+        modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
         if not modifierClass:
             return False
         
@@ -1076,7 +1076,7 @@ class DistributedCraneGame(DistributedMinigame):
     def __showModifierConfigDialog(self, modifierEnum):
         """Show configuration dialog for a modifier"""
         # Get the modifier class
-        modifierClass = CraneLeagueGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
+        modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
         if not modifierClass:
             return
         
@@ -1395,15 +1395,15 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __createDroneSelectionUI(self):
         """Create the drone selection UI with 3 slots at the bottom of the screen."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         
         # Initialize selected drone types for local toon (default: Laser, Heal, Explodey)
         localAvId = base.localAvatar.doId
         if localAvId not in self.selectedDroneTypes:
             self.selectedDroneTypes[localAvId] = [
-                CraneLeagueGlobals.DroneType.LASER,
-                CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLODEY
+                CraneGameGlobals.DroneType.LASER,
+                CraneGameGlobals.DroneType.HEAL,
+                CraneGameGlobals.DroneType.EXPLODEY
             ]
         
         # Create container frame for all slots
@@ -1520,7 +1520,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __openDroneSelectionDialog(self, slotIndex):
         """Open dialog to select drone type for a slot."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         
         # Clean up existing dialog
         if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
@@ -1558,7 +1558,7 @@ class DistributedCraneGame(DistributedMinigame):
                           buttons.find('**/CloseBtn_Rllvr'))
         
         # Create buttons for each drone type - dynamically get all drone types from enum
-        droneTypes = list(CraneLeagueGlobals.DroneType)
+        droneTypes = list(CraneGameGlobals.DroneType)
 
         for i, droneType in enumerate(droneTypes):
             currentY = i // 4 * -.15 + .1
@@ -1613,14 +1613,14 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __selectDroneType(self, slotIndex, droneType):
         """Select a drone type for a slot. Prevents duplicates by swapping."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         
         localAvId = base.localAvatar.doId
         if localAvId not in self.selectedDroneTypes:
             self.selectedDroneTypes[localAvId] = [
-                CraneLeagueGlobals.DroneType.LASER,
-                CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLODEY
+                CraneGameGlobals.DroneType.LASER,
+                CraneGameGlobals.DroneType.HEAL,
+                CraneGameGlobals.DroneType.EXPLODEY
             ]
         
         # Check if this drone type is already in another slot
@@ -1666,13 +1666,13 @@ class DistributedCraneGame(DistributedMinigame):
         if hasattr(base.localAvatar, 'droneSetup') and base.localAvatar.droneSetup:
             savedSetup = base.localAvatar.droneSetup
             if len(savedSetup) == 3:
-                from toontown.minigame.craning import CraneLeagueGlobals
+                from toontown.minigame.craning import CraneGameGlobals
                 localAvId = base.localAvatar.doId
                 # Convert uint8 values to DroneType enums
                 self.selectedDroneTypes[localAvId] = [
-                    CraneLeagueGlobals.DroneType(savedSetup[0]),
-                    CraneLeagueGlobals.DroneType(savedSetup[1]),
-                    CraneLeagueGlobals.DroneType(savedSetup[2])
+                    CraneGameGlobals.DroneType(savedSetup[0]),
+                    CraneGameGlobals.DroneType(savedSetup[1]),
+                    CraneGameGlobals.DroneType(savedSetup[2])
                 ]
                 # Send to server to sync with other clients
                 for i, droneType in enumerate(self.selectedDroneTypes[localAvId]):
@@ -1735,7 +1735,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __updateDroneSlotUI(self, slotIndex):
         """Update the UI for a specific drone slot."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         
         if slotIndex >= len(self.droneSelectionSlots):
             return
@@ -1761,15 +1761,15 @@ class DistributedCraneGame(DistributedMinigame):
     
     def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
         """Receive drone type update from server."""
-        from toontown.minigame.craning import CraneLeagueGlobals
+        from toontown.minigame.craning import CraneGameGlobals
         
-        droneType = CraneLeagueGlobals.DroneType(droneTypeValue)
+        droneType = CraneGameGlobals.DroneType(droneTypeValue)
         
         if avId not in self.selectedDroneTypes:
             self.selectedDroneTypes[avId] = [
-                CraneLeagueGlobals.DroneType.LASER,
-                CraneLeagueGlobals.DroneType.HEAL,
-                CraneLeagueGlobals.DroneType.EXPLODEY
+                CraneGameGlobals.DroneType.LASER,
+                CraneGameGlobals.DroneType.HEAL,
+                CraneGameGlobals.DroneType.EXPLODEY
             ]
         
         if slotIndex >= 0 and slotIndex < 3:
@@ -1824,7 +1824,7 @@ class DistributedCraneGame(DistributedMinigame):
         self.__updateDroneUIVisibility()
 
     def setRawRuleset(self, attrs):
-        self.ruleset = CraneLeagueGlobals.CraneGameRuleset.fromStruct(attrs)
+        self.ruleset = CraneGameGlobals.CraneGameRuleset.fromStruct(attrs)
         self.notify.debug(f"setRawRuleset: WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
         self.updateRulesetDependencies()
         # Update drone UI visibility when ruleset changes
@@ -2461,9 +2461,9 @@ class DistributedCraneGame(DistributedMinigame):
     def addScore(self, avId: int, score: int, reason: str):
 
         # Convert the reason into a valid reason enum that our scoreboard accepts.
-        convertedReason = CraneLeagueGlobals.ScoreReason.from_astron(reason)
+        convertedReason = CraneGameGlobals.ScoreReason.from_astron(reason)
         if convertedReason is None:
-            convertedReason = CraneLeagueGlobals.ScoreReason.DEFAULT
+            convertedReason = CraneGameGlobals.ScoreReason.DEFAULT
         self.scoreboard.addScore(avId, score, convertedReason)
 
     def updateCombo(self, avId, comboLength):
@@ -2481,10 +2481,10 @@ class DistributedCraneGame(DistributedMinigame):
         self.gameFSM.request("victory")
 
     def setOvertime(self, flag):
-        if flag == CraneLeagueGlobals.OVERTIME_FLAG_START:
+        if flag == CraneGameGlobals.OVERTIME_FLAG_START:
             self.overtimeActive = True
             self.ruleset.REVIVE_TOONS_UPON_DEATH = False
-        elif flag == CraneLeagueGlobals.OVERTIME_FLAG_ENABLE:
+        elif flag == CraneGameGlobals.OVERTIME_FLAG_ENABLE:
             if self.bossSpeedrunTimer:
                 self.bossSpeedrunTimer.show_overtime()
         else:
@@ -2495,7 +2495,7 @@ class DistributedCraneGame(DistributedMinigame):
     def setModifiers(self, mods):
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances
         for modStruct in mods:
-            modsToSet.append(CraneLeagueGlobals.CFORulesetModifierBase.fromStruct(modStruct))
+            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
 
         self.modifiers = modsToSet
         self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
@@ -2983,7 +2983,7 @@ class DistributedCraneGame(DistributedMinigame):
         """Receive modifier updates from the server"""
         modsToSet = []  # A list of CFORulesetModifierBase subclass instances
         for modStruct in mods:
-            modsToSet.append(CraneLeagueGlobals.CFORulesetModifierBase.fromStruct(modStruct))
+            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
 
         self.modifiers = modsToSet
         self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
