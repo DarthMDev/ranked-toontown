@@ -1,6 +1,9 @@
 import builtins
 import os
 import re
+import subprocess
+import sys
+import glob
 from direct.showbase.DirectObject import DirectObject
 from direct.gui.DirectGui import *
 from otp.otpbase import OTPGlobals
@@ -15,7 +18,10 @@ from otp.otpbase.OTPLocalizer import (
     CRSpecifyServerSelection,
     CRSingleplayer,
     CRLocalMultiplayer,
-    CRPublicServer
+    CRPublicServer,
+    CRSelectDatabaseBackend,
+    CRFilesystem,
+    CRMongoDB
 )
 
 class OpeningUserInput(DirectObject):
@@ -54,12 +60,88 @@ class OpeningUserInput(DirectObject):
         base.startShow(self.cr, config.ConfigVariableString('public-server-ip', '').getValue())
 
     def singlePlayerScreen(self):
+        # Check if MongoDB is available
+        mongodb_available = self.check_mongodb_available()
+        
+        if mongodb_available:
+            # Show dialog to choose database backend
+            self.askDatabaseBackend = self.dialogClass(
+                message=CRSelectDatabaseBackend,
+                style=OTPDialog.TwoChoiceCustom,
+                text_wordwrap=25,
+                okButtonText=CRFilesystem,
+                cancelButtonText=CRMongoDB,
+                doneEvent='databaseBackendSelected'
+            )
+            self.askDatabaseBackend.show()
+            self.accept('databaseBackendSelected', self.onDatabaseBackendSelected)
+        else:
+            # MongoDB not available, use filesystem
+            self.startDedicatedServer(useMongoDB=False)
+    
+    def check_mongodb_available(self):
+        """Check if MongoDB is installed and running."""
+        try:
+            result = subprocess.run(
+                ['mongod', '--version'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                # Also check if it's running by trying to connect
+                try:
+                    from pymongo import MongoClient
+                    from pymongo.errors import ServerSelectionTimeoutError
+                    client = MongoClient('mongodb://127.0.0.1:27017/', serverSelectionTimeoutMS=2000)
+                    client.admin.command('ping')
+                    client.close()
+                    return True
+                except Exception as e:
+                    # MongoDB is installed but not running - still show option
+                    # User can choose MongoDB and we'll warn them if it's not running
+                    return True  # Return True to show the option, DedicatedServer will handle the check
+        except FileNotFoundError:
+            # Check common Windows installation paths
+            if sys.platform == 'win32':
+                import glob
+                common_paths = [
+                    r'C:\Program Files\MongoDB\Server\*\bin\mongod.exe',
+                    r'C:\Program Files (x86)\MongoDB\Server\*\bin\mongod.exe',
+                    os.path.expanduser(r'~\AppData\Local\Programs\MongoDB\Server\*\bin\mongod.exe'),
+                ]
+                for path_pattern in common_paths:
+                    if glob.glob(path_pattern):
+                        return True  # MongoDB is installed, show option
+        except:
+            pass
+        return False
+    
+    def onDatabaseBackendSelected(self):
+        """Handle database backend selection."""
+        if not hasattr(self, 'askDatabaseBackend'):
+            return
+        
+        # Check doneStatus: 'ok' = Filesystem (first button), 'cancel' = MongoDB (second button)
+        status = self.askDatabaseBackend.doneStatus
+        useMongoDB = (status == 'cancel')  # Second button (MongoDB)
+        
+        # Clean up dialog
+        self.askDatabaseBackend.cleanup()
+        del self.askDatabaseBackend
+        self.ignore('databaseBackendSelected')
+        
+        # Start the server
+        self.startDedicatedServer(useMongoDB=useMongoDB)
+    
+    def startDedicatedServer(self, useMongoDB=False):
+        """Start the dedicated server with the specified database backend."""
         # Start DedicatedServer
         builtins.gameServicesDialog = self.dialogClass(message=CRLoadingGameServices)
         builtins.gameServicesDialog.show()
 
         from toontown.toonbase.DedicatedServer import DedicatedServer
-        builtins.clientServer = DedicatedServer(localServer=True)
+        builtins.clientServer = DedicatedServer(localServer=True, useMongoDB=useMongoDB)
         builtins.clientServer.start()
 
         def localServerReady():

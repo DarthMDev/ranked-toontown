@@ -3,6 +3,13 @@ import sys
 import time
 import atexit
 import subprocess
+import tempfile
+import shutil
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
 from direct.showbase.DirectObject import DirectObject
 from panda3d.core import ConfigVariableString, ConfigVariableBool
 from otp.otpgui import OTPDialog
@@ -27,7 +34,7 @@ AI_DONE_MSG = f':{AI_NOITFY_CATEGORY_NAME}: District is now ready. Have fun in T
 class DedicatedServer(DirectObject):
     notify = DirectNotifyGlobal.directNotify.newCategory('DedicatedServer')
 
-    def __init__(self, localServer=False):
+    def __init__(self, localServer=False, useMongoDB=None):
         self.notify.info('Starting DedicatedServer.')
         self.localServer = localServer
 
@@ -41,6 +48,14 @@ class DedicatedServer(DirectObject):
 
         self.uberDogInternalExceptions = []
         self.aiInternalExceptions = []
+
+        # Track temporary config file for cleanup
+        self.tempConfigFile = None
+        
+        # Track if MongoDB is being used for singleplayer
+        # If useMongoDB is None, auto-detect. Otherwise, use the provided value.
+        self.useMongoDB = useMongoDB
+        self.usingMongoDB = False
 
         self.notify.setInfo(True)
 
@@ -76,6 +91,90 @@ class DedicatedServer(DirectObject):
         if not ConfigVariableBool('local-multiplayer', True).getValue():
             gameServicesDialog['text'] = OTPLocalizer.CRLoadingGameServices + '\n\n' + OTPLocalizer.CRLoadingGameServicesAstron
 
+    def check_mongodb_available(self):
+        """Check if MongoDB is installed and running on the system."""
+        # First check if mongod is installed
+        mongod_found = False
+        try:
+            result = subprocess.run(
+                ['mongod', '--version'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                mongod_found = True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        except Exception:
+            pass
+        
+        # Also check common Windows installation paths
+        if not mongod_found and sys.platform == 'win32':
+            import glob
+            common_paths = [
+                r'C:\Program Files\MongoDB\Server\*\bin\mongod.exe',
+                r'C:\Program Files (x86)\MongoDB\Server\*\bin\mongod.exe',
+                os.path.expanduser(r'~\AppData\Local\Programs\MongoDB\Server\*\bin\mongod.exe'),
+            ]
+            for path_pattern in common_paths:
+                if glob.glob(path_pattern):
+                    mongod_found = True
+                    break
+        
+        if not mongod_found:
+            return False
+        
+        # Now check if MongoDB is actually running by trying to connect
+        try:
+            from pymongo import MongoClient
+            from pymongo.errors import ServerSelectionTimeoutError
+            
+            client = MongoClient('mongodb://127.0.0.1:27017/', serverSelectionTimeoutMS=2000)
+            # Try to ping the server
+            client.admin.command('ping')
+            client.close()
+            return True
+        except (ImportError, ServerSelectionTimeoutError, Exception):
+            # MongoDB is installed but not running
+            self.notify.warning('MongoDB is installed but not running. Please start MongoDB service.')
+            return False
+
+    def create_mongodb_config(self, originalConfigPath):
+        """Create a temporary config file with MongoDB backend for singleplayer."""
+        if not YAML_AVAILABLE:
+            self.notify.warning('PyYAML not available. Cannot create MongoDB config. Using default YAML backend.')
+            return originalConfigPath
+        
+        try:
+            # Read the original config
+            with open(originalConfigPath, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Modify the database backend to use MongoDB
+            for role in config.get('roles', []):
+                if role.get('type') == 'database':
+                    role['backend'] = {
+                        'type': 'mongodb',
+                        'server': 'mongodb://127.0.0.1:27017/astrondb'
+                    }
+                    break
+            
+            # Create a temporary config file
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.yml', prefix='astrond_mongo_', dir='astron/config')
+            os.close(temp_fd)
+            
+            # Write the modified config
+            with open(temp_path, 'w') as f:
+                yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+            
+            self.tempConfigFile = temp_path
+            self.notify.info(f'Created temporary MongoDB config: {temp_path}')
+            return temp_path
+        except Exception as e:
+            self.notify.warning(f'Failed to create MongoDB config: {e}. Using default YAML backend.')
+            return originalConfigPath
+
     def startAstron(self, task):
         self.notify.info('Starting Astron...')
 
@@ -86,6 +185,27 @@ class DedicatedServer(DirectObject):
 
         # Use the Astron config file based on the database.
         astronConfig = ConfigVariableString('astron-config-path', 'astron/config/astrond.yml').getValue()
+
+        # For singleplayer, check if MongoDB should be used
+        if self.localServer:
+            # If useMongoDB was explicitly set, use that value
+            # Otherwise, auto-detect if MongoDB is available
+            if self.useMongoDB is None:
+                should_use_mongo = self.check_mongodb_available()
+            else:
+                should_use_mongo = self.useMongoDB
+                # If user requested MongoDB but it's not available, warn and fall back
+                if should_use_mongo and not self.check_mongodb_available():
+                    self.notify.warning('MongoDB was requested but is not available. Falling back to filesystem backend.')
+                    should_use_mongo = False
+            
+            if should_use_mongo:
+                self.notify.info('Using MongoDB backend for singleplayer.')
+                astronConfig = self.create_mongodb_config(astronConfig)
+                self.usingMongoDB = True
+            else:
+                self.notify.info('Using YAML filesystem backend for singleplayer.')
+                self.usingMongoDB = False
 
         # Start Astron process.
         self.openAstronProcess(astronConfig)
@@ -140,11 +260,19 @@ class DedicatedServer(DirectObject):
         if not ConfigVariableBool('local-multiplayer', True).getValue():
             gameServicesDialog['text'] = OTPLocalizer.CRLoadingGameServices + '\n\n' + OTPLocalizer.CRLoadingGameServicesUberdog
 
+        # Set up environment variables for UberDOG
+        env = os.environ.copy()
+        if self.localServer and self.usingMongoDB:
+            # Configure UberDOG to use MongoDB for account storage
+            env['PLAYTOKEN_STORAGE_STRATEGY'] = 'MONGODB'
+            env['MONGO_CONNECTION_STRING'] = 'mongodb://127.0.0.1:27017/'
+            self.notify.info('Configured UberDOG to use MongoDB for account storage.')
+
         # Start UberDOG process.
         if sys.platform in ['win32', 'linux']:
-            self.uberDogProcess = subprocess.Popen(uberDogArguments, stdin=self.uberDogLog, stdout=self.uberDogLog, stderr=self.uberDogLog)
+            self.uberDogProcess = subprocess.Popen(uberDogArguments, stdin=self.uberDogLog, stdout=self.uberDogLog, stderr=self.uberDogLog, env=env)
         elif sys.platform == 'darwin':
-            self.uberDogProcess = subprocess.Popen(uberDogArguments, stdin=self.uberDogLog, stdout=self.uberDogLog, stderr=self.uberDogLog, shell=True)
+            self.uberDogProcess = subprocess.Popen(uberDogArguments, stdin=self.uberDogLog, stdout=self.uberDogLog, stderr=self.uberDogLog, shell=True, env=env)
         # Start the AI process when UberDOG is done.
         taskMgr.add(self.startAI, 'startAI')
 
@@ -276,6 +404,14 @@ class DedicatedServer(DirectObject):
         # And lastly, Astron.
         if self.astronProcess:
             self.astronProcess.terminate()
+        
+        # Clean up temporary config file if one was created
+        if self.tempConfigFile and os.path.exists(self.tempConfigFile):
+            try:
+                os.remove(self.tempConfigFile)
+                self.notify.info(f'Cleaned up temporary config: {self.tempConfigFile}')
+            except Exception as e:
+                self.notify.warning(f'Failed to clean up temporary config: {e}')
 
     @staticmethod
     def generateLog(logPrefix):

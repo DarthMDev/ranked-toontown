@@ -6,6 +6,10 @@ So this file is a single entrypoint, so we only build once.
 """
 import os
 
+# Note: Dependency checking is handled by the launch scripts (batch/shell files)
+# to avoid duplicate checks. If you're running this directly without a launch script,
+# you may want to run the dependency checker manually first.
+
 match os.environ.get("SERVICE_TO_RUN", None):
     case "CLIENT":
         from toontown.launcher import TTOffQuickStartLauncher
