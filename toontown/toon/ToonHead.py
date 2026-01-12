@@ -16,34 +16,40 @@ DogAnimDict = {'dls': '/models/char/tt_a_chr_dgm_shorts_head_',
      'dsl': '/models/char/tt_a_chr_dgs_shorts_head_',
      'dll': '/models/char/tt_a_chr_dgl_shorts_head_'}
 
-if not base.config.GetBool('want-new-anims', 1):
-    HeadDict = {'dls': '/models/char/dogMM_Shorts-head-',
-     'dss': '/models/char/dogMM_Skirt-head-',
-     'dsl': '/models/char/dogSS_Shorts-head-',
-     'dll': '/models/char/dogLL_Shorts-head-',
-     'c': '/models/char/cat-heads-',
-     'h': '/models/char/horse-heads-',
-     'm': '/models/char/mouse-heads-',
-     'r': '/models/char/rabbit-heads-',
-     'f': '/models/char/duck-heads-',
-     'p': '/models/char/monkey-heads-',
-     'b': '/models/char/bear-heads-',
-     's': '/models/char/pig-heads-',
-     'x': '/models/char/deer-heads-',
-     'z': '/models/char/beaver-heads-',
-     'a': '/models/char/alligator-heads-',
-     'v': '/models/char/fox-heads-',
-     'n': '/models/char/bat-heads-',
-     't': '/models/char/raccoon-heads-',
-     'g': '/models/char/turkey-heads-',
-     'e': '/models/char/koala-heads-',
-     'j': '/models/char/kangaroo-heads-',
-     'k': '/models/char/kiwi-heads-',
-     'l': '/models/char/armadillo-heads'
-    }
+# Model style constants: 0 = modern/TTR, 1 = retro/Clash
+MODEL_STYLE_MODERN = 0
+MODEL_STYLE_RETRO = 1
 
-elif base.settings.get('want-legacy-models'):
-    HeadDict = {'dls': '/models/char/legacy/tt_a_chr_dgm_shorts_head_',
+def getHeadDict(modelStyle=0):
+    """Get head dictionary based on model style. 0 = modern/TTR, 1 = retro/Clash"""
+    if not base.config.GetBool('want-new-anims', 1):
+        # Old TTO format
+        return {'dls': '/models/char/dogMM_Shorts-head-',
+         'dss': '/models/char/dogMM_Skirt-head-',
+         'dsl': '/models/char/dogSS_Shorts-head-',
+         'dll': '/models/char/dogLL_Shorts-head-',
+         'c': '/models/char/cat-heads-',
+         'h': '/models/char/horse-heads-',
+         'm': '/models/char/mouse-heads-',
+         'r': '/models/char/rabbit-heads-',
+         'f': '/models/char/duck-heads-',
+         'p': '/models/char/monkey-heads-',
+         'b': '/models/char/bear-heads-',
+         's': '/models/char/pig-heads-',
+         'x': '/models/char/deer-heads-',
+         'z': '/models/char/beaver-heads-',
+         'a': '/models/char/alligator-heads-',
+         'v': '/models/char/fox-heads-',
+         'n': '/models/char/bat-heads-',
+         't': '/models/char/raccoon-heads-',
+         'g': '/models/char/turkey-heads-',
+         'e': '/models/char/koala-heads-',
+         'j': '/models/char/kangaroo-heads-',
+         'k': '/models/char/kiwi-heads-',
+         'l': '/models/char/armadillo-heads'}
+    elif modelStyle == MODEL_STYLE_RETRO:
+        # Retro/Clash models (legacy)
+        return {'dls': '/models/char/legacy/tt_a_chr_dgm_shorts_head_',
                 'dss': '/models/char/legacy/tt_a_chr_dgm_skirt_head_',
                 'dsl': '/models/char/legacy/tt_a_chr_dgs_shorts_head_',
                 'dll': '/models/char/legacy/tt_a_chr_dgl_shorts_head_',
@@ -65,87 +71,103 @@ elif base.settings.get('want-legacy-models'):
                 'e': '/models/char/koala-heads-',
                 'j': '/models/char/kangaroo-heads-',
                 'k': '/models/char/kiwi-heads-',
-                'l': '/models/char/armadillo-heads-'
-                }
-    EyelashDict = {'d': '/models/char/legacy/dog-lashes',
-                   'c': '/models/char/legacy/cat-lashes',
-                   'h': '/models/char/legacy/horse-lashes',
-                   'm': '/models/char/legacy/mouse-lashes',
-                   'r': '/models/char/legacy/rabbit-lashes',
-                   'f': '/models/char/legacy/duck-lashes',
-                   'p': '/models/char/legacy/monkey-lashes',
-                   'b': '/models/char/legacy/bear-lashes',
-                   's': '/models/char/legacy/pig-lashes',
-                   'x': '/models/char/deer-lashes',
-                   'z': '/models/char/beaver-lashes',
-                   'a': '/models/char/alligator-lashes',
-                   'v': '/models/char/fox-lashes',
-                   'n': '/models/char/bat-lashes',
-                   't': '/models/char/raccoon-lashes',
-                   'g': '/models/char/turkey-lashes',
-                   'e': '/models/char/koala-lashes',
-                   'j': '/models/char/kangaroo-lashes',
-                   'k': '/models/char/kiwi-lashes',
-                   'l': '/models/char/armadillo-lashes'
-                   }
+                'l': '/models/char/armadillo-heads-'}
+    else:
+        # Modern/TTR models (default)
+        return {'dls': '/models/char/tt_a_chr_dgm_shorts_head_',
+         'dss': '/models/char/tt_a_chr_dgm_skirt_head_',
+         'dsl': '/models/char/tt_a_chr_dgs_shorts_head_',
+         'dll': '/models/char/tt_a_chr_dgl_shorts_head_',
+         'c': '/models/char/cat-heads-',
+         'h': '/models/char/horse-heads-',
+         'm': '/models/char/mouse-heads-',
+         'r': '/models/char/rabbit-heads-',
+         'f': '/models/char/duck-heads-',
+         'p': '/models/char/monkey-heads-',
+         'b': '/models/char/bear-heads-',
+         's': '/models/char/pig-heads-',
+         'x': '/models/char/deer-heads-',
+         'z': '/models/char/beaver-heads-',
+         'a': '/models/char/alligator-heads-',
+         'v': '/models/char/fox-heads-',
+         'n': '/models/char/bat-heads-',
+         't': '/models/char/raccoon-heads-',
+         'g': '/models/char/turkey-heads-',
+         'e': '/models/char/koala-heads-',
+         'j': '/models/char/kangaroo-heads-',
+         'k': '/models/char/kiwi-heads-',
+         'l': '/models/char/armadillo-heads-'}
 
-    DogMuzzleDict = {'dls': '/models/char/legacy/dogMM_Shorts-headMuzzles-',
-                     'dss': '/models/char/legacy/dogMM_Skirt-headMuzzles-',
-                     'dsl': '/models/char/legacy/dogSS_Shorts-headMuzzles-',
-                     'dll': '/models/char/legacy/dogLL_Shorts-headMuzzles-'}
+def getEyelashDict(modelStyle=0):
+    """Get eyelash dictionary based on model style"""
+    if modelStyle == MODEL_STYLE_RETRO:
+        return {'d': '/models/char/legacy/dog-lashes',
+               'c': '/models/char/legacy/cat-lashes',
+               'h': '/models/char/legacy/horse-lashes',
+               'm': '/models/char/legacy/mouse-lashes',
+               'r': '/models/char/legacy/rabbit-lashes',
+               'f': '/models/char/legacy/duck-lashes',
+               'p': '/models/char/legacy/monkey-lashes',
+               'b': '/models/char/legacy/bear-lashes',
+               's': '/models/char/legacy/pig-lashes',
+               'x': '/models/char/deer-lashes',
+               'z': '/models/char/beaver-lashes',
+               'a': '/models/char/alligator-lashes',
+               'v': '/models/char/fox-lashes',
+               'n': '/models/char/bat-lashes',
+               't': '/models/char/raccoon-lashes',
+               'g': '/models/char/turkey-lashes',
+               'e': '/models/char/koala-lashes',
+               'j': '/models/char/kangaroo-lashes',
+               'k': '/models/char/kiwi-lashes',
+               'l': '/models/char/armadillo-lashes'}
+    else:
+        return {'d': '/models/char/dog-lashes',
+         'c': '/models/char/cat-lashes',
+         'h': '/models/char/horse-lashes',
+         'm': '/models/char/mouse-lashes',
+         'r': '/models/char/rabbit-lashes',
+         'f': '/models/char/duck-lashes',
+         'p': '/models/char/monkey-lashes',
+         'b': '/models/char/bear-lashes',
+         's': '/models/char/pig-lashes',
+         'x': '/models/char/deer-lashes',
+         'z': '/models/char/beaver-lashes',
+         'a': '/models/char/alligator-lashes',
+         'v': '/models/char/fox-lashes',
+         'n': '/models/char/bat-lashes',
+         't': '/models/char/raccoon-lashes',
+         'g': '/models/char/turkey-lashes',
+         'e': '/models/char/koala-lashes',
+         'j': '/models/char/kangaroo-lashes',
+         'k': '/models/char/kiwi-lashes',
+         'l': '/models/char/armadillo-lashes'}
 
+def getDogMuzzleDict(modelStyle=0):
+    """Get dog muzzle dictionary based on model style"""
+    if modelStyle == MODEL_STYLE_RETRO:
+        return {'dls': '/models/char/legacy/dogMM_Shorts-headMuzzles-',
+                'dss': '/models/char/legacy/dogMM_Skirt-headMuzzles-',
+                'dsl': '/models/char/legacy/dogSS_Shorts-headMuzzles-',
+                'dll': '/models/char/legacy/dogLL_Shorts-headMuzzles-'}
+    else:
+        return {'dls': '/models/char/dogMM_Shorts-headMuzzles-',
+                'dss': '/models/char/dogMM_Skirt-headMuzzles-',
+                'dsl': '/models/char/dogSS_Shorts-headMuzzles-',
+                'dll': '/models/char/dogLL_Shorts-headMuzzles-'}
 
+# For backward compatibility, keep HeadDict as a fallback
+# It will use global config if DNA doesn't have modelStyle
+if not base.config.GetBool('want-new-anims', 1):
+    HeadDict = getHeadDict(MODEL_STYLE_RETRO)
+elif base.settings.get('want-legacy-models'):
+    HeadDict = getHeadDict(MODEL_STYLE_RETRO)
+    EyelashDict = getEyelashDict(MODEL_STYLE_RETRO)
+    DogMuzzleDict = getDogMuzzleDict(MODEL_STYLE_RETRO)
 else:
-    HeadDict = {'dls': '/models/char/tt_a_chr_dgm_shorts_head_',
-     'dss': '/models/char/tt_a_chr_dgm_skirt_head_',
-     'dsl': '/models/char/tt_a_chr_dgs_shorts_head_',
-     'dll': '/models/char/tt_a_chr_dgl_shorts_head_',
-     'c': '/models/char/cat-heads-',
-     'h': '/models/char/horse-heads-',
-     'm': '/models/char/mouse-heads-',
-     'r': '/models/char/rabbit-heads-',
-     'f': '/models/char/duck-heads-',
-     'p': '/models/char/monkey-heads-',
-     'b': '/models/char/bear-heads-',
-     's': '/models/char/pig-heads-',
-     'x': '/models/char/deer-heads-',
-     'z': '/models/char/beaver-heads-',
-     'a': '/models/char/alligator-heads-',
-     'v': '/models/char/fox-heads-',
-     'n': '/models/char/bat-heads-',
-     't': '/models/char/raccoon-heads-',
-     'g': '/models/char/turkey-heads-',
-     'e': '/models/char/koala-heads-',
-     'j': '/models/char/kangaroo-heads-',
-     'k': '/models/char/kiwi-heads-',
-     'l': '/models/char/armadillo-heads-'
-    }
-    EyelashDict = {'d': '/models/char/dog-lashes',
-     'c': '/models/char/cat-lashes',
-     'h': '/models/char/horse-lashes',
-     'm': '/models/char/mouse-lashes',
-     'r': '/models/char/rabbit-lashes',
-     'f': '/models/char/duck-lashes',
-     'p': '/models/char/monkey-lashes',
-     'b': '/models/char/bear-lashes',
-     's': '/models/char/pig-lashes',
-     'x': '/models/char/deer-lashes',
-     'z': '/models/char/beaver-lashes',
-     'a': '/models/char/alligator-lashes',
-     'v': '/models/char/fox-lashes',
-     'n': '/models/char/bat-lashes',
-     't': '/models/char/raccoon-lashes',
-     'g': '/models/char/turkey-lashes',
-     'e': '/models/char/koala-lashes',
-     'j': '/models/char/kangaroo-lashes',
-     'k': '/models/char/kiwi-lashes',
-     'l': '/models/char/armadillo-lashes'
-        }
-
-DogMuzzleDict = {'dls': '/models/char/dogMM_Shorts-headMuzzles-',
- 'dss': '/models/char/dogMM_Skirt-headMuzzles-',
- 'dsl': '/models/char/dogSS_Shorts-headMuzzles-',
- 'dll': '/models/char/dogLL_Shorts-headMuzzles-'}
+    HeadDict = getHeadDict(MODEL_STYLE_MODERN)
+    EyelashDict = getEyelashDict(MODEL_STYLE_MODERN)
+    DogMuzzleDict = getDogMuzzleDict(MODEL_STYLE_MODERN)
 
 #tti preloader
 PreloadHeads = {}
@@ -351,394 +373,398 @@ class ToonHead(Actor.Actor):
     def generateToonHead(self, copy, style, lods, forGui = 0):
         global PreloadHeads
         headStyle = style.head
+        # Get modelStyle from DNA, default to 0 (modern) if not present
+        modelStyle = getattr(style, 'modelStyle', 0)
+        # Use DNA's modelStyle to get the correct dict
+        headDict = getHeadDict(modelStyle)
         fix = None
         if headStyle == 'dls':
-            filePrefix = HeadDict['dls']
+            filePrefix = headDict['dls']
             headHeight = 0.75
         elif headStyle == 'dss':
-            filePrefix = HeadDict['dss']
+            filePrefix = headDict['dss']
             headHeight = 0.5
         elif headStyle == 'dsl':
-            filePrefix = HeadDict['dsl']
+            filePrefix = headDict['dsl']
             headHeight = 0.5
         elif headStyle == 'dll':
-            filePrefix = HeadDict['dll']
+            filePrefix = headDict['dll']
             headHeight = 0.75
         elif headStyle == 'cls':
-            filePrefix = HeadDict['c']
+            filePrefix = headDict['c']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'css':
-            filePrefix = HeadDict['c']
+            filePrefix = headDict['c']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'csl':
-            filePrefix = HeadDict['c']
+            filePrefix = headDict['c']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'cll':
-            filePrefix = HeadDict['c']
+            filePrefix = headDict['c']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'hls':
-            filePrefix = HeadDict['h']
+            filePrefix = headDict['h']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'hss':
-            filePrefix = HeadDict['h']
+            filePrefix = headDict['h']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'hsl':
-            filePrefix = HeadDict['h']
+            filePrefix = headDict['h']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'hll':
-            filePrefix = HeadDict['h']
+            filePrefix = headDict['h']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'mls':
-            filePrefix = HeadDict['m']
+            filePrefix = headDict['m']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'mss':
-            filePrefix = HeadDict['m']
+            filePrefix = headDict['m']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif (headStyle == 'msl'):
             # mouse, short head, long muzzle
-            filePrefix = HeadDict['m']
+            filePrefix = headDict['m']
             fix = self.__fixHeadShortLong
-            if base.settings.get('want-legacy-models'):
+            if modelStyle == MODEL_STYLE_RETRO:
                 # TTO Mouse model fix
                 fix = self.__fixHeadShortShort
             headHeight = 0.75
         elif (headStyle == 'mll'):
             # mouse, long head, long muzzle
-            filePrefix = HeadDict['m']
+            filePrefix = headDict['m']
             fix = self.__fixHeadLongLong
-            if base.settings.get('want-legacy-models'):
+            if modelStyle == MODEL_STYLE_RETRO:
                 # TTO Mouse model fix
                 fix = self.__fixHeadLongShort
             headHeight = 0.5
         elif headStyle == 'rls':
-            filePrefix = HeadDict['r']
+            filePrefix = headDict['r']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'rss':
-            filePrefix = HeadDict['r']
+            filePrefix = headDict['r']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'rsl':
-            filePrefix = HeadDict['r']
+            filePrefix = headDict['r']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'rll':
-            filePrefix = HeadDict['r']
+            filePrefix = headDict['r']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'fls':
-            filePrefix = HeadDict['f']
+            filePrefix = headDict['f']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'fss':
-            filePrefix = HeadDict['f']
+            filePrefix = headDict['f']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'fsl':
-            filePrefix = HeadDict['f']
+            filePrefix = headDict['f']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'fll':
-            filePrefix = HeadDict['f']
+            filePrefix = headDict['f']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'pls':
-            filePrefix = HeadDict['p']
+            filePrefix = headDict['p']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'pss':
-            filePrefix = HeadDict['p']
+            filePrefix = headDict['p']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'psl':
-            filePrefix = HeadDict['p']
+            filePrefix = headDict['p']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'pll':
-            filePrefix = HeadDict['p']
+            filePrefix = headDict['p']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'bls':
-            filePrefix = HeadDict['b']
+            filePrefix = headDict['b']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'bss':
-            filePrefix = HeadDict['b']
+            filePrefix = headDict['b']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'bsl':
-            filePrefix = HeadDict['b']
+            filePrefix = headDict['b']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'bll':
-            filePrefix = HeadDict['b']
+            filePrefix = headDict['b']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         elif headStyle == 'sls':
-            filePrefix = HeadDict['s']
+            filePrefix = headDict['s']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'sss':
-            filePrefix = HeadDict['s']
+            filePrefix = headDict['s']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'ssl':
-            filePrefix = HeadDict['s']
+            filePrefix = headDict['s']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'sll':
-            filePrefix = HeadDict['s']
+            filePrefix = headDict['s']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
         # DEER
         elif (headStyle == 'xls'):
             # deer, long head, short muzzle
-            filePrefix = HeadDict['x']
+            filePrefix = headDict['x']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif (headStyle == 'xss'):
             # deer, short head, short muzzle
-            filePrefix = HeadDict['x']
+            filePrefix = headDict['x']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif (headStyle == 'xsl'):
             # deer, short head, long muzzle
-            filePrefix = HeadDict['x']
+            filePrefix = headDict['x']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif (headStyle == 'xll'):
             # deer. long head, long muzzle
-            filePrefix = HeadDict['x']
+            filePrefix = headDict['x']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
 
         # BEAVER
         elif (headStyle == 'zls'):
             # beaver, long head, short muzzle
-            filePrefix = HeadDict['z']
+            filePrefix = headDict['z']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif (headStyle == 'zss'):
             # beaver, short head, short muzzle
-            filePrefix = HeadDict['z']
+            filePrefix = headDict['z']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif (headStyle == 'zsl'):
             # beaver, short head, long muzzle
-            filePrefix = HeadDict['z']
+            filePrefix = headDict['z']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'zll':
             # beaver, long head, long muzzle
-            filePrefix = HeadDict['z']
+            filePrefix = headDict['z']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
 
         # ALLIGATOR
         elif headStyle == 'als':
             # alligator, long head, short muzzle
-            filePrefix = HeadDict['a']
+            filePrefix = headDict['a']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'ass':
             # alligator, short head, short muzzle
-            filePrefix = HeadDict['a']
+            filePrefix = headDict['a']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'asl':
             # alligator, short head, long muzzle
-            filePrefix = HeadDict['a']
+            filePrefix = headDict['a']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'all':
             # alligator, long head, long muzzle
-            filePrefix = HeadDict['a']
+            filePrefix = headDict['a']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
 
         # FOX
         elif headStyle == 'vls':
             # fox, long head, short muzzle
-            filePrefix = HeadDict['v']
+            filePrefix = headDict['v']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'vss':
             # fox, short head, short muzzle
-            filePrefix = HeadDict['v']
+            filePrefix = headDict['v']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'vsl':
             # fox, short head, long muzzle
-            filePrefix = HeadDict['v']
+            filePrefix = headDict['v']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'vll':
             # fox, long head, long muzzle
-            filePrefix = HeadDict['v']
+            filePrefix = headDict['v']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
 
         # BAT
         elif headStyle == 'nls':
             # bat, long head, short muzzle
-            filePrefix = HeadDict['n']
+            filePrefix = headDict['n']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'nss':
             # bat, short head, short muzzle
-            filePrefix = HeadDict['n']
+            filePrefix = headDict['n']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'nsl':
             # bat, short head, long muzzle
-            filePrefix = HeadDict['n']
+            filePrefix = headDict['n']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'nll':
             # bat, long head, long muzzle
-            filePrefix = HeadDict['n']
+            filePrefix = headDict['n']
             fix = self.__fixHeadLongLong
             headHeight = 0.75
 
         # RACCOON
         elif headStyle == 'tls':
             # raccoon, long head, short muzzle
-            filePrefix = HeadDict['t']
+            filePrefix = headDict['t']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'tss':
             # raccoon, short head, short muzzle
-            filePrefix = HeadDict['t']
+            filePrefix = headDict['t']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'tsl':
             # raccoon, short head, long muzzle
-            filePrefix = HeadDict['t']
+            filePrefix = headDict['t']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'tll':
             # raccoon, long head, long muzzle
-            filePrefix = HeadDict['t']
+            filePrefix = headDict['t']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
         # TURKEY
         elif headStyle == 'gls':
             # turkey, long head, short muzzle
-            filePrefix = HeadDict['g']
+            filePrefix = headDict['g']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'gss':
             # turkey, short head, short muzzle
-            filePrefix = HeadDict['g']
+            filePrefix = headDict['g']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'gsl':
             # turkey, short head, long muzzle
-            filePrefix = HeadDict['g']
+            filePrefix = headDict['g']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'gll':
             # turkey, long head, long muzzle
-            filePrefix = HeadDict['g']
+            filePrefix = headDict['g']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
             # KOALA
         elif headStyle == 'els':
             # koala, long head, short muzzle
-            filePrefix = HeadDict['e']
+            filePrefix = headDict['e']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'ess':
             # koala, short head, short muzzle
-            filePrefix = HeadDict['e']
+            filePrefix = headDict['e']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'esl':
             # koala, short head, long muzzle
-            filePrefix = HeadDict['e']
+            filePrefix = headDict['e']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'ell':
             # koala, long head, long muzzle
-            filePrefix = HeadDict['e']
+            filePrefix = headDict['e']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
             # KANGAROO
         elif headStyle == 'jls':
             # kangaroo, long head, short muzzle
-            filePrefix = HeadDict['j']
+            filePrefix = headDict['j']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'jss':
             # kangaroo, short head, short muzzle
-            filePrefix = HeadDict['j']
+            filePrefix = headDict['j']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'jsl':
             # kangaroo, short head, long muzzle
-            filePrefix = HeadDict['j']
+            filePrefix = headDict['j']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'jll':
             # kangaroo, long head, long muzzle
-            filePrefix = HeadDict['j']
+            filePrefix = headDict['j']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
             # KIWI
         elif headStyle == 'kls':
             # kiwi, long head, short muzzle
-            filePrefix = HeadDict['k']
+            filePrefix = headDict['k']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'kss':
             # kiwi, short head, short muzzle
-            filePrefix = HeadDict['k']
+            filePrefix = headDict['k']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'ksl':
             # kiwi, short head, long muzzle
-            filePrefix = HeadDict['k']
+            filePrefix = headDict['k']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'kll':
             # kiwi, long head, long muzzle
-            filePrefix = HeadDict['k']
+            filePrefix = headDict['k']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
             # ARMADILLO
         elif headStyle == 'lls':
             # armadillo, long head, short muzzle
-            filePrefix = HeadDict['l']
+            filePrefix = headDict['l']
             fix = self.__fixHeadLongShort
             headHeight = 0.75
         elif headStyle == 'lss':
             # armadillo, short head, short muzzle
-            filePrefix = HeadDict['l']
+            filePrefix = headDict['l']
             fix = self.__fixHeadShortShort
             headHeight = 0.5
         elif headStyle == 'lsl':
             # armadillo, short head, long muzzle
-            filePrefix = HeadDict['l']
+            filePrefix = headDict['l']
             fix = self.__fixHeadShortLong
             headHeight = 0.5
         elif headStyle == 'lll':
             # armadillo, long head, long muzzle
-            filePrefix = HeadDict['l']
+            filePrefix = headDict['l']
             fix = self.__fixHeadLongLong
             headHeight = 0.5
 
@@ -746,7 +772,11 @@ class ToonHead(Actor.Actor):
             ToonHead.notify.error('unknown head style: %s' % headStyle)
         if len(lods) == 1:
             filepath = 'phase_3' + filePrefix + lods[0]
-            self.loadModel(PreloadHeads[filepath], 'head', 'lodRoot', copy = True)
+            # Check if model is preloaded, otherwise load it directly
+            if filepath in PreloadHeads:
+                self.loadModel(PreloadHeads[filepath], 'head', 'lodRoot', copy = True)
+            else:
+                self.loadModel(filepath, 'head', 'lodRoot', copy)
             if not forGui:
                 pLoaded = self.loadPumpkin(headStyle[1], None, copy)
                 self.loadSnowMan(headStyle[1], None, copy)
@@ -765,7 +795,11 @@ class ToonHead(Actor.Actor):
         else:
             for lod in lods:
                 filepath = 'phase_3' + filePrefix + lod
-                self.loadModel(PreloadHeads[filepath], 'head', lod, True)
+                # Check if model is preloaded, otherwise load it directly
+                if filepath in PreloadHeads:
+                    self.loadModel(PreloadHeads[filepath], 'head', lod, True)
+                else:
+                    self.loadModel(filepath, 'head', lod, copy)
                 if not forGui:
                     pLoaded = self.loadPumpkin(headStyle[1], lod, copy)
                     self.loadSnowMan(headStyle[1], lod, copy)
@@ -960,32 +994,46 @@ class ToonHead(Actor.Actor):
             parts = self.findAllMatches('**/ear?-*')
             parts.setColor(style.getHeadColor())
             dogears = self.findAllMatches('**/ear*')
-            if not base.settings.get('want-legacy-models'):
+            # Only color dog ears for modern models, not retro
+            modelStyle = getattr(style, 'modelStyle', 0)
+            if modelStyle == MODEL_STYLE_MODERN:
                 dogears.setColor(style.getHeadColor())
 
     def __fixEyes(self, style, forGui = 0):
         mode = -3
         if forGui:
             mode = -2
+        # Get modelStyle to determine which pupil node names to use
+        modelStyle = getattr(style, 'modelStyle', 0) if hasattr(style, 'modelStyle') else (1 if base.settings.get('want-legacy-models') else 0)
+        # Retro models always use joint_pupil*, modern models use def_*_pupil or joint_pupil* depending on want-new-anims
+        useNewAnims = base.config.GetBool('want-new-anims', 1) and modelStyle == MODEL_STYLE_MODERN
+        animalType = style.getAnimal()
+        # For retro dog models, draw pupils behind eyes to prevent them showing through when blinking
+        # For other models, draw pupils in front of eyes
+        pupilMode = 1 if (modelStyle == MODEL_STYLE_RETRO and animalType == 'dog') else -1
         if self.hasLOD():
             for lodName in self.getLODNames():
                 self.drawInFront('eyes*', 'head-front*', mode, lodName=lodName)
-                if base.config.GetBool('want-new-anims', 1):
+                if useNewAnims:
                     if not self.find('**/joint_pupil*').isEmpty():
-                        self.drawInFront('joint_pupil*', 'eyes*', -1, lodName=lodName)
+                        self.drawInFront('joint_pupil*', 'eyes*', pupilMode, lodName=lodName)
                     else:
-                        self.drawInFront('def_*_pupil', 'eyes*', -1, lodName=lodName)
+                        self.drawInFront('def_*_pupil', 'eyes*', pupilMode, lodName=lodName)
                 else:
-                    self.drawInFront('joint_pupil*', 'eyes*', -1, lodName=lodName)
+                    self.drawInFront('joint_pupil*', 'eyes*', pupilMode, lodName=lodName)
 
+            # Get eyes from LOD - for retro models, this should still work
             self.__eyes = self.getLOD(1000).find('**/eyes*')
             self.__lod500Eyes = self.getLOD(500).find('**/eyes*')
             self.__lod250Eyes = self.getLOD(250).find('**/eyes*')
+            # For retro models, if __eyes is empty, try searching without LOD
+            if self.__eyes.isEmpty() and modelStyle == MODEL_STYLE_RETRO:
+                self.__eyes = self.find('**/eyes*')
             if self.__lod500Eyes.isEmpty():
                 self.__lod500Eyes = None
             else:
                 self.__lod500Eyes.setColorOff()
-                if base.config.GetBool('want-new-anims', 1):
+                if useNewAnims:
                     if not self.find('**/joint_pupilL*').isEmpty():
                         self.__lod500lPupil = self.__lod500Eyes.find('**/joint_pupilL*')
                         self.__lod500rPupil = self.__lod500Eyes.find('**/joint_pupilR*')
@@ -993,13 +1041,21 @@ class ToonHead(Actor.Actor):
                         self.__lod500lPupil = self.__lod500Eyes.find('**/def_left_pupil*')
                         self.__lod500rPupil = self.__lod500Eyes.find('**/def_right_pupil*')
                 else:
+                    # Retro models: search for pupils in the LOD eyes directly
+                    # Try searching within the LOD eyes first, then fall back to searching the whole model
                     self.__lod500lPupil = self.__lod500Eyes.find('**/joint_pupilL*')
                     self.__lod500rPupil = self.__lod500Eyes.find('**/joint_pupilR*')
+                    if self.__lod500lPupil.isEmpty() or self.__lod500rPupil.isEmpty():
+                        # Fallback: search in the whole LOD
+                        lod500Root = self.getLOD(500)
+                        if lod500Root:
+                            self.__lod500lPupil = lod500Root.find('**/joint_pupilL*')
+                            self.__lod500rPupil = lod500Root.find('**/joint_pupilR*')
             if self.__lod250Eyes.isEmpty():
                 self.__lod250Eyes = None
             else:
                 self.__lod250Eyes.setColorOff()
-                if base.config.GetBool('want-new-anims', 1):
+                if useNewAnims:
                     if not self.find('**/joint_pupilL*').isEmpty():
                         self.__lod250lPupil = self.__lod250Eyes.find('**/joint_pupilL*')
                         self.__lod250rPupil = self.__lod250Eyes.find('**/joint_pupilR*')
@@ -1007,23 +1063,34 @@ class ToonHead(Actor.Actor):
                         self.__lod250lPupil = self.__lod250Eyes.find('**/def_left_pupil*')
                         self.__lod250rPupil = self.__lod250Eyes.find('**/def_right_pupil*')
                 else:
+                    # Retro models: search for pupils in the LOD eyes directly
+                    # Try searching within the LOD eyes first, then fall back to searching the whole model
                     self.__lod250lPupil = self.__lod250Eyes.find('**/joint_pupilL*')
                     self.__lod250rPupil = self.__lod250Eyes.find('**/joint_pupilR*')
+                    if self.__lod250lPupil.isEmpty() or self.__lod250rPupil.isEmpty():
+                        # Fallback: search in the whole LOD
+                        lod250Root = self.getLOD(250)
+                        if lod250Root:
+                            self.__lod250lPupil = lod250Root.find('**/joint_pupilL*')
+                            self.__lod250rPupil = lod250Root.find('**/joint_pupilR*')
         else:
             self.drawInFront('eyes*', 'head-front*', mode)
-            if base.config.GetBool('want-new-anims', 1):
+            # For retro dog models, draw pupils behind eyes to prevent them showing through when blinking
+            # For other models, draw pupils in front of eyes
+            pupilMode = 1 if (modelStyle == MODEL_STYLE_RETRO and animalType == 'dog') else -1
+            if useNewAnims:
                 if not self.find('joint_pupil*').isEmpty():
-                    self.drawInFront('joint_pupil*', 'eyes*', -1)
+                    self.drawInFront('joint_pupil*', 'eyes*', pupilMode)
                 else:
-                    self.drawInFront('def_*_pupil', 'eyes*', -1)
+                    self.drawInFront('def_*_pupil', 'eyes*', pupilMode)
             else:
-                self.drawInFront('joint_pupil*', 'eyes*', -1)
+                self.drawInFront('joint_pupil*', 'eyes*', pupilMode)
             self.__eyes = self.find('**/eyes*')
         if not self.__eyes.isEmpty():
             self.__eyes.setColorOff()
             self.__lpupil = None
             self.__rpupil = None
-            if base.config.GetBool('want-new-anims', 1):
+            if useNewAnims:
                 if not self.find('**/joint_pupilL*').isEmpty():
                     if self.getLOD(1000):
                         lp = self.getLOD(1000).find('**/joint_pupilL*')
@@ -1038,6 +1105,7 @@ class ToonHead(Actor.Actor):
                     lp = self.getLOD(1000).find('**/def_left_pupil*')
                     rp = self.getLOD(1000).find('**/def_right_pupil*')
             else:
+                # Retro models: search directly in __eyes (exactly matching retro source)
                 lp = self.__eyes.find('**/joint_pupilL*')
                 rp = self.__eyes.find('**/joint_pupilR*')
             if lp.isEmpty() or rp.isEmpty():
@@ -1059,19 +1127,35 @@ class ToonHead(Actor.Actor):
                 rp.reparentTo(rpt)
                 self.__lpupil.adjustAllPriorities(1)
                 self.__rpupil.adjustAllPriorities(1)
+                # Set rendering quality for pupils to prevent jagged edges
+                if modelStyle == MODEL_STYLE_RETRO:
+                    # Retro models: ensure pupils render with better quality
+                    self.__lpupil.setTwoSided(1)
+                    self.__rpupil.setTwoSided(1)
                 if self.__lod500Eyes:
                     self.__lod500lPupil.adjustAllPriorities(1)
                     self.__lod500rPupil.adjustAllPriorities(1)
+                    if modelStyle == MODEL_STYLE_RETRO:
+                        self.__lod500lPupil.setTwoSided(1)
+                        self.__lod500rPupil.setTwoSided(1)
                 if self.__lod250Eyes:
                     self.__lod250lPupil.adjustAllPriorities(1)
                     self.__lod250rPupil.adjustAllPriorities(1)
+                    if modelStyle == MODEL_STYLE_RETRO:
+                        self.__lod250lPupil.setTwoSided(1)
+                        self.__lod250rPupil.setTwoSided(1)
                 animalType = style.getAnimal()
                 if animalType != 'dog':
-                    self.__lpupil.flattenStrong()
-                    self.__rpupil.flattenStrong()
+                    # Only flatten for modern models - retro models may need the geometry intact
+                    if modelStyle == MODEL_STYLE_MODERN:
+                        self.__lpupil.flattenStrong()
+                        self.__rpupil.flattenStrong()
         return
 
     def __setPupilDirection(self, x, y):
+        # Check if pupils exist before trying to set their position
+        if self.__lpupil is None or self.__rpupil is None:
+            return
         if y < 0.0:
             y2 = -y
             left1 = self.LeftAD + (self.LeftD - self.LeftAD) * y2
@@ -1098,6 +1182,9 @@ class ToonHead(Actor.Actor):
         self.__rpupil.setPos(right)
 
     def __lookPupilsAt(self, node, point):
+        # Check if pupils exist before trying to look at point
+        if self.__lpupil is None or self.__rpupil is None:
+            return
         if node != None:
             mat = node.getMat(self.__eyes)
             point = mat.xformPoint(point)
@@ -1155,7 +1242,9 @@ class ToonHead(Actor.Actor):
             if self.__eyelashClosed:
                 self.__eyelashClosed.removeNode()
             animal = style.head[0]
-            model = loader.loadModel('phase_3' + EyelashDict[animal])
+            modelStyle = getattr(style, 'modelStyle', 0)
+            eyelashDict = getEyelashDict(modelStyle)
+            model = loader.loadModel('phase_3' + eyelashDict[animal])
             if self.hasLOD():
                 head = self.getPart('head', '1000')
             else:
@@ -1204,16 +1293,21 @@ class ToonHead(Actor.Actor):
             else:
                 searchRoot.find('**/ears-short').hide()
         # Clash's rabbit model has 2 different eye nodes, TTO's has one
-        if base.settings.get('want-legacy-models'):
+        # Get modelStyle from style if available, otherwise check global setting
+        modelStyle = getattr(style, 'modelStyle', 0) if hasattr(style, 'modelStyle') else (1 if base.settings.get('want-legacy-models') else 0)
+        if modelStyle == MODEL_STYLE_RETRO:
+            # Retro models: remove/hide eyes-short for non-rabbit animals (TTO models only have one eye node)
             if animalType != 'rabbit':
                 if copy:
                     searchRoot.find('**/eyes-short').removeNode()
                 else:
                     searchRoot.find('**/eyes-short').hide()
-        elif copy:
-            searchRoot.find('**/eyes-short').removeNode()
         else:
-            searchRoot.find('**/eyes-short').hide()
+            # Modern models: always remove/hide eyes-short (we're using long head)
+            if copy:
+                searchRoot.find('**/eyes-short').removeNode()
+            else:
+                searchRoot.find('**/eyes-short').hide()
         if animalType != 'dog':
             if copy:
                 searchRoot.find('**/joint_pupilL_short').removeNode()
@@ -1263,16 +1357,21 @@ class ToonHead(Actor.Actor):
             else:
                 searchRoot.find('**/ears-long').hide()
         # Clash's rabbit model has 2 different eye nodes, TTO's has one
-        if base.settings.get('want-legacy-models'):
+        # Get modelStyle from style if available, otherwise check global setting
+        modelStyle = getattr(style, 'modelStyle', 0) if hasattr(style, 'modelStyle') else (1 if base.settings.get('want-legacy-models') else 0)
+        if modelStyle == MODEL_STYLE_RETRO:
+            # Retro models: remove/hide eyes-long for non-rabbit animals (TTO models only have one eye node)
             if animalType != 'rabbit':
                 if copy:
                     searchRoot.find('**/eyes-long').removeNode()
                 else:
                     searchRoot.find('**/eyes-long').hide()
-        elif copy:
-            searchRoot.find('**/eyes-long').removeNode()
         else:
-            searchRoot.find('**/eyes-long').hide()
+            # Modern models: always remove/hide eyes-long (we're using short head)
+            if copy:
+                searchRoot.find('**/eyes-long').removeNode()
+            else:
+                searchRoot.find('**/eyes-long').hide()
         if animalType != 'dog':
             if copy:
                 searchRoot.find('**/joint_pupilL_long').removeNode()
@@ -1470,6 +1569,11 @@ class ToonHead(Actor.Actor):
             return 0
         head = self.getPart('head', lodName)
         startHpr = head.getHpr()
+        # Check if pupils exist before trying to use them
+        if self.__lpupil is None or self.__rpupil is None:
+            # If no pupils, just do head movement
+            self.__lookHeadAt(None, point, lod=lodName, freaky = freaky)
+            return 0
         startLpupil = self.__lpupil.getPos()
         startRpupil = self.__rpupil.getPos()
         self.__lookHeadAt(None, point, lod=lodName, freaky = freaky)
@@ -1619,6 +1723,8 @@ class ToonHead(Actor.Actor):
         self.__sadMuzzles = []
         self.__smileMuzzles = []
         self.__laughMuzzles = []
+        modelStyle = getattr(style, 'modelStyle', 0)
+        dogMuzzleDict = getDogMuzzleDict(modelStyle)
 
         def hideAddNonEmptyItemToList(item, list):
             if not item.isEmpty():
@@ -1637,7 +1743,7 @@ class ToonHead(Actor.Actor):
                 else:
                     muzzle = self.find('**/' + lodName + '/**/muzzle*')
                     if lodName == '1000' or lodName == '500':
-                        filePrefix = DogMuzzleDict[style.head]
+                        filePrefix = dogMuzzleDict[style.head]
                         muzzles = loader.loadModel('phase_3' + filePrefix + lodName)
                         if base.config.GetBool('want-new-anims', 1):
                             if not self.find('**/' + lodName + '/**/__Actor_head/def_head').isEmpty():
@@ -1663,7 +1769,7 @@ class ToonHead(Actor.Actor):
                 muzzle = self.find('**/muzzle*neutral')
             else:
                 muzzle = self.find('**/muzzle*')
-                filePrefix = DogMuzzleDict[style.head]
+                filePrefix = dogMuzzleDict[style.head]
                 muzzles = loader.loadModel('phase_3' + filePrefix + '1000')
                 if base.config.GetBool('want-new-anims', 1):
                     if not self.find('**/def_head').isEmpty():

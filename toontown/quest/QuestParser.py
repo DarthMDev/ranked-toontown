@@ -45,8 +45,6 @@ def init():
      'inventory': base.localAvatar.inventory,
      'bFriendsList': base.localAvatar.bFriendsList,
      'book': base.localAvatar.book,
-     'bookPrevArrow': base.localAvatar.book.prevArrow,
-     'bookNextArrow': base.localAvatar.book.nextArrow,
      'bookOpenButton': base.localAvatar.book.bookOpenButton,
      'bookCloseButton': base.localAvatar.book.bookCloseButton,
      'chatNormalButton': base.localAvatar.chatMgr.normalButton,

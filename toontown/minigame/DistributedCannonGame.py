@@ -406,12 +406,7 @@ class DistributedCannonGame(DistributedMinigame):
         self.airborneToons += 1
 
     def announceToonWillLandInWater(self, avId, landTime):
-        if not self.hasLocalToon:
-            return
-        self.notify.debug('announceToonWillLandInWater: ' + str(avId) + ': time=' + str(landTime))
-        if self.clockStopTime == None:
-            self.clockStopTime = landTime
-        return
+        pass
 
     def enterOff(self):
         self.notify.debug('enterOff')
@@ -438,9 +433,7 @@ class DistributedCannonGame(DistributedMinigame):
     def __somebodyWon(self, avId):
         if avId == self.localAvId:
             base.playSfx(self.sndWin)
-        self.__killRewardCountdown()
-        self.timer.stop()
-        self.gameFSM.request('waitForToonsToLand')
+            self.gameFSM.request('waitForToonsToLand')
 
     def enterWaitForToonsToLand(self):
         self.notify.debug('enterWaitForToonsToLand')

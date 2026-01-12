@@ -50,8 +50,12 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         target = CollisionSphere(2, 0, 0, 3)
         targetNode = CollisionNode('headTarget')
         targetNode.addSolid(target)
-        targetNode.setCollideMask(ToontownGlobals.PieBitmask)
+        # CFO head can be hit by both regular pies and TNT pies
+        targetNode.setCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         self.headTarget = self.neck.attachNewNode(targetNode)
+        # Set pieCode tag so pies know to hit the CFO
+        self.headTarget.setTag('pieCode', str(ToontownGlobals.PieCodeBossCog))
+        print('[CFO Client] headTarget created with pieCode=%s, tag=%s' % (ToontownGlobals.PieCodeBossCog, self.headTarget.getTag('pieCode')))
         # self.headTarget.show()
 
         # And he gets a big bubble around his torso, just to keep
@@ -60,7 +64,8 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         shield = CollisionSphere(0, 0, 0.8, 7)
         shieldNode = CollisionNode('shield')
         shieldNode.addSolid(shield)
-        shieldNode.setCollideMask(ToontownGlobals.PieBitmask)
+        # CFO body can be hit by both regular pies and TNT pies
+        shieldNode.setCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         self.pelvis.attachNewNode(shieldNode)
 
         self.eyes = loader.loadModel('phase_10/models/cogHQ/CashBotBossEyes.bam')
@@ -99,6 +104,13 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
                     self.doAnimate('hit', now=1)
 
                 self.showHpText(-delta, scale=5)
+            elif bossDamage == self.bossDamage and not isDOT and not isGoon and avId != 0:
+                # Handle 0-damage hits (like pies) - still trigger flinch if CFO should flinch
+                # This allows pies to trigger flinch animation even though they do 0 damage
+                # Only trigger if avId is non-zero (actual hit, not a damage reset)
+                if self.ruleset.CFO_FLINCHES_ON_HIT:
+                    self.flashRed()
+                    self.doAnimate('hit', now=1)
 
         if objId in self.myHits:
             self.myHits.remove(objId)
@@ -133,6 +145,10 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.bossHealthBar.initialize(self.ruleset.CFO_MAX_HP - self.bossDamage, self.ruleset.CFO_MAX_HP)
         if self.ruleset.CFO_MAX_HP > 999_999 and self.ruleset.TIMER_MODE:
             self.bossHealthBar.hide()
+        
+        # Accept pie hit events
+        self.accept('pieSplat', self.__pieSplat)
+        self.accept('localPieSplat', self.__localPieSplat)
 
     def cleanupBossBattle(self):
         self.cleanupIntervals()
@@ -140,6 +156,25 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.cleanupAttacks()
         self.setDizzy(0)
         self.removeHealthBar()
+        
+        # Ignore pie hit events
+        self.ignore('pieSplat')
+        self.ignore('localPieSplat')
+    
+    def cleanupAttacks(self):
+        """Clean up any ongoing gear attacks"""
+        # Remove all gear root nodes that might still be attached
+        if hasattr(self, 'rotateNode') and self.rotateNode:
+            for child in self.rotateNode.getChildren():
+                # Check if this is a gear root node from an attack
+                if 'gearRoot' in child.getName():
+                    # Clean up any detach tasks for this gear root
+                    taskMgr.remove('detach-%s' % child.getName())
+                    # Clean up any child node detach tasks
+                    for grandchild in child.getChildren():
+                        taskMgr.remove('detach-%s-%s' % (child.getName(), grandchild.getName()))
+                    # Remove the node itself
+                    child.removeNode()
 
     def saySomething(self, chatString):
         intervalName = 'CFOTaunt'
@@ -154,6 +189,10 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         self.storeInterval(seq, intervalName)
 
     def setAttackCode(self, attackCode, avId=0, delayTime=0):
+        # Clean up ongoing attacks when interrupted (stunned, flinching, or no attack)
+        if attackCode in (ToontownGlobals.BossCogDizzy, ToontownGlobals.BossCogDizzyNow, ToontownGlobals.BossCogNoAttack):
+            self.cleanupAttacks()
+        
         super().setAttackCode(attackCode, avId)
 
         if attackCode == ToontownGlobals.BossCogAreaAttack:
@@ -298,3 +337,126 @@ class DistributedCashbotBossStripped(DistributedBossCogStripped):
         
         # Normal animation behavior when not frozen
         return super().doAnimate(anim, now, queueNeutral, raised, forward, happy)
+    
+    def doDirectedAttack(self, avId, attackCode):
+        """Gear throw attack with adjustable speed and distance"""
+        from direct.showbase import PythonUtil
+        from direct.task import Task
+        from panda3d.core import BoundingSphere
+        import random
+        
+        toon = base.cr.doId2do.get(avId)
+        if toon:
+            # Gear throw parameters - adjust these to control speed/distance
+            USE_FIXED_DISTANCE = False  # If True, uses fixedDistance; if False, uses actual toon distance
+            fixedDistance = 50  # Fixed distance (original base class behavior)
+            referenceDistance = 50  # Reference distance for speed calculation
+            referenceTravelTime = 1.0  # Time to travel referenceDistance (speed = referenceDistance / referenceTravelTime)
+            gearDelay = 0.15  # Delay between each gear launch
+            
+            # Calculate throw distance
+            if USE_FIXED_DISTANCE:
+                throwDistance = fixedDistance
+            else:
+                throwDistance = toon.getDistance(self)
+            
+            # Calculate travel time to maintain same speed as reference distance
+            travelTime = (throwDistance / referenceDistance) * referenceTravelTime
+            
+            gearRoot = self.rotateNode.attachNewNode('gearRoot-atk%d' % globalClock.getFrameTime())
+            gearRoot.setZ(10)
+            gearRoot.setTag('attackCode', str(attackCode))
+            gearModel = self.getGearFrisbee()
+            gearModel.setScale(0.2)
+            gearRoot.headsUp(toon)
+            toToonH = PythonUtil.fitDestAngle2Src(0, gearRoot.getH() + 180)
+            gearRoot.lookAt(toon)
+            neutral = 'Fb_neutral'
+            if not self.twoFaced:
+                neutral = 'Ff_neutral'
+            gearTrack = Parallel()
+            
+            for i in range(4):
+                nodeName = '%s-%s' % (str(i), globalClock.getFrameTime())
+                node = gearRoot.attachNewNode(nodeName)
+                node.hide()
+                node.setPos(0, 5.85, 4.0)
+                gear = gearModel.instanceTo(node)
+                x = random.uniform(-5, 5)
+                z = random.uniform(-3, 3)
+                h = random.uniform(-720, 720)
+                if i == 2:
+                    x = 0
+                    z = 0
+
+                def detachNode(node):
+                    if not node.isEmpty():
+                        node.detachNode()
+                    return Task.done
+
+                def detachNodeLater(node=node, distance=throwDistance):
+                    if node.isEmpty():
+                        return
+                    center = node.node().getBounds().getCenter()
+                    node.node().setBounds(BoundingSphere(center, distance * 1.5))
+                    node.node().setFinal(1)
+                    self.doMethodLater(0.005, detachNode, 'detach-%s-%s' % (gearRoot.getName(), node.getName()),
+                                       extraArgs=[node])
+
+                gearTrack.append(Sequence(Wait(i * gearDelay), Func(node.show),
+                                          Parallel(node.posInterval(travelTime, Point3(x, throwDistance, z), fluid=1),
+                                                   node.hprInterval(travelTime, VBase3(h, 0, 0), fluid=1)),
+                                          Func(detachNodeLater)))
+
+            if not self.raised:
+                neutral1Anim = self.getAnim('down2Up')
+                self.raised = 1
+            else:
+                neutral1Anim = ActorInterval(self, neutral, startFrame=48)
+            throwAnim = self.getAnim('throw')
+            neutral2Anim = ActorInterval(self, neutral)
+            extraAnim = Sequence()
+            if attackCode == ToontownGlobals.BossCogSlowDirectedAttack:
+                extraAnim = ActorInterval(self, neutral)
+
+            def detachGearRoot(task, gearRoot=gearRoot):
+                if not gearRoot.isEmpty():
+                    gearRoot.detachNode()
+                return task.done
+
+            def detachGearRootLater(gearRoot=gearRoot):
+                if gearRoot.isEmpty():
+                    return
+                self.doMethodLater(0.01, detachGearRoot, 'detach-%s' % gearRoot.getName())
+
+            seq = Sequence(ParallelEndTogether(self.pelvis.hprInterval(1, VBase3(toToonH, 0, 0)), neutral1Anim),
+                           extraAnim, Parallel(Sequence(Wait(0.19), gearTrack, Func(detachGearRootLater),
+                                                        self.pelvis.hprInterval(0.2, VBase3(0, 0, 0))),
+                                               Sequence(throwAnim, neutral2Anim)))
+            self.doAnimate(seq, now=1, raised=1)
+    
+    def __pieSplat(self, toon, pieCode):
+        """Handle pie splat event from other toons"""
+        if pieCode == ToontownGlobals.PieCodeBossCog:
+            # Pie hit the CFO's head - just send update to server
+            # The flinch will be triggered by setBossDamage when server confirms
+            pass
+    
+    def __localPieSplat(self, pieCode, entry):
+        """Handle local pie splat event (when local toon throws pie)"""
+        print('[CFO Client] __localPieSplat: pieCode=%s' % pieCode)
+        if pieCode == ToontownGlobals.PieCodeBossCog:
+            print('[CFO Client] Pie hit CFO head!')
+            # Local toon's pie hit the CFO's head
+            # Get the pie type to determine if it's TNT
+            pieType = localAvatar.pieType if hasattr(localAvatar, 'pieType') else 0
+            # Send update to AI to process stun and damage
+            # The flinch will be triggered by setBossDamage when server confirms
+            print('[CFO Client] Sending d_pieHitBoss to AI with pieType=%s' % pieType)
+            self.d_pieHitBoss(pieType)
+        else:
+            print('[CFO Client] pieCode mismatch: got %s, expected %s' % (pieCode, ToontownGlobals.PieCodeBossCog))
+    
+    def d_pieHitBoss(self, pieType):
+        """Send update to AI that a pie hit the CFO"""
+        self.sendUpdate('pieHitBoss', [pieType])

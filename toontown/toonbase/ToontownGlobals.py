@@ -18,6 +18,7 @@ MakeAToonCameraFov = 52.0
 CeilingBitmask = BitMask32(256)
 FloorEventBitmask = BitMask32(16)
 PieBitmask = BitMask32(256)
+TNTBitmask = BitMask32(2048)  # Separate bitmask for TNT pies to avoid conflicts
 PetBitmask = BitMask32(8)
 CatchGameBitmask = BitMask32(16)
 CashbotBossObjectBitmask = BitMask32(16)
@@ -125,6 +126,8 @@ BuildingNametagFont = None
 MinnieFont = None
 SuitFont = None
 CompetitionFont = None
+NewInterfaceFont1 = None
+NewInterfaceFont2 = None
 
 def getToonFont():
     global ToonFont
@@ -160,6 +163,20 @@ def getCompetitionFont():
         CompetitionFont = loader.loadFont(TTLocalizer.CompetitionFont)
 
     return CompetitionFont
+
+def getNewInterfaceFont1():
+    global NewInterfaceFont1
+    if NewInterfaceFont1 is None:
+        NewInterfaceFont1 = loader.loadFont(TTLocalizer.NewInterfaceFont1)
+
+    return NewInterfaceFont1
+
+def getNewInterfaceFont2():
+    global NewInterfaceFont2
+    if NewInterfaceFont2 is None:
+        NewInterfaceFont2 = loader.loadFont(TTLocalizer.NewInterfaceFont2)
+
+    return NewInterfaceFont2
 
 
 DonaldsDock = 1000
@@ -373,10 +390,21 @@ PieGameId = 19
 ScaleGameId = 20
 SeltzerGameId = 21
 GolfGreenGameId = 22
+
+# Minigames that are allowed to be started.
+ValidMinigameIds = [
+    CraneGameId,
+    SeltzerGameId,
+    ScaleGameId,
+    PieGameId,
+    CrashBallGameId,
+    GolfGreenGameId,
+    CannonGameId,
+]
 TravelGameId = 100
 MinigameNames = {
     'race': RaceGameId,
-    'cannon': CannonGameId,
+    'Cannon': CannonGameId,
     'tag': TagGameId,
     'pattern': PatternGameId,
     'minnie': PatternGameId,
@@ -395,13 +423,14 @@ MinigameNames = {
     '2d': TwoDGameId,
     'photo': PhotoGameId,
     'travel': TravelGameId,
-    'crashball': CrashBallGameId,
-    'crane': CraneGameId,
-    'pie': PieGameId,
-    'scale': ScaleGameId,
-    'seltzer': SeltzerGameId,
-    'golfgreen': GolfGreenGameId,
+    'Crashball': CrashBallGameId,
+    'Crane': CraneGameId,
+    'Pie': PieGameId,
+    'Scale': ScaleGameId,
+    'Seltzer': SeltzerGameId,
+    'Golf\nPuzzles': GolfGreenGameId,
 }
+MinigameId2Name = {v: k for k, v in MinigameNames.items()}
 MinigameTemplateId = -1
 MinigameIDs = (
     RaceGameId,
@@ -1312,7 +1341,7 @@ LawbotBossWitnessEpiloguePosHpr = (-3,
  0,
  0)
 LawbotBossChanceForTaunt = 25
-LawbotBossBonusWaitTime = 15
+LawbotBossBonusWaitTime = 30
 LawbotBossBonusDuration = 20
 LawbotBossBonusToonup = 10
 LawbotBossBonusWeightMultiplier = 2

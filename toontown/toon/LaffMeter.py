@@ -64,7 +64,6 @@ class LaffMeter(DirectFrame):
         self.load()
         self.flashName = None
         self.flashIval = None
-        self.flashThreshold = None  # The laff at which the laff meter starts flashing
         self.overhead = False
         return
 
@@ -123,9 +122,6 @@ class LaffMeter(DirectFrame):
             ),
             Func(cleanup, hptextnode)
         ).start()
-
-    def setFlashThreshold(self, num):
-        self.flashThreshold = num
 
     def obscure(self, obscured):
         self.__obscured = obscured
@@ -300,11 +296,8 @@ class LaffMeter(DirectFrame):
                 self.animatedEffect(delta)
 
             # Flash when low hp but not when dead
-            # If there isn't a custom flash threshold set, then use the red teeth as one
             shouldFlash = False
-            if self.flashThreshold is not None and self.hp <= self.flashThreshold:
-                shouldFlash = True
-            elif self.flashThreshold is None and self.hp <= self.maxHp * self.FRACTIONS[1]:
+            if self.hp <= self.maxHp * self.FRACTIONS[1]:
                 shouldFlash = True
 
             # If we are dead we do not flash
@@ -318,14 +311,12 @@ class LaffMeter(DirectFrame):
         if self.av:
             self.hp = self.av.hp
             self.maxHp = self.av.maxHp
-            # self.flashThreshold = self.av.maxHp * .166666
         if self.isToon:
             if not self.__obscured:
                 self.show()
             self.adjustFace(self.hp, self.maxHp, 1)
             if self.av:
                 self.accept(self.av.uniqueName('hpChange'), self.adjustFace)
-                self.accept('uberThreshold', self.setFlashThreshold)
 
     def stop(self):
 

@@ -81,18 +81,7 @@ class DistributedGolfCourseAI(DistributedObjectAI.DistributedObjectAI, FSM):
         return
 
     def initHistory(self):
-        for avId in self.avIdList:
-            av = simbase.air.doId2do.get(avId)
-            if av:
-                history = av.getGolfHistory()
-                self.startingHistory[avId] = history[:]
-                self.endingHistory[avId] = history[:]
-                holeBest = av.getGolfHoleBest()
-                self.startingHoleBest[avId] = holeBest[:]
-                self.endingHoleBest[avId] = holeBest[:]
-                courseBest = av.getGolfCourseBest()
-                self.startingCourseBest[avId] = courseBest[:]
-                self.endingCourseBest[avId] = courseBest[:]
+        pass
 
     def generate(self):
         DistributedObjectAI.DistributedObjectAI.generate(self)
@@ -767,7 +756,6 @@ class DistributedGolfCourseAI(DistributedObjectAI.DistributedObjectAI, FSM):
                 endingHistory = self.endingHistory[avId]
                 oldTrophies = GolfGlobals.calcTrophyListFromHistory(oldHistory)
                 endingTrophies = GolfGlobals.calcTrophyListFromHistory(endingHistory)
-                av.b_setGolfHistory(endingHistory)
                 newTrophies = []
                 for index in range(len(oldTrophies)):
                     if not oldTrophies[index] and endingTrophies[index]:

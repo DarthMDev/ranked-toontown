@@ -285,23 +285,22 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
         # Apply blue glow color to safe (not CFO) - will fade in when effect starts
         if isSafe and not isCFOBoss:
             try:
-                # Store original color scale if not already stored
-                if not hasattr(self.obj, '_originalDrenchedColorScale'):
+                # Use centralized color management system
+                # Get true original color scale
+                if hasattr(self.obj, 'getTrueOriginalColorScale'):
+                    originalColor = self.obj.getTrueOriginalColorScale()
+                else:
+                    # Fallback to current color if system not available
                     originalColor = self.obj.getColorScale()
-                    # Validate the color is reasonable
-                    if (0.0 <= originalColor.getX() <= 2.0 and 
-                        0.0 <= originalColor.getY() <= 2.0 and 
-                        0.0 <= originalColor.getZ() <= 2.0 and 
-                        0.0 <= originalColor.getW() <= 2.0):
-                        self.obj._originalDrenchedColorScale = originalColor
-                    else:
-                        # Color is corrupted, use default white
-                        self.obj._originalDrenchedColorScale = VBase4(1, 1, 1, 1)
+                    if not (0.0 <= originalColor.getX() <= 2.0 and 
+                            0.0 <= originalColor.getY() <= 2.0 and 
+                            0.0 <= originalColor.getZ() <= 2.0 and 
+                            0.0 <= originalColor.getW() <= 2.0):
+                        originalColor = VBase4(1, 1, 1, 1)
                 
                 # Calculate lighter blue tint (less intense)
                 # Blend between original and misty blue: 70% original, 30% blue
                 # This creates a subtle glow effect
-                originalColor = self.obj._originalDrenchedColorScale
                 blueTint = VBase4(0.6, 0.8, 0.9, 1.0)  # Misty blue tint
                 blendFactor = 0.5  # 50% of the tint (lighter effect)
                 
@@ -521,21 +520,24 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                if hasattr(self.obj, '_drenchedGlowColor') and hasattr(self.obj, '_originalDrenchedColorScale'):
-                    # Cancel any existing color interval
-                    if hasattr(self.obj, '_drenchedColorInterval'):
-                        if self.obj._drenchedColorInterval:
-                            self.obj._drenchedColorInterval.finish()
-                    
-                    # Fade in to glow color over 0.4 seconds
-                    self.obj._drenchedColorInterval = LerpColorScaleInterval(
-                        self.obj,
-                        duration=0.4,
-                        colorScale=self.obj._drenchedGlowColor,
-                        blendType='easeInOut'
-                    )
-                    self.obj._drenchedColorInterval.start()
-                    self.notify.info("Fading in blue glow color on safe")
+                if hasattr(self.obj, '_drenchedGlowColor'):
+                    # Use centralized color management system
+                    if hasattr(self.obj, 'registerColorModification'):
+                        self.obj.registerColorModification('drenched', self.obj._drenchedGlowColor, priority='elemental')
+                        self.notify.info("Registered drenched color modification on safe")
+                    else:
+                        # Fallback if system not available
+                        if hasattr(self.obj, '_drenchedColorInterval'):
+                            if self.obj._drenchedColorInterval:
+                                self.obj._drenchedColorInterval.finish()
+                        self.obj._drenchedColorInterval = LerpColorScaleInterval(
+                            self.obj,
+                            duration=0.4,
+                            colorScale=self.obj._drenchedGlowColor,
+                            blendType='easeInOut'
+                        )
+                        self.obj._drenchedColorInterval.start()
+                        self.notify.info("Fading in blue glow color on safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error fading in safe color: {e}")
     
@@ -550,21 +552,24 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                if hasattr(self.obj, '_originalDrenchedColorScale'):
-                    # Cancel any existing color interval
-                    if hasattr(self.obj, '_drenchedColorInterval'):
-                        if self.obj._drenchedColorInterval:
-                            self.obj._drenchedColorInterval.finish()
-                    
-                    # Fade out to original color over 0.4 seconds
-                    self.obj._drenchedColorInterval = LerpColorScaleInterval(
-                        self.obj,
-                        duration=0.4,
-                        colorScale=self.obj._originalDrenchedColorScale,
-                        blendType='easeInOut'
-                    )
-                    self.obj._drenchedColorInterval.start()
-                    self.notify.info("Fading out blue glow color on safe")
+                # Use centralized color management system
+                if hasattr(self.obj, 'unregisterColorModification'):
+                    self.obj.unregisterColorModification('drenched', priority='elemental')
+                    self.notify.info("Unregistered drenched color modification on safe")
+                else:
+                    # Fallback if system not available
+                    if hasattr(self.obj, '_originalDrenchedColorScale'):
+                        if hasattr(self.obj, '_drenchedColorInterval'):
+                            if self.obj._drenchedColorInterval:
+                                self.obj._drenchedColorInterval.finish()
+                        self.obj._drenchedColorInterval = LerpColorScaleInterval(
+                            self.obj,
+                            duration=0.4,
+                            colorScale=self.obj._originalDrenchedColorScale,
+                            blendType='easeInOut'
+                        )
+                        self.obj._drenchedColorInterval.start()
+                        self.notify.info("Fading out blue glow color on safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error fading out safe color: {e}")
     
@@ -579,16 +584,19 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
-                # Cancel any existing color interval
-                if hasattr(self.obj, '_drenchedColorInterval'):
-                    if self.obj._drenchedColorInterval:
-                        self.obj._drenchedColorInterval.finish()
-                    self.obj._drenchedColorInterval = None
-                
-                # Restore original color immediately
-                if hasattr(self.obj, '_originalDrenchedColorScale'):
-                    self.obj.setColorScale(self.obj._originalDrenchedColorScale)
-                    self.notify.info("Restored original color to safe")
+                # Use centralized color management system
+                if hasattr(self.obj, 'unregisterColorModification'):
+                    self.obj.unregisterColorModification('drenched', priority='elemental')
+                    self.notify.info("Unregistered drenched color modification on safe (immediate)")
+                else:
+                    # Fallback if system not available
+                    if hasattr(self.obj, '_drenchedColorInterval'):
+                        if self.obj._drenchedColorInterval:
+                            self.obj._drenchedColorInterval.finish()
+                        self.obj._drenchedColorInterval = None
+                    if hasattr(self.obj, '_originalDrenchedColorScale'):
+                        self.obj.setColorScale(self.obj._originalDrenchedColorScale)
+                        self.notify.info("Restored original color to safe (fallback)")
         except Exception as e:
             self.notify.warning(f"Error restoring safe color: {e}")
     

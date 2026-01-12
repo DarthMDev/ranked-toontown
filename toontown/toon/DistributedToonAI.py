@@ -20,7 +20,7 @@ from toontown.catalog import CatalogItemList
 from toontown.catalog import CatalogItem
 from direct.distributed.ClockDelta import *
 from toontown.fishing import FishCollection, FishTank, FishGlobals
-from .NPCToons import npcFriends, isZoneProtected
+from .NPCToons import isZoneProtected
 from toontown.coghq import CogDisguiseGlobals
 import random
 import re
@@ -28,9 +28,6 @@ from toontown.chat import ResistanceChat
 from toontown.racing import RaceGlobals
 from toontown.hood import ZoneUtil
 from toontown.toon import NPCToons
-from toontown.estate import FlowerCollection
-from toontown.estate import FlowerBasket
-from toontown.estate import GardenGlobals
 from toontown.golf import GolfGlobals
 from toontown.parties import PartyGlobals
 from toontown.parties.PartyInfo import PartyInfoAI
@@ -42,24 +39,9 @@ from toontown.catalog import CatalogAccessoryItem
 from . import ModuleListAI
 
 from ..archipelago.definitions.death_reason import DeathReason
-from ..matchmaking import skill_rating
-from ..matchmaking.player_skill_profile import PlayerSkillProfile, STARTING_RATING
-from ..shtiker import CogPageGlobals
-from ..util.astron.AstronDict import AstronDict
+from ..matchmaking.player_skill_profile import PlayerSkillProfile, STARTING_MMR
 
-if simbase.wantPets:
-    from toontown.pets import PetLookerAI, PetObserve
-else:
-    class PetLookerAI:
-        class PetLookerAI:
-            pass
-
-if simbase.wantKarts:
-    from toontown.racing.KartDNA import *
-
-
-class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoothNodeAI.DistributedSmoothNodeAI,
-                        PetLookerAI.PetLookerAI):
+class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoothNodeAI.DistributedSmoothNodeAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedToonAI')
     maxCallsPerNPC = 100
     partTypeIds = {ToontownGlobals.FT_FullSuit: (CogDisguiseGlobals.leftLegIndex,
@@ -78,8 +60,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
     def __init__(self, air):
         DistributedPlayerAI.DistributedPlayerAI.__init__(self, air)
         DistributedSmoothNodeAI.DistributedSmoothNodeAI.__init__(self, air)
-        if simbase.wantPets:
-            PetLookerAI.PetLookerAI.__init__(self)
         self.air = air
         self.dna = ToonDNA.ToonDNA()
         self.inventory = None
@@ -89,7 +69,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.quests = []
         self.cogs = []
         self.cogCounts = []
-        self.NPCFriendsDict = {}
         self.clothesTopsList = []
         self.clothesBottomsList = []
         self.hatList = []
@@ -108,16 +87,11 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                          0,
                          0,
                          0]
-        self.cogParts = [0,
-                         0,
-                         0,
-                         0]
         self.cogRadar = [0,
                          0,
                          0,
                          0]
         self.cogIndex = -1
-        self.disguisePageFlag = 0
         self.sosPageFlag = 0
         self.buildingRadar = [0,
                               0,
@@ -167,12 +141,10 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self._isGM = False
         self._gmType = None
         self.hpOwnedByBattle = 0
-        if simbase.wantPets:
-            self.petTrickPhrases = []
         if simbase.wantBingo:
             self.bingoCheat = False
         self.customMessages = []
-        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explosive
+        self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explodey
         self.catalogNotify = ToontownGlobals.NoItems
         self.mailboxNotify = ToontownGlobals.NoItems
         self.catalogScheduleCurrentWeek = 0
@@ -186,20 +158,12 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.awardMailboxContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization)
         self.onAwardOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
         self.kart = None
-        if simbase.wantKarts:
-            self.kartDNA = [-1] * getNumFields()
-            self.tickets = 200
-            self.allowSoloRace = False
-            self.allowRaceTimeout = True
         self.setBattleId(0)
         self.gardenStarted = False
-        self.flowerCollection = None
         self.shovel = 0
         self.shovelSkill = 0
         self.wateringCan = 0
         self.wateringCanSkill = 0
-        self.hatePets = 1
-        self.golfHistory = None
         self.golfHoleBest = None
         self.golfCourseBest = None
         self.unlimitedSwing = False
@@ -216,7 +180,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.instaKill = False
         self.instantDelivery = False
         self.alwaysHitSuits = False
-        self.hasPaidTaxes = False
 
         self._skillProfiles: dict[str, PlayerSkillProfile] = {}
 
@@ -309,25 +272,12 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         #     self.addTeleportAccess(ToontownGlobals.GoofySpeedway)
 
     def sendDeleteEvent(self):
-        if simbase.wantPets:
-            isInEstate = self.isInEstate()
-            wasInEstate = self.wasInEstate()
-            if isInEstate or wasInEstate:
-                PetObserve.send(self.estateZones, PetObserve.PetActionObserve(PetObserve.Actions.LOGOUT, self.doId))
-                if wasInEstate:
-                    self.cleanupEstateData()
         DistributedAvatarAI.DistributedAvatarAI.sendDeleteEvent(self)
 
     def delete(self):
         self.notify.debug('----Deleting DistributedToonAI %d ' % self.doId)
         if self.isPlayerControlled():
             messenger.send('avatarExited', [self])
-        if simbase.wantPets:
-            if self.isInEstate():
-                print('ToonAI - Exit estate toonId:%s' % self.doId)
-                self.exitEstate()
-            if self.zoneId != ToontownGlobals.QuietZone:
-                self.announceZoneChange(ToontownGlobals.QuietZone, self.zoneId)
         taskName = self.uniqueName('cheesy-expires')
         taskMgr.remove(taskName)
         taskName = self.uniqueName('next-catalog')
@@ -344,8 +294,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             self.inventory.unload()
         del self.inventory
         del self.experience
-        if simbase.wantPets:
-            PetLookerAI.PetLookerAI.destroy(self)
         del self.kart
         self._sendExitServerEvent()
         DistributedSmoothNodeAI.DistributedSmoothNodeAI.delete(self)
@@ -373,8 +321,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             self.inventory.unload()
         del self.inventory
         del self.experience
-        if simbase.wantPets:
-            PetLookerAI.PetLookerAI.destroy(self)
         self.doNotDeallocateChannel = True
         self.zoneId = None
         DistributedSmoothNodeAI.DistributedSmoothNodeAI.delete(self)
@@ -401,13 +347,10 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                     simbase.air.banManager.ban(self.doId, dislId, commentStr)
 
     def announceZoneChange(self, newZoneId, oldZoneId):
-        from toontown.pets import PetObserve
         # self.air.welcomeValleyManager.toonSetZone(self.doId, newZoneId)
         broadcastZones = [oldZoneId, newZoneId]
         if self.isInEstate() or self.wasInEstate():
             broadcastZones = union(broadcastZones, self.estateZones)
-        PetObserve.send(broadcastZones,
-                        PetObserve.PetActionObserve(PetObserve.Actions.CHANGE_ZONE, self.doId, (oldZoneId, newZoneId)))
 
     def checkAccessorySanity(self, accessoryType, idx, textureIdx, colorIdx):
         if idx == 0 and textureIdx == 0 and colorIdx == 0:
@@ -679,31 +622,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         self.friendsList.append((friendId, friendCode))
 
-    def d_setMaxNPCFriends(self, max):
-        self.sendUpdate('setMaxNPCFriends', [max])
-
-    def setMaxNPCFriends(self, max):
-        if max & 32768:
-            self.b_setSosPageFlag(1)
-            max &= 32767
-        configMax = simbase.config.GetInt('max-sos-cards', 16)
-        if configMax != max:
-            if self.sosPageFlag == 0:
-                self.b_setMaxNPCFriends(configMax)
-            else:
-                self.b_setMaxNPCFriends(configMax | 32768)
-        else:
-            self.maxNPCFriends = max
-        if self.maxNPCFriends != 8 and self.maxNPCFriends != 16:
-            self.notify.warning('Wrong max SOS cards %s, %d' % (self.maxNPCFriends, self.doId))
-
-    def b_setMaxNPCFriends(self, max):
-        self.setMaxNPCFriends(max)
-        self.d_setMaxNPCFriends(max)
-
-    def getMaxNPCFriends(self):
-        return self.maxNPCFriends
-
     def getBattleId(self):
         if self.battleId >= 0:
             return self.battleId
@@ -725,77 +643,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def setBattleId(self, battleId):
         self.battleId = battleId
-
-    def d_setNPCFriendsDict(self, NPCFriendsDict):
-        NPCFriendsList = []
-        for friend in NPCFriendsDict.keys():
-            NPCFriendsList.append((friend, NPCFriendsDict[friend]))
-
-        self.sendUpdate('setNPCFriendsDict', [NPCFriendsList])
-        return None
-
-    def setNPCFriendsDict(self, NPCFriendsList):
-        self.NPCFriendsDict = {}
-        for friendPair in NPCFriendsList:
-            self.NPCFriendsDict[friendPair[0]] = friendPair[1]
-
-        self.notify.debug('setting NPC friends dict to %s' % self.NPCFriendsDict)
-
-    def getNPCFriendsDict(self):
-        return self.NPCFriendsDict
-
-    def b_setNPCFriendsDict(self, NPCFriendsList):
-        self.setNPCFriendsDict(NPCFriendsList)
-        self.d_setNPCFriendsDict(self.NPCFriendsDict)
-
-    def resetNPCFriendsDict(self):
-        self.b_setNPCFriendsDict([])
-
-    def attemptAddNPCFriend(self, npcFriend, numCalls=1):
-        if numCalls <= 0:
-            self.notify.warning('invalid numCalls: %d' % numCalls)
-            return 0
-        if npcFriend in self.NPCFriendsDict:
-            self.NPCFriendsDict[npcFriend] += numCalls
-        elif npcFriend in npcFriends:
-            if len(self.NPCFriendsDict.keys()) >= self.maxNPCFriends:
-                return 0
-            self.NPCFriendsDict[npcFriend] = numCalls
-        else:
-            self.notify.warning('invalid NPC: %d' % npcFriend)
-            return 0
-        if self.NPCFriendsDict[npcFriend] > self.maxCallsPerNPC:
-            self.NPCFriendsDict[npcFriend] = self.maxCallsPerNPC
-        self.d_setNPCFriendsDict(self.NPCFriendsDict)
-        if self.sosPageFlag == 0:
-            self.b_setMaxNPCFriends(self.maxNPCFriends | 32768)
-        return 1
-
-    def attemptSubtractNPCFriend(self, npcFriend):
-        if npcFriend not in self.NPCFriendsDict:
-            self.notify.warning('attemptSubtractNPCFriend: invalid NPC %s' % npcFriend)
-            return 0
-        if hasattr(self, 'autoRestockSOS') and self.autoRestockSOS:
-            cost = 0
-        else:
-            cost = 1
-        self.NPCFriendsDict[npcFriend] -= cost
-        if self.NPCFriendsDict[npcFriend] <= 0:
-            del self.NPCFriendsDict[npcFriend]
-        self.d_setNPCFriendsDict(self.NPCFriendsDict)
-        return 1
-
-    def restockAllNPCFriends(self):
-        desiredNpcFriends = [2001,
-                             2011,
-                             3112,
-                             4119,
-                             1116,
-                             3137,
-                             3135]
-        self.resetNPCFriendsDict()
-        for npcId in desiredNpcFriends:
-            self.attemptAddNPCFriend(npcId, 1)
 
     def d_setMaxAccessories(self, max):
         self.sendUpdate('setMaxAccessories', [self.maxAccessories])
@@ -1241,20 +1088,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.animName = animName
         self.animMultiplier = animMultiplier
 
-    def b_setCogStatus(self, cogStatusList):
-        self.setCogStatus(cogStatusList)
-        self.d_setCogStatus(cogStatusList)
-
-    def setCogStatus(self, cogStatusList):
-        self.notify.debug('setting cogs to %s' % cogStatusList)
-        self.cogs = cogStatusList
-
-    def d_setCogStatus(self, cogStatusList):
-        self.sendUpdate('setCogStatus', [cogStatusList])
-
-    def getCogStatus(self):
-        return self.cogs
-
     def b_setCogCount(self, cogCountList):
         self.setCogCount(cogCountList)
         self.d_setCogCount(cogCountList)
@@ -1268,42 +1101,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getCogCount(self):
         return self.cogCounts
-
-    def b_setCogRadar(self, radar):
-        self.setCogRadar(radar)
-        self.d_setCogRadar(radar)
-
-    def setCogRadar(self, radar):
-        if not radar:
-            self.notify.warning('cogRadar set to bad value: %s. Resetting to [0,0,0,0]' % radar)
-            self.cogRadar = [0, 0, 0, 0]
-            return
-
-        self.cogRadar = radar
-
-    def d_setCogRadar(self, radar):
-        self.sendUpdate('setCogRadar', [radar])
-
-    def getCogRadar(self):
-        return self.cogRadar
-
-    def b_setBuildingRadar(self, radar):
-        self.setBuildingRadar(radar)
-        self.d_setBuildingRadar(radar)
-
-    def setBuildingRadar(self, radar):
-        if not radar:
-            self.notify.warning('buildingRadar set to bad value: %s. Resetting to [0,0,0,0]' % radar)
-            self.buildingRadar = [0, 0, 0, 0]
-            return
-
-        self.buildingRadar = radar
-
-    def d_setBuildingRadar(self, radar):
-        self.sendUpdate('setBuildingRadar', [radar])
-
-    def getBuildingRadar(self):
-        return self.buildingRadar
 
     def b_setCogTypes(self, types):
         self.setCogTypes(types)
@@ -1380,119 +1177,15 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         numPromotions = multiple + additional
         return numPromotions
 
-    def b_setCogParts(self, parts):
-        self.setCogParts(parts)
-        self.d_setCogParts(parts)
-
-    def setCogParts(self, parts):
-        if not parts:
-            self.notify.warning('cogParts set to bad value: %s. Resetting to [0,0,0,0]' % parts)
-            self.cogParts = [0, 0, 0, 0]
-            return
-
-        self.cogParts = parts
-
-    def d_setCogParts(self, parts):
-        self.sendUpdate('setCogParts', [parts])
-
-    def getCogParts(self):
-        return self.cogParts
-
-    def giveCogPart(self, part, dept):
-        dept = CogDisguiseGlobals.dept2deptIndex(dept)
-        parts = self.getCogParts()
-        parts[dept] = parts[dept] | part
-        self.b_setCogParts(parts)
-
-    def hasCogPart(self, part, dept):
-        dept = CogDisguiseGlobals.dept2deptIndex(dept)
-        if self.cogParts[dept] & part:
-            return 1
-        else:
-            return 0
-
-    def giveGenericCogPart(self, factoryType, dept):
-
-        nextPart = None
-
-        for partTypeId in self.partTypeIds[factoryType]:
-            nextPart = CogDisguiseGlobals.getNextPart(self.getCogParts(), partTypeId, dept)
-            if nextPart:
-                break
-
-        if nextPart:
-            self.giveCogPart(nextPart, dept)
-            return nextPart
-
-        return None
-
-    def takeCogPart(self, part, dept):
-        dept = CogDisguiseGlobals.dept2deptIndex(dept)
-        parts = self.getCogParts()
-        if parts[dept] & part:
-            parts[dept] = parts[dept] ^ part
-            self.b_setCogParts(parts)
-
-    def loseCogParts(self, dept):
-        loseCount = random.randrange(CogDisguiseGlobals.MinPartLoss, CogDisguiseGlobals.MaxPartLoss + 1)
-        parts = self.getCogParts()
-        partBitmask = parts[dept]
-        partList = list(range(17))
-        while loseCount > 0 and partList:
-            losePart = random.choice(partList)
-            partList.remove(losePart)
-            losePartBit = 1 << losePart
-            if partBitmask & losePartBit:
-                partBitmask &= ~losePartBit
-                loseCount -= 1
-
-        parts[dept] = partBitmask
-        self.b_setCogParts(parts)
-
-    def b_setCogMerits(self, merits):
-        # We do not care about changing merits at all in this game
-        merits = [30000, 30000, 30000, 30000]
-        self.setCogMerits(merits)
-        self.d_setCogMerits(merits)
-
-    def setCogMerits(self, merits):
-        if not merits:
-            self.notify.warning('cogMerits set to bad value: %s. Resetting to [0,0,0,0]' % merits)
-            self.cogMerits = [0,
-                              0,
-                              0,
-                              0]
-        else:
-            self.cogMerits = merits
-
-    def d_setCogMerits(self, merits):
-        self.sendUpdate('setCogMerits', [merits])
-
-    def getCogMerits(self):
-        return self.cogMerits
-
     def b_promote(self, dept):
         self.promote(dept)
         self.d_promote(dept)
 
     def promote(self, dept):
-        # if self.cogLevels[dept] < ToontownGlobals.MaxCogSuitLevel:
-        #     self.cogMerits[dept] = 0
         self.incCogLevel(dept)
 
     def d_promote(self, dept):
-        merits = self.getCogMerits()
-        # if self.cogLevels[dept] < ToontownGlobals.MaxCogSuitLevel:
-        #     merits[dept] = 0
-        self.d_setCogMerits(merits)
-
-    def readyForPromotion(self, dept):
-        merits = self.cogMerits[dept]
-        totalMerits = CogDisguiseGlobals.getTotalMerits(self, dept)
-        if merits >= totalMerits:
-            return 1
-        else:
-            return 0
+        pass
 
     def b_setCogIndex(self, index):
         self.setCogIndex(index)
@@ -1516,19 +1209,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getCogIndex(self):
         return self.cogIndex
-
-    def b_setDisguisePageFlag(self, flag):
-        self.setDisguisePageFlag(flag)
-        self.d_setDisguisePageFlag(flag)
-
-    def setDisguisePageFlag(self, flag):
-        self.disguisePageFlag = flag
-
-    def d_setDisguisePageFlag(self, flag):
-        self.sendUpdate('setDisguisePageFlag', [flag])
-
-    def getDisguisePageFlag(self):
-        return self.disguisePageFlag
 
     def b_setSosPageFlag(self, flag):
         self.setSosPageFlag(flag)
@@ -2119,225 +1799,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         self.b_setResistanceMessages(msgs)
 
-    def b_setCatalogSchedule(self, currentWeek, nextTime):
-        self.setCatalogSchedule(currentWeek, nextTime)
-        self.d_setCatalogSchedule(currentWeek, nextTime)
-
-    def d_setCatalogSchedule(self, currentWeek, nextTime):
-        self.sendUpdate('setCatalogSchedule', [currentWeek, nextTime])
-
-    def setCatalogSchedule(self, currentWeek, nextTime):
-        self.catalogScheduleCurrentWeek = currentWeek
-        self.catalogScheduleNextTime = nextTime
-        if self.air.doLiveUpdates:
-            taskName = self.uniqueName('next-catalog')
-            taskMgr.remove(taskName)
-            duration = max(10.0, nextTime * 60 - time.time())
-            taskMgr.doMethodLater(duration, self.__deliverCatalog, taskName)
-
-    def getCatalogSchedule(self):
-        return (self.catalogScheduleCurrentWeek, self.catalogScheduleNextTime)
-
-    def __deliverCatalog(self, task):
-        self.air.catalogManager.deliverCatalogFor(self)
-        return Task.done
-
-    def b_setCatalog(self, monthlyCatalog, weeklyCatalog, backCatalog):
-        self.setCatalog(monthlyCatalog, weeklyCatalog, backCatalog)
-        self.d_setCatalog(monthlyCatalog, weeklyCatalog, backCatalog)
-
-    def d_setCatalog(self, monthlyCatalog, weeklyCatalog, backCatalog):
-        self.sendUpdate('setCatalog', [monthlyCatalog.getBlob(), weeklyCatalog.getBlob(), backCatalog.getBlob()])
-
-    def setCatalog(self, monthlyCatalog, weeklyCatalog, backCatalog):
-        self.monthlyCatalog = CatalogItemList.CatalogItemList(monthlyCatalog)
-        self.weeklyCatalog = CatalogItemList.CatalogItemList(weeklyCatalog)
-        self.backCatalog = CatalogItemList.CatalogItemList(backCatalog)
-
-    def getCatalog(self):
-        return (self.monthlyCatalog.getBlob(), self.weeklyCatalog.getBlob(), self.backCatalog.getBlob())
-
-    def b_setCatalogNotify(self, catalogNotify, mailboxNotify):
-        self.setCatalogNotify(catalogNotify, mailboxNotify)
-        self.d_setCatalogNotify(catalogNotify, mailboxNotify)
-
-    def d_setCatalogNotify(self, catalogNotify, mailboxNotify):
-        self.sendUpdate('setCatalogNotify', [catalogNotify, mailboxNotify])
-
-    def setCatalogNotify(self, catalogNotify, mailboxNotify):
-        self.catalogNotify = catalogNotify
-        self.mailboxNotify = mailboxNotify
-
-    def getCatalogNotify(self):
-        return (self.catalogNotify, self.mailboxNotify)
-
-    def b_setDeliverySchedule(self, onOrder, doUpdateLater=True):
-        self.setDeliverySchedule(onOrder, doUpdateLater)
-        self.d_setDeliverySchedule(onOrder)
-
-    def d_setDeliverySchedule(self, onOrder):
-        self.sendUpdate('setDeliverySchedule',
-                        [onOrder.getBlob(store=CatalogItem.Customization | CatalogItem.DeliveryDate)])
-
-    def setDeliverySchedule(self, onOrder, doUpdateLater=True):
-        self.setBothSchedules(onOrder, None)
-        return
-        self.onOrder = CatalogItemList.CatalogItemList(onOrder,
-                                                       store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if hasattr(self, 'name'):
-            if doUpdateLater and self.air.doLiveUpdates and hasattr(self, 'air'):
-                taskName = self.uniqueName('next-delivery')
-                taskMgr.remove(taskName)
-                now = int(time.time() / 60 + 0.5)
-                nextItem = None
-                nextTime = self.onOrder.getNextDeliveryDate()
-                nextItem = self.onOrder.getNextDeliveryItem()
-                if nextItem != None:
-                    pass
-                if nextTime != None:
-                    duration = max(10.0, nextTime * 60 - time.time())
-                    taskMgr.doMethodLater(duration, self.__deliverPurchase, taskName)
-        return
-
-    def getDeliverySchedule(self):
-        return self.onOrder.getBlob(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-
-    def b_setBothSchedules(self, onOrder, onGiftOrder, doUpdateLater=True):
-        self.setBothSchedules(onOrder, onGiftOrder, doUpdateLater)
-        self.d_setDeliverySchedule(onOrder)
-
-    def setBothSchedules(self, onOrder, onGiftOrder, doUpdateLater=True):
-        if onOrder != None:
-            self.onOrder = CatalogItemList.CatalogItemList(onOrder,
-                                                           store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if onGiftOrder != None:
-            self.onGiftOrder = CatalogItemList.CatalogItemList(onGiftOrder,
-                                                               store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if not hasattr(self, 'air') or self.air == None:
-            return
-        if doUpdateLater and self.air.doLiveUpdates and hasattr(self, 'name'):
-            taskName = 'next-bothDelivery-%s' % self.doId
-            now = int(time.time() / 60 + 0.5)
-            nextItem = None
-            nextGiftItem = None
-            nextTime = None
-            nextGiftTime = None
-            if self.onOrder:
-                nextTime = self.onOrder.getNextDeliveryDate()
-                nextItem = self.onOrder.getNextDeliveryItem()
-            if self.onGiftOrder:
-                nextGiftTime = self.onGiftOrder.getNextDeliveryDate()
-                nextGiftItem = self.onGiftOrder.getNextDeliveryItem()
-            if nextItem:
-                pass
-            if nextGiftItem:
-                pass
-            if nextTime == None:
-                nextTime = nextGiftTime
-            if nextGiftTime == None:
-                nextGiftTime = nextTime
-            if nextGiftTime is not None and nextTime is not None and nextGiftTime < nextTime:
-                nextTime = nextGiftTime
-            existingDuration = None
-            checkTaskList = taskMgr.getTasksNamed(taskName)
-            if checkTaskList:
-                currentTime = globalClock.getFrameTime()
-                checkTask = checkTaskList[0]
-                existingDuration = checkTask.wakeTime - currentTime
-            if nextTime:
-                newDuration = max(10.0, nextTime * 60 - time.time())
-                if existingDuration and existingDuration >= newDuration:
-                    taskMgr.remove(taskName)
-                    taskMgr.doMethodLater(newDuration, self.__deliverBothPurchases, taskName)
-                elif existingDuration and existingDuration < newDuration:
-                    pass
-                else:
-                    taskMgr.doMethodLater(newDuration, self.__deliverBothPurchases, taskName)
-        return
-
-    def __deliverBothPurchases(self, task):
-        now = int(time.time() / 60 + 0.5)
-        delivered, remaining = self.onOrder.extractDeliveryItems(now)
-        deliveredGifts, remainingGifts = self.onGiftOrder.extractDeliveryItems(now)
-        simbase.air.deliveryManager.sendDeliverGifts(self.getDoId(), now)
-        giftItem = CatalogItemList.CatalogItemList(deliveredGifts,
-                                                   store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if len(giftItem) > 0:
-            self.air.writeServerEvent('Getting Gift', self.doId, 'sender %s receiver %s gift %s' % (
-            giftItem[0].giftTag, self.doId, giftItem[0].getName()))
-        self.b_setMailboxContents(self.mailboxContents + delivered + deliveredGifts)
-        self.b_setCatalogNotify(self.catalogNotify, ToontownGlobals.NewItems)
-        self.b_setBothSchedules(remaining, remainingGifts)
-        return Task.done
-
-    def setGiftSchedule(self, onGiftOrder, doUpdateLater=True):
-        self.setBothSchedules(None, onGiftOrder)
-        return
-        self.onGiftOrder = CatalogItemList.CatalogItemList(onGiftOrder,
-                                                           store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        if doUpdateLater and self.air.doLiveUpdates and hasattr(self, 'air') and hasattr(self, 'name'):
-            taskName = self.uniqueName('next-gift')
-            taskMgr.remove(taskName)
-            now = int(time.time() / 60 + 0.5)
-            nextItem = None
-            nextTime = self.onGiftOrder.getNextDeliveryDate()
-            nextItem = self.onGiftOrder.getNextDeliveryItem()
-            if nextItem != None:
-                pass
-            if nextTime != None:
-                duration = max(10.0, nextTime * 60 - time.time())
-                duration += 30
-                taskMgr.doMethodLater(duration, self.__deliverGiftPurchase, taskName)
-        return
-
-    def getGiftSchedule(self):
-        return self.onGiftOrder.getBlob(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-
-    def __deliverGiftPurchase(self, task):
-        now = int(time.time() / 60 + 0.5)
-        delivered, remaining = self.onGiftOrder.extractDeliveryItems(now)
-        self.notify.info('Gift Delivery for %s: %s.' % (self.doId, delivered))
-        self.b_setMailboxContents(self.mailboxContents + delivered)
-        simbase.air.deliveryManager.sendDeliverGifts(self.getDoId(), now)
-        self.b_setCatalogNotify(self.catalogNotify, ToontownGlobals.NewItems)
-        return Task.done
-
-    def __deliverPurchase(self, task):
-        now = int(time.time() / 60 + 0.5)
-        delivered, remaining = self.onOrder.extractDeliveryItems(now)
-        self.notify.info('Delivery for %s: %s.' % (self.doId, delivered))
-        self.b_setMailboxContents(self.mailboxContents + delivered)
-        self.b_setDeliverySchedule(remaining)
-        self.b_setCatalogNotify(self.catalogNotify, ToontownGlobals.NewItems)
-        return Task.done
-
-    def b_setMailboxContents(self, mailboxContents):
-        self.setMailboxContents(mailboxContents)
-        self.d_setMailboxContents(mailboxContents)
-
-    def d_setMailboxContents(self, mailboxContents):
-        self.sendUpdate('setMailboxContents', [mailboxContents.getBlob(store=CatalogItem.Customization)])
-        if len(mailboxContents) == 0:
-            self.b_setCatalogNotify(self.catalogNotify, ToontownGlobals.NoItems)
-        self.checkMailboxFullIndicator()
-
-    def checkMailboxFullIndicator(self):
-        if self.houseId and hasattr(self, 'air'):
-            if self.air:
-                house = self.air.doId2do.get(self.houseId)
-                if house and house.mailbox:
-                    house.mailbox.b_setFullIndicator(
-                        len(self.mailboxContents) != 0 or self.numMailItems or self.getNumInvitesToShowInMailbox() or len(
-                            self.awardMailboxContents) != 0)
-
-    def setMailboxContents(self, mailboxContents):
-        self.notify.debug('Setting mailboxContents to %s.' % mailboxContents)
-        self.mailboxContents = CatalogItemList.CatalogItemList(mailboxContents, store=CatalogItem.Customization)
-        self.notify.debug('mailboxContents is %s.' % self.mailboxContents)
-
-    def getMailboxContents(self):
-        return self.mailboxContents.getBlob(store=CatalogItem.Customization)
-
     def b_setGhostMode(self, flag):
         self.setGhostMode(flag)
         self.d_setGhostMode(flag)
@@ -2373,19 +1834,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getSpeedChatStyleIndex(self):
         return self.speedChatStyleIndex
-
-    def b_setHasPaidTaxes(self, paidTaxes):
-        self.d_setHasPaidTaxes(paidTaxes)
-        self.setHasPaidTaxes(paidTaxes)
-
-    def d_setHasPaidTaxes(self, paidTaxes):
-        self.sendUpdate('setHasPaidTaxes', [paidTaxes])
-
-    def setHasPaidTaxes(self, paidTaxes):
-        self.hasPaidTaxes = paidTaxes
-
-    def getHasPaidTaxes(self):
-        return self.hasPaidTaxes
 
     def b_setMaxMoney(self, maxMoney):
         self.d_setMaxMoney(maxMoney)
@@ -2460,43 +1908,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getBankMoney(self):
         return self.bankMoney
-
-    def b_setEmblems(self, emblems):
-        self.setEmblems(emblems)
-        self.d_setEmblems(emblems)
-
-    def setEmblems(self, emblems):
-        self.emblems = emblems
-
-    def d_setEmblems(self, emblems):
-        if simbase.air.wantEmblems:
-            self.sendUpdate('setEmblems', [emblems])
-
-    def getEmblems(self):
-        return self.emblems
-
-    def addEmblems(self, emblemsToAdd):
-        newEmblems = self.emblems[:]
-        for i in range(ToontownGlobals.NumEmblemTypes):
-            newEmblems[i] += emblemsToAdd[i]
-
-        self.b_setEmblems(newEmblems)
-
-    def subtractEmblems(self, emblemsToSubtract):
-        newEmblems = self.emblems[:]
-        for i in range(ToontownGlobals.NumEmblemTypes):
-            newEmblems[i] -= emblemsToSubtract[i]
-
-        self.b_setEmblems(newEmblems)
-
-    def isEnoughEmblemsToBuy(self, itemEmblemPrices):
-        for emblemIndex, emblemPrice in enumerate(itemEmblemPrices):
-            if emblemIndex >= len(self.emblems):
-                return False
-            if self.emblems[emblemIndex] < emblemPrice:
-                return False
-
-        return True
 
     def tossPie(self, x, y, z, h, p, r, sequence, power, timestamp32):
         if not self.validate(self.doId, self.numPies > 0, 'tossPie with no pies available'):
@@ -2691,496 +2102,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
     def squish(self, damage):
         self.takeDamage(damage)
 
-    if simbase.wantKarts:
-
-        def hasKart(self):
-            return self.kartDNA[KartDNA.bodyType] != -1
-
-        def b_setTickets(self, numTickets):
-            if numTickets > RaceGlobals.MaxTickets:
-                numTickets = RaceGlobals.MaxTickets
-            self.d_setTickets(numTickets)
-            self.setTickets(numTickets)
-
-        def d_setTickets(self, numTickets):
-            if numTickets > RaceGlobals.MaxTickets:
-                numTickets = RaceGlobals.MaxTickets
-            self.sendUpdate('setTickets', [numTickets])
-
-        def setTickets(self, numTickets):
-            if numTickets > RaceGlobals.MaxTickets:
-                numTickets = RaceGlobals.MaxTickets
-            self.tickets = numTickets
-
-        def getTickets(self):
-            return self.tickets
-
-        def b_setKartingTrophies(self, trophyList):
-            self.setKartingTrophies(trophyList)
-            self.d_setKartingTrophies(trophyList)
-
-        def setKartingTrophies(self, trophyList):
-            self.notify.debug('setting kartingTrophies to %s' % trophyList)
-            self.kartingTrophies = trophyList
-
-        def d_setKartingTrophies(self, trophyList):
-            self.sendUpdate('setKartingTrophies', [trophyList])
-
-        def getKartingTrophies(self):
-            return self.kartingTrophies
-
-        def b_setKartingHistory(self, history):
-            self.setKartingHistory(history)
-            self.d_setKartingHistory(history)
-
-        def setKartingHistory(self, history):
-            self.notify.debug('setting kartingHistory to %s' % history)
-            self.kartingHistory = history
-
-        def d_setKartingHistory(self, history):
-            self.sendUpdate('setKartingHistory', [history])
-
-        def getKartingHistory(self):
-            return self.kartingHistory
-
-        def b_setKartingPersonalBest(self, bestTimes):
-            best1 = bestTimes[0:6]
-            best2 = bestTimes[6:]
-            self.setKartingPersonalBest(best1)
-            self.setKartingPersonalBest2(best2)
-            self.d_setKartingPersonalBest(bestTimes)
-
-        def d_setKartingPersonalBest(self, bestTimes):
-            best1 = bestTimes[0:6]
-            best2 = bestTimes[6:]
-            self.sendUpdate('setKartingPersonalBest', [best1])
-            self.sendUpdate('setKartingPersonalBest2', [best2])
-
-        def setKartingPersonalBest(self, bestTimes):
-            self.notify.debug('setting karting to %s' % bestTimes)
-            self.kartingPersonalBest = bestTimes
-
-        def setKartingPersonalBest2(self, bestTimes2):
-            self.notify.debug('setting karting2 to %s' % bestTimes2)
-            self.kartingPersonalBest2 = bestTimes2
-
-        def getKartingPersonalBest(self):
-            return self.kartingPersonalBest
-
-        def getKartingPersonalBest2(self):
-            return self.kartingPersonalBest2
-
-        def getKartingPersonalBestAll(self):
-            return self.kartingPersonalBest + self.kartingPersonalBest2
-
-        def setKartDNA(self, kartDNA):
-            self.b_setKartBodyType(kartDNA[KartDNA.bodyType])
-            self.b_setKartBodyColor(kartDNA[KartDNA.bodyColor])
-            self.b_setKartAccColor(kartDNA[KartDNA.accColor])
-            self.b_setKartEngineBlockType(kartDNA[KartDNA.ebType])
-            self.b_setKartSpoilerType(kartDNA[KartDNA.spType])
-            self.b_setKartFrontWheelWellType(kartDNA[KartDNA.fwwType])
-            self.b_setKartBackWheelWellType(kartDNA[KartDNA.bwwType])
-            self.b_setKartRimType(kartDNA[KartDNA.rimsType])
-            self.b_setKartDecalType(kartDNA[KartDNA.decalType])
-
-        def b_setKartBodyType(self, bodyType):
-            self.d_setKartBodyType(bodyType)
-            self.setKartBodyType(bodyType)
-
-        def d_setKartBodyType(self, bodyType):
-            self.sendUpdate('setKartBodyType', [bodyType])
-
-        def setKartBodyType(self, bodyType):
-            self.kartDNA[KartDNA.bodyType] = bodyType
-
-        def getKartBodyType(self):
-            return self.kartDNA[KartDNA.bodyType]
-
-        def b_setKartBodyColor(self, bodyColor):
-            self.d_setKartBodyColor(bodyColor)
-            self.setKartBodyColor(bodyColor)
-
-        def d_setKartBodyColor(self, bodyColor):
-            self.sendUpdate('setKartBodyColor', [bodyColor])
-
-        def setKartBodyColor(self, bodyColor):
-            self.kartDNA[KartDNA.bodyColor] = bodyColor
-
-        def getKartBodyColor(self):
-            return self.kartDNA[KartDNA.bodyColor]
-
-        def b_setKartAccessoryColor(self, accColor):
-            self.d_setKartAccessoryColor(accColor)
-            self.setKartAccessoryColor(accColor)
-
-        def d_setKartAccessoryColor(self, accColor):
-            self.sendUpdate('setKartAccessoryColor', [accColor])
-
-        def setKartAccessoryColor(self, accColor):
-            self.kartDNA[KartDNA.accColor] = accColor
-
-        def getKartAccessoryColor(self):
-            return self.kartDNA[KartDNA.accColor]
-
-        def b_setKartEngineBlockType(self, ebType):
-            self.d_setKartEngineBlockType(ebType)
-            self.setKartEngineBlockType(ebType)
-
-        def d_setKartEngineBlockType(self, ebType):
-            self.sendUpdate('setKartEngineBlockType', [ebType])
-
-        def setKartEngineBlockType(self, ebType):
-            self.kartDNA[KartDNA.ebType] = ebType
-
-        def getKartEngineBlockType(self):
-            return self.kartDNA[KartDNA.ebType]
-
-        def b_setKartSpoilerType(self, spType):
-            self.d_setKartSpoilerType(spType)
-            self.setKartSpoilerType(spType)
-
-        def d_setKartSpoilerType(self, spType):
-            self.sendUpdate('setKartSpoilerType', [spType])
-
-        def setKartSpoilerType(self, spType):
-            self.kartDNA[KartDNA.spType] = spType
-
-        def getKartSpoilerType(self):
-            return self.kartDNA[KartDNA.spType]
-
-        def b_setKartFrontWheelWellType(self, fwwType):
-            self.d_setKartFrontWheelWellType(fwwType)
-            self.setKartFrontWheelWellType(fwwType)
-
-        def d_setKartFrontWheelWellType(self, fwwType):
-            self.sendUpdate('setKartFrontWheelWellType', [fwwType])
-
-        def setKartFrontWheelWellType(self, fwwType):
-            self.kartDNA[KartDNA.fwwType] = fwwType
-
-        def getKartFrontWheelWellType(self):
-            return self.kartDNA[KartDNA.fwwType]
-
-        def b_setKartBackWheelWellType(self, bwwType):
-            self.d_setKartBackWheelWellType(bwwType)
-            self.setKartBackWheelWellType(bwwType)
-
-        def d_setKartBackWheelWellType(self, bwwType):
-            self.sendUpdate('setKartBackWheelWellType', [bwwType])
-
-        def setKartBackWheelWellType(self, bwwType):
-            self.kartDNA[KartDNA.bwwType] = bwwType
-
-        def getKartBackWheelWellType(self):
-            return self.kartDNA[KartDNA.bwwType]
-
-        def b_setKartRimType(self, rimsType):
-            self.d_setKartRimType(rimsType)
-            self.setKartRimType(rimsType)
-
-        def d_setKartRimType(self, rimsType):
-            self.sendUpdate('setKartRimType', [rimsType])
-
-        def setKartRimType(self, rimsType):
-            self.kartDNA[KartDNA.rimsType] = rimsType
-
-        def getKartRimType(self):
-            return self.kartDNA[KartDNA.rimsType]
-
-        def b_setKartDecalType(self, decalType):
-            self.d_setKartDecalType(decalType)
-            self.setKartDecalType(decalType)
-
-        def d_setKartDecalType(self, decalType):
-            self.sendUpdate('setKartDecalType', [decalType])
-
-        def setKartDecalType(self, decalType):
-            self.kartDNA[KartDNA.decalType] = decalType
-
-        def getKartDecalType(self):
-            return self.kartDNA[KartDNA.decalType]
-
-        def b_setKartAccessoriesOwned(self, accessories):
-            self.d_setKartAccessoriesOwned(accessories)
-            self.setKartAccessoriesOwned(accessories)
-
-        def d_setKartAccessoriesOwned(self, accessories):
-            self.sendUpdate('setKartAccessoriesOwned', [accessories])
-
-        def setKartAccessoriesOwned(self, accessories):
-            if (__debug__):
-                pass
-            self.accessories = accessories
-
-        def getKartAccessoriesOwned(self):
-            owned = copy.deepcopy(self.accessories)
-            while InvalidEntry in owned:
-                owned.remove(InvalidEntry)
-
-            return owned
-
-        def addOwnedAccessory(self, accessoryId):
-            print('in add owned accessory')
-            if accessoryId in AccessoryDict:
-                if self.accessories.count(accessoryId) > 0:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'attempt to add accessory %s which is already owned!' % accessoryId)
-                    return
-                if self.accessories.count(InvalidEntry) > 0:
-                    accList = list(self.accessories)
-                    index = self.accessories.index(InvalidEntry)
-                    accList[index] = accessoryId
-                    self.b_setKartAccessoriesOwned(accList)
-                else:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'attempt to add accessory %s when accessory inventory is full!' % accessoryId)
-                    return
-            else:
-                self.air.writeServerEvent('suspicious', self.doId,
-                                          'attempt to add accessory %s which is not a valid accessory.' % accessoryId)
-                return
-
-        def removeOwnedAccessory(self, accessoryId):
-            if accessoryId in AccessoryDict:
-                if self.accessories.count(accessoryId) == 0:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'attempt to remove accessory %s which is not currently owned!' % accessoryId)
-                    return
-                else:
-                    accList = list(self.accessories)
-                    index = self.accessories.index(accessoryId)
-                    accList[index] = InvalidEntry
-                    self.air.writeServerEvent('deletedKartingAccessory', self.doId, '%s' % accessoryId)
-                    self.b_setKartAccessoriesOwned(accList)
-            else:
-                self.air.writeServerEvent('suspicious', self.doId,
-                                          'attempt to remove accessory %s which is not a valid accessory.' % accessoryId)
-                return
-
-        def updateKartDNAField(self, dnaField, fieldValue):
-            if not checkKartFieldValidity(dnaField):
-                self.air.writeServerEvent('suspicious', self.doId,
-                                          'attempt to update to dna value  %s in the invalid field %s' % (
-                                          fieldValue, dnaField))
-                return
-            if dnaField == KartDNA.bodyType:
-                if fieldValue not in list(KartDict.keys()) and fieldValue != InvalidEntry:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'attempt to update kart body to invalid body %s.' % fieldValue)
-                    return
-                self.b_setKartBodyType(fieldValue)
-            else:
-                accFields = [KartDNA.ebType,
-                             KartDNA.spType,
-                             KartDNA.fwwType,
-                             KartDNA.bwwType,
-                             KartDNA.rimsType,
-                             KartDNA.decalType]
-                colorFields = [KartDNA.bodyColor, KartDNA.accColor]
-                if dnaField in accFields:
-                    if fieldValue == InvalidEntry:
-                        self.__updateKartDNAField(dnaField, fieldValue)
-                    else:
-                        if fieldValue not in self.accessories:
-                            self.air.writeServerEvent('suspicious', self.doId,
-                                                      'attempt to update to accessory %s which is not currently owned.' % fieldValue)
-                            return
-                        field = getAccessoryType(fieldValue)
-                        if field == InvalidEntry:
-                            self.air.writeServerEvent('suspicious', self.doId,
-                                                      'attempt to update accessory %s in an illegal field %s' % (
-                                                      fieldValue, field))
-                            return
-                        elif field != dnaField:
-                            self.air.writeServerEvent('suspicious', self.doId,
-                                                      'attempt to update accessory %s in a field %s that does not match client specified field %s' % (
-                                                      fieldValue, field, dnaField))
-                            return
-                        self.__updateKartDNAField(dnaField, fieldValue)
-                elif dnaField in colorFields:
-                    if fieldValue == InvalidEntry:
-                        self.__updateKartDNAField(dnaField, fieldValue)
-                    else:
-                        if fieldValue not in self.accessories:
-                            if fieldValue != getDefaultColor():
-                                self.air.writeServerEvent('suspicious', self.doId,
-                                                          'attempt to update to color %s which is not owned!' % fieldValue)
-                                return
-                            elif fieldValue == getDefaultColor() and self.kartDNA[dnaField] != InvalidEntry:
-                                self.air.writeServerEvent('suspicious', self.doId,
-                                                          'attempt to update to default color %s which is not owned!' % fieldValue)
-                                return
-                        if getAccessoryType(fieldValue) != KartDNA.bodyColor:
-                            self.air.writeServerEvent('suspicious', self.doId,
-                                                      'attempt to update invalid color %s for dna field %s' % (
-                                                      fieldValue, dnaField))
-                            return
-                        self.__updateKartDNAField(dnaField, fieldValue)
-                else:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'attempt to udpate accessory %s in the invalid field %s' % (
-                                              fieldValue, dnaField))
-                    return
-
-        def __updateKartDNAField(self, dnaField, fieldValue):
-            if dnaField == KartDNA.bodyColor:
-                self.b_setKartBodyColor(fieldValue)
-            elif dnaField == KartDNA.accColor:
-                self.b_setKartAccessoryColor(fieldValue)
-            elif dnaField == KartDNA.ebType:
-                self.b_setKartEngineBlockType(fieldValue)
-            elif dnaField == KartDNA.spType:
-                self.b_setKartSpoilerType(fieldValue)
-            elif dnaField == KartDNA.fwwType:
-                self.b_setKartFrontWheelWellType(fieldValue)
-            elif dnaField == KartDNA.bwwType:
-                self.b_setKartBackWheelWellType(fieldValue)
-            elif dnaField == KartDNA.rimsType:
-                self.b_setKartRimType(fieldValue)
-            elif dnaField == KartDNA.decalType:
-                self.b_setKartDecalType(fieldValue)
-
-        def setAllowSoloRace(self, allowSoloRace):
-            self.allowSoloRace = allowSoloRace
-
-        def setAllowRaceTimeout(self, allowRaceTimeout):
-            self.allowRaceTimeout = allowRaceTimeout
-
-    if simbase.wantPets:
-
-        def getPetId(self):
-            return self.petId
-
-        def b_setPetId(self, petId):
-            self.d_setPetId(petId)
-            self.setPetId(petId)
-
-        def d_setPetId(self, petId):
-            self.sendUpdate('setPetId', [petId])
-
-        def setPetId(self, petId):
-            self.petId = petId
-
-        def getPetTrickPhrases(self):
-            return self.petTrickPhrases
-
-        def b_setPetTrickPhrases(self, tricks):
-            self.setPetTrickPhrases(tricks)
-            self.d_setPetTrickPhrases(tricks)
-
-        def d_setPetTrickPhrases(self, tricks):
-            self.sendUpdate('setPetTrickPhrases', [tricks])
-
-        def setPetTrickPhrases(self, tricks):
-            self.petTrickPhrases = tricks
-
-        def deletePet(self):
-            if self.petId == 0:
-                self.notify.warning("this toon doesn't have a pet to delete!")
-                return
-            simbase.air.petMgr.deleteToonsPet(self.doId)
-
-        def setPetMovie(self, petId, flag):
-            self.notify.debug('setPetMovie: petId: %s, flag: %s' % (petId, flag))
-            pet = simbase.air.doId2do.get(petId)
-            if pet is not None:
-                if pet.__class__.__name__ == 'DistributedPetAI':
-                    pet.handleAvPetInteraction(flag, self.getDoId())
-                else:
-                    self.air.writeServerEvent('suspicious', self.doId,
-                                              'setPetMovie: playing pet movie %s on non-pet object %s' % (flag, petId))
-            return
-
-        def setPetTutorialDone(self, bDone):
-            self.notify.debug('setPetTutorialDone')
-            self.bPetTutorialDone = True
-
-        def setFishBingoTutorialDone(self, bDone):
-            self.notify.debug('setFishBingoTutorialDone')
-            self.bFishBingoTutorialDone = True
-
-        def setFishBingoMarkTutorialDone(self, bDone):
-            self.notify.debug('setFishBingoMarkTutorialDone')
-            self.bFishBingoMarkTutorialDone = True
-
-        def enterEstate(self, ownerId, zoneId):
-            DistributedToonAI.notify.debug('enterEstate: %s %s %s' % (self.doId, ownerId, zoneId))
-            if self.wasInEstate():
-                self.cleanupEstateData()
-            collSphere = CollisionSphere(0, 0, 0, self.getRadius())
-            collNode = CollisionNode('toonColl-%s' % self.doId)
-            collNode.addSolid(collSphere)
-            collNode.setFromCollideMask(BitMask32.allOff())
-            collNode.setIntoCollideMask(ToontownGlobals.WallBitmask)
-            self.collNodePath = self.attachNewNode(collNode)
-            taskMgr.add(self._moveSphere, self._getMoveSphereTaskName(), priority=OTPGlobals.AICollMovePriority)
-            self.inEstate = 1
-            self.estateOwnerId = ownerId
-            self.estateZones = simbase.air.estateMgr.getEstateZones(ownerId)
-            self.estateHouseZones = simbase.air.estateMgr.getEstateHouseZones(ownerId)
-            self.enterPetLook()
-
-        def _getPetLookerBodyNode(self):
-            return self.collNodePath
-
-        def _getMoveSphereTaskName(self):
-            return 'moveSphere-%s' % self.doId
-
-        def _moveSphere(self, task):
-            self.collNodePath.setZ(self.getRender(), 0)
-            return Task.cont
-
-        def isInEstate(self):
-            return hasattr(self, 'inEstate') and self.inEstate
-
-        def exitEstate(self, ownerId=None, zoneId=None):
-            DistributedToonAI.notify.debug('exitEstate: %s %s %s' % (self.doId, ownerId, zoneId))
-            DistributedToonAI.notify.debug('current zone: %s' % self.zoneId)
-            self.exitPetLook()
-            taskMgr.remove(self._getMoveSphereTaskName())
-            self.collNodePath.removeNode()
-            del self.collNodePath
-            del self.estateOwnerId
-            del self.estateHouseZones
-            del self.inEstate
-            self._wasInEstate = 1
-
-        def wasInEstate(self):
-            return hasattr(self, '_wasInEstate') and self._wasInEstate
-
-        def cleanupEstateData(self):
-            del self.estateZones
-            del self._wasInEstate
-
-        def setSC(self, msgId):
-            DistributedToonAI.notify.debug('setSC: %s' % msgId)
-            from toontown.pets import PetObserve
-            PetObserve.send(self.zoneId, PetObserve.getSCObserve(msgId, self.doId))
-            messenger.send('speedchat-phrase-said', [self.doId, self.zoneId, msgId])
-            if msgId in [21006]:
-                self.setHatePets(1)
-            elif msgId in [21000,
-                           21001,
-                           21003,
-                           21004,
-                           21200,
-                           21201,
-                           21202,
-                           21203,
-                           21204,
-                           21205,
-                           21206]:
-                self.setHatePets(0)
-
-        def setSCCustom(self, msgId):
-            DistributedToonAI.notify.debug('setSCCustom: %s' % msgId)
-            from toontown.pets import PetObserve
-            PetObserve.send(self.zoneId, PetObserve.getSCObserve(msgId, self.doId))
-
-    def setHatePets(self, hate):
-        self.hatePets = hate
-
     def takeOutKart(self, zoneId=None):
         if not self.kart:
             from toontown.racing import DistributedVehicleAI
@@ -3282,101 +2203,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                 returnCode = 'fail'
         return [returnCode, suitIndex, 0]
 
-    def b_setCogSummonsEarned(self, cogSummonsEarned):
-        self.d_setCogSummonsEarned(cogSummonsEarned)
-        self.setCogSummonsEarned(cogSummonsEarned)
-
-    def d_setCogSummonsEarned(self, cogSummonsEarned):
-        self.sendUpdate('setCogSummonsEarned', [cogSummonsEarned])
-
-    def setCogSummonsEarned(self, cogSummonsEarned):
-        self.cogSummonsEarned = cogSummonsEarned
-
-    def getCogSummonsEarned(self):
-        return self.cogSummonsEarned
-
-    def restockAllCogSummons(self):
-        numSuits = len(SuitDNA.suitHeadTypes)
-        fullSetForSuit = 1 | 2 | 4
-        allSummons = numSuits * [fullSetForSuit]
-        self.b_setCogSummonsEarned(allSummons)
-
-    def addCogSummonsEarned(self, suitIndex, type):
-        summons = self.getCogSummonsEarned()
-        curSetting = summons[suitIndex]
-        if type == 'single':
-            curSetting |= 1
-        elif type == 'building':
-            curSetting |= 2
-        elif type == 'invasion':
-            curSetting |= 4
-        summons[suitIndex] = curSetting
-        self.b_setCogSummonsEarned(summons)
-
-    def removeCogSummonsEarned(self, suitIndex, type):
-        summons = self.getCogSummonsEarned()
-        curSetting = summons[suitIndex]
-        if self.hasCogSummons(suitIndex, type):
-            if type == 'single':
-                curSetting &= -2
-            elif type == 'building':
-                curSetting &= -3
-            elif type == 'invasion':
-                curSetting &= -5
-            summons[suitIndex] = curSetting
-            self.b_setCogSummonsEarned(summons)
-            if hasattr(self, 'autoRestockSummons') and self.autoRestockSummons:
-                self.restockAllCogSummons()
-            return True
-        self.notify.warning("Toon %s doesn't have a %s summons for %s" % (self.doId, type, suitIndex))
-        return False
-
-    def hasCogSummons(self, suitIndex, type=None):
-        summons = self.getCogSummonsEarned()
-        curSetting = summons[suitIndex]
-        if type == 'single':
-            return curSetting & 1
-        elif type == 'building':
-            return curSetting & 2
-        elif type == 'invasion':
-            return curSetting & 4
-        return curSetting
-
-    def hasParticularCogSummons(self, deptIndex, level, type):
-        if deptIndex not in range(len(SuitDNA.suitDepts)):
-            self.notify.warning('invalid parameter deptIndex %s' % deptIndex)
-            return False
-        if level not in range(SuitDNA.suitsPerDept):
-            self.notify.warning('invalid parameter level %s' % level)
-            return False
-        suitIndex = deptIndex * SuitDNA.suitsPerDept + level
-        retval = self.hasCogSummons(suitIndex, type)
-        return retval
-
-    def assignNewCogSummons(self, level=None, summonType=None, deptIndex=None):
-        if level != None:
-            if deptIndex in range(len(SuitDNA.suitDepts)):
-                dept = deptIndex
-            else:
-                numDepts = len(SuitDNA.suitDepts)
-                dept = random.randrange(0, numDepts)
-            suitIndex = dept * SuitDNA.suitsPerDept + level
-        elif deptIndex in range(len(SuitDNA.suitDepts)):
-            randomLevel = random.randrange(0, SuitDNA.suitsPerDept)
-            suitIndex = deptIndex * SuitDNA.suitsPerLevel + randomLevel
-        else:
-            numSuits = len(SuitDNA.suitHeadTypes)
-            suitIndex = random.randrange(0, numSuits)
-        if summonType in ['single', 'building', 'invasion']:
-            type = summonType
-        else:
-            typeWeights = ['single'] * 70 + ['building'] * 25 + ['invasion'] * 5
-            type = random.choice(typeWeights)
-        if suitIndex >= len(SuitDNA.suitHeadTypes):
-            self.notify.warning('Bad suit index: %s' % suitIndex)
-        self.addCogSummonsEarned(suitIndex, type)
-        return (suitIndex, type)
-
     def findClosestDoor(self):
         zoneId = self.zoneId
         streetId = ZoneUtil.getBranchZone(zoneId)
@@ -3402,212 +2228,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         return None
 
-    def b_setGardenTrophies(self, trophyList):
-        self.setGardenTrophies(trophyList)
-        self.d_setGardenTrophies(trophyList)
-
-    def setGardenTrophies(self, trophyList):
-        self.notify.debug('setting gardenTrophies to %s' % trophyList)
-        self.gardenTrophies = trophyList
-
-    def d_setGardenTrophies(self, trophyList):
-        self.sendUpdate('setGardenTrophies', [trophyList])
-
-    def getGardenTrophies(self):
-        return self.gardenTrophies
-
-    def setGardenSpecials(self, specials):
-        for special in specials:
-            if special[1] > 255:
-                special[1] = 255
-
-        self.gardenSpecials = specials
-
-    def getGardenSpecials(self):
-        return self.gardenSpecials
-
-    def d_setGardenSpecials(self, specials):
-        self.sendUpdate('setGardenSpecials', [specials])
-
-    def b_setGardenSpecials(self, specials):
-        for special in specials:
-            if special[1] > 255:
-                newCount = 255
-                index = special[0]
-                self.gardenSpecials.remove(special)
-                self.gardenSpecials.append((index, newCount))
-                self.gardenSpecials.sort()
-
-        self.setGardenSpecials(specials)
-        self.d_setGardenSpecials(specials)
-
-    def addGardenItem(self, index, count):
-        for item in self.gardenSpecials:
-            if item[0] == index:
-                newCount = item[1] + count
-                self.gardenSpecials.remove(item)
-                self.gardenSpecials.append((index, newCount))
-                self.gardenSpecials.sort()
-                self.b_setGardenSpecials(self.gardenSpecials)
-                return
-
-        self.gardenSpecials.append((index, count))
-        self.gardenSpecials.sort()
-        self.b_setGardenSpecials(self.gardenSpecials)
-
-    def removeGardenItem(self, index, count):
-        for item in self.gardenSpecials:
-            if item[0] == index:
-                newCount = item[1] - count
-                self.gardenSpecials.remove(item)
-                if newCount > 0:
-                    self.gardenSpecials.append((index, newCount))
-                self.gardenSpecials.sort()
-                self.b_setGardenSpecials(self.gardenSpecials)
-                return 1
-
-        self.notify.warning("removing garden item %d that toon doesn't have" % index)
-        return 0
-
-    def b_setFlowerCollection(self, speciesList, varietyList):
-        self.setFlowerCollection(speciesList, varietyList)
-        self.d_setFlowerCollection(speciesList, varietyList)
-
-    def d_setFlowerCollection(self, speciesList, varietyList):
-        self.sendUpdate('setFlowerCollection', [speciesList, varietyList])
-
-    def setFlowerCollection(self, speciesList, varietyList):
-        self.flowerCollection = FlowerCollection.FlowerCollection()
-        self.flowerCollection.makeFromNetLists(speciesList, varietyList)
-
-    def getFlowerCollection(self):
-        return self.flowerCollection.getNetLists()
-
-    def b_setMaxFlowerBasket(self, maxFlowerBasket):
-        self.d_setMaxFlowerBasket(maxFlowerBasket)
-        self.setMaxFlowerBasket(maxFlowerBasket)
-
-    def d_setMaxFlowerBasket(self, maxFlowerBasket):
-        self.sendUpdate('setMaxFlowerBasket', [maxFlowerBasket])
-
-    def setMaxFlowerBasket(self, maxFlowerBasket):
-        self.maxFlowerBasket = maxFlowerBasket
-
-    def getMaxFlowerBasket(self):
-        return self.maxFlowerBasket
-
-    def b_setFlowerBasket(self, speciesList, varietyList):
-        self.setFlowerBasket(speciesList, varietyList)
-        self.d_setFlowerBasket(speciesList, varietyList)
-
-    def d_setFlowerBasket(self, speciesList, varietyList):
-        self.sendUpdate('setFlowerBasket', [speciesList, varietyList])
-
-    def setFlowerBasket(self, speciesList, varietyList):
-        self.flowerBasket = FlowerBasket.FlowerBasket()
-        self.flowerBasket.makeFromNetLists(speciesList, varietyList)
-
-    def getFlowerBasket(self):
-        return self.flowerBasket.getNetLists()
-
-    def makeRandomFlowerBasket(self):
-        self.flowerBasket.generateRandomBasket()
-        self.d_setFlowerBasket(*self.flowerBasket.getNetLists())
-
-    def addFlowerToBasket(self, species, variety):
-        numFlower = len(self.flowerBasket)
-        if numFlower >= self.maxFlowerBasket:
-            self.notify.warning('addFlowerToBasket: cannot add flower, basket is full')
-            return 0
-        elif self.flowerBasket.addFlower(species, variety):
-            self.d_setFlowerBasket(*self.flowerBasket.getNetLists())
-            return 1
-        else:
-            self.notify.warning('addFlowerToBasket: addFlower failed')
-            return 0
-
-    def removeFlowerFromBasketAtIndex(self, index):
-        if self.flowerBasket.removeFlowerAtIndex(index):
-            self.d_setFlowerBasket(*self.flowerBasket.getNetLists())
-            return 1
-        else:
-            self.notify.warning('removeFishFromTank: cannot find fish')
-            return 0
-
-    def b_setShovel(self, shovelId):
-        self.d_setShovel(shovelId)
-        self.setShovel(shovelId)
-
-    def d_setShovel(self, shovelId):
-        self.sendUpdate('setShovel', [shovelId])
-
-    def setShovel(self, shovelId):
-        self.shovel = shovelId
-
-    def getShovel(self):
-        return self.shovel
-
-    def b_setShovelSkill(self, skillLevel):
-        self.sendGardenEvent()
-        if skillLevel >= GardenGlobals.ShovelAttributes[self.shovel]['skillPts']:
-            if self.shovel < GardenGlobals.MAX_SHOVELS - 1:
-                self.b_setShovel(self.shovel + 1)
-                self.setShovelSkill(0)
-                self.d_setShovelSkill(0)
-                self.sendUpdate('promoteShovel', [self.shovel])
-                self.air.writeServerEvent('garden_new_shovel', self.doId, '%d' % self.shovel)
-        else:
-            self.setShovelSkill(skillLevel)
-            self.d_setShovelSkill(skillLevel)
-
-    def d_setShovelSkill(self, skillLevel):
-        self.sendUpdate('setShovelSkill', [skillLevel])
-
-    def setShovelSkill(self, skillLevel):
-        self.shovelSkill = skillLevel
-
-    def getShovelSkill(self):
-        return self.shovelSkill
-
-    def b_setWateringCan(self, wateringCanId):
-        self.d_setWateringCan(wateringCanId)
-        self.setWateringCan(wateringCanId)
-
-    def d_setWateringCan(self, wateringCanId):
-        self.sendUpdate('setWateringCan', [wateringCanId])
-
-    def setWateringCan(self, wateringCanId):
-        self.wateringCan = wateringCanId
-
-    def getWateringCan(self):
-        return self.wateringCan
-
-    def b_setWateringCanSkill(self, skillLevel):
-        self.sendGardenEvent()
-        if skillLevel >= GardenGlobals.WateringCanAttributes[self.wateringCan]['skillPts']:
-            if self.wateringCan < GardenGlobals.MAX_WATERING_CANS - 1:
-                self.b_setWateringCan(self.wateringCan + 1)
-                self.setWateringCanSkill(0)
-                self.d_setWateringCanSkill(0)
-                self.sendUpdate('promoteWateringCan', [self.wateringCan])
-                self.air.writeServerEvent('garden_new_wateringCan', self.doId, '%d' % self.wateringCan)
-            else:
-                skillLevel = GardenGlobals.WateringCanAttributes[self.wateringCan]['skillPts'] - 1
-                self.setWateringCanSkill(skillLevel)
-                self.d_setWateringCanSkill(skillLevel)
-        else:
-            self.setWateringCanSkill(skillLevel)
-            self.d_setWateringCanSkill(skillLevel)
-
-    def d_setWateringCanSkill(self, skillLevel):
-        self.sendUpdate('setWateringCanSkill', [skillLevel])
-
-    def setWateringCanSkill(self, skillLevel):
-        self.wateringCanSkill = skillLevel
-
-    def getWateringCanSkill(self):
-        return self.wateringCanSkill
-
     def b_setTrackBonusLevel(self, trackBonusLevelArray):
         self.setTrackBonusLevel(trackBonusLevelArray)
         self.d_setTrackBonusLevel(trackBonusLevelArray)
@@ -3628,20 +2248,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
     def checkGagBonus(self, track, level):
         trackBonus = self.getTrackBonusLevel(track)
         return trackBonus >= level
-
-    def giveMeSpecials(self, id=None):
-        print('Specials Go!!')
-        self.b_setGardenSpecials([(0, 3),
-                                  (1, 2),
-                                  (2, 3),
-                                  (3, 2),
-                                  (4, 3),
-                                  (5, 2),
-                                  (6, 3),
-                                  (7, 2),
-                                  (100, 1),
-                                  (101, 3),
-                                  (102, 1)])
 
     def reqUseSpecial(self, special):
         response = self.tryToUseSpecial(special)
@@ -3671,11 +2277,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                     response = 'success'
                     self.air.writeServerEvent('garden_fertilizer', self.doId, '')
         return response
-
-    def sendGardenEvent(self):
-        if hasattr(self, 'estateZones') and hasattr(self, 'doId'):
-            if simbase.wantPets and self.hatePets:
-                PetObserve.send(self.estateZones, PetObserve.PetActionObserve(PetObserve.Actions.GARDEN, self.doId))
 
     def setGardenStarted(self, bStarted):
         self.gardenStarted = bStarted
@@ -3720,22 +2321,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def getGolfCups(self):
         return self.golfCups
-
-    def b_setGolfHistory(self, history):
-        self.setGolfHistory(history)
-        self.d_setGolfHistory(history)
-
-    def d_setGolfHistory(self, history):
-        self.sendUpdate('setGolfHistory', [history])
-
-    def setGolfHistory(self, history):
-        self.notify.debug('setting golfHistory to %s' % history)
-        self.golfHistory = history
-        self.golfTrophies = GolfGlobals.calcTrophyListFromHistory(self.golfHistory)
-        self.golfCups = GolfGlobals.calcCupListFromHistory(self.golfHistory)
-
-    def getGolfHistory(self):
-        return self.golfHistory
 
     def b_setGolfHoleBest(self, holeBest):
         self.setGolfHoleBest(holeBest)
@@ -4284,129 +2869,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def d_doTeleport(self, hood):
         self.sendUpdateToAvatarId(self.doId, 'doTeleport', [hood])
-
-    ### Archipelago stuff ###
-    # Set this toon's base gag XP multiplier and tell its client counterpart what it is (and save it to db?)
-    def b_setBaseGagSkillMultiplier(self, newGagSkillMultiplier) -> None:
-        self.setBaseGagSkillMultiplier(newGagSkillMultiplier)
-        self.d_setBaseGagSkillMultiplier(newGagSkillMultiplier)
-
-    # Only tell the client what its new base gag xp multiplier is (and save it to db?)
-    def d_setBaseGagSkillMultiplier(self, newGagSkillMultiplier) -> None:
-        self.sendUpdate('setBaseGagSkillMultiplier', [newGagSkillMultiplier])
-
-    # What is this toon's base gag xp multiplier
-    def getBaseGagSkillMultiplier(self) -> int:
-        return self.baseGagSkillMultiplier
-
-    # Set this toon's base gag xp multiplier but only on the server
-    def setBaseGagSkillMultiplier(self, newGagSkillMultiplier) -> None:
-        self.baseGagSkillMultiplier = newGagSkillMultiplier
-
-    # Set this toon's damage multiplier and tell its client counterpart what it is (and save it to db?)
-    def b_setDamageMultiplier(self, newDamageMultiplier) -> None:
-        self.setDamageMultiplier(newDamageMultiplier)
-        self.d_setDamageMultiplier(newDamageMultiplier)
-
-    # Only tell the client what its new damage multiplier is (and save it to db?)
-    def d_setDamageMultiplier(self, newDamageMultiplier) -> None:
-        self.sendUpdate('setDamageMultiplier', [newDamageMultiplier])
-
-    # What is this toon's damage multiplier
-    def getDamageMultiplier(self) -> int:
-        return self.damageMultiplier
-
-    # Set this toon's damage multiplier
-    def setDamageMultiplier(self, newDamageMultiplier) -> None:
-        self.damageMultiplier = newDamageMultiplier
-
-    # Send this toon an archipelago message to display on their log
-    def d_sendArchipelagoMessage(self, message: str) -> None:
-        self.d_sendArchipelagoMessages([message])
-
-    # Send multiple messages to a player to display on their log
-    def d_sendArchipelagoMessages(self, messages: List[str]) -> None:
-        if not self.isPlayerControlled() or len(messages) <= 0:
-            return
-        self.sendUpdate('sendArchipelagoMessages', [messages])
-
-    # Tell this toon to display a certain AP reward, and the string to go along with it
-    # The reason we provide the string here is because the client has no clue what maps things such as player
-    # IDs, item IDs, etc etc so we do that work on the AI
-    def d_showReward(self, rewardId: int, displayString: str, isLocal: bool) -> None:
-        self.sendUpdate('showReward', [rewardId, displayString, isLocal])
-
-    # Sets this toons stats as if they were a freshly created toon
-    # This should only be called when we detect an AP player connected for the very first time.
-    def newToon(self):
-
-        # First stat stuff
-        self.b_setMaxHp(15)
-        self.b_setHp(15)
-        self.b_setMaxCarry(20)
-
-        # Now quests
-        for id in self.getQuests():
-            self.removeQuest(id)
-        self.b_setQuestCarryLimit(4)
-        self.b_setRewardHistory(0, [])
-        self.b_setQuestHistory([])
-
-        # Wipe gag track access and orgs
-        self.b_setTrackAccess([0, 0, 0, 0, 0, 0, 0])
-        self.b_setTrackBonusLevel([-1, -1, -1, -1, -1, -1, -1])
-        self.inventory.clearInventory()
-        self.experience.zeroOutExp()
-        self.b_setInventory(self.inventory.makeNetString())
-        self.b_setExperience(self.experience.getCurrentExperience())
-        self.b_setBaseGagSkillMultiplier(1)
-
-        # Default money
-        self.b_setMaxMoney(1000)
-        self.b_setMoney(100)
-        self.b_setBankMoney(0)
-        self.b_setMaxBankMoney(0)
-
-        # Activities
-        self.b_setTickets(0)
-        self.b_setKartBodyType(-1)
-
-        # Fishing
-        self.b_setFishCollection([], [], [])
-        self.b_setFishingRod(0)
-        self.b_setFishingTrophies([])
-        # empty bucket
-        self.b_setFishTank([], [], [])
-
-        # TP access
-        self.b_setHoodsVisited([])
-        self.b_setTeleportAccess([])
-
-        # Disguise stuff, revoke their disguises
-        self.b_setCogParts([0, 0, 0, 0])
-        self.b_setCogTypes([0, 0, 0, 0])
-        self.b_setCogLevels([0, 0, 0, 0])
-        self.b_setCogMerits([30000, 30000, 30000, 30000])
-
-        # Revoke rewards
-        self.resetNPCFriendsDict()
-        self.b_setResistanceMessages([])
-        self.b_setCogSummonsEarned([0] * 32)
-        self.b_setPinkSlips(0)
-
-        # We haven't seen any cogs
-        cogStatus = self.getCogStatus()
-        cogCount = self.getCogCount()
-        for suitIndex, suitCode in enumerate(SuitDNA.suitHeadTypes):
-            # Don't try to set cogs not in gallery to unseen
-            if suitCode in SuitDNA.notMainTypes:
-                continue
-            cogStatus[suitIndex] = CogPageGlobals.COG_UNSEEN
-            cogCount[suitIndex] = 0
-        self.b_setCogStatus(cogStatus)
-        self.b_setCogCount(cogCount)
-        self.b_setCogRadar([0] * 4)
-        self.b_setBuildingRadar([0] * 4)
 
     # Can be called either from the AI directly or via an astron update from the client.
     # When we are given a string, we know that it is from the client so we need to make sure

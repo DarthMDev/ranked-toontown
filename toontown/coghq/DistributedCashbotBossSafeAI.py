@@ -163,7 +163,16 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
     def hitBoss(self, impact, craneId):
         avId = self.air.getAvatarIdFromSender()
         
-        self.validate(avId, 1.0 >= impact >= 0, 'invalid hitBoss impact %s' % impact)
+        # Check if impact cap should be removed
+        removeCap = False
+        if hasattr(self.boss, 'ruleset') and hasattr(self.boss.ruleset, 'REMOVE_IMPACT_CAP'):
+            removeCap = self.boss.ruleset.REMOVE_IMPACT_CAP
+        
+        # Validate impact based on whether cap is removed
+        if removeCap:
+            self.validate(avId, impact >= 0, 'invalid hitBoss impact %s' % impact)
+        else:
+            self.validate(avId, 1.0 >= impact >= 0, 'invalid hitBoss impact %s' % impact)
         
         if avId not in self.boss.avIdList:
             return
@@ -376,9 +385,19 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
             self.__checkSafeCollisions(pusher)
 
     # Called from client when a safe destroys a goon
-    def destroyedGoon(self):
+    def destroyedGoon(self, goonId):
         avId = self.air.getAvatarIdFromSender()
-        self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+        # Track destroyed goons by ID to prevent duplicate awards for the same goon
+        # while allowing multiple different goons to be credited
+        if not hasattr(self, '_destroyedGoonIds'):
+            self._destroyedGoonIds = set()
+        
+        # Check if we've already credited this specific goon
+        if goonId not in self._destroyedGoonIds:
+            self._destroyedGoonIds.add(goonId)
+            self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_KILLED_BY_SAFE, reason=CraneLeagueGlobals.ScoreReason.GOON_KILL)
+            # Clean up the goon ID from tracking after a delay to prevent memory leaks
+            taskMgr.doMethodLater(1.0, lambda task, gId=goonId: self._destroyedGoonIds.discard(gId), self.uniqueName('cleanupDestroyedGoon-%d' % goonId))
 
     def cleanup(self):
         """Clean up collision system and node paths to prevent memory leaks"""

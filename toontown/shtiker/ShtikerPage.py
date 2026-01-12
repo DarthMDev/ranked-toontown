@@ -32,14 +32,3 @@ class ShtikerPage(DirectFrame, StateData.StateData):
     def setPageName(self, pageName):
         self.pageName = pageName
 
-    def makePageWhite(self, item):
-        white = Vec4(1, 1, 1, 1)
-        self.book['image_color'] = white
-        self.book.nextArrow['image_color'] = white
-        self.book.prevArrow['image_color'] = white
-
-    def makePageRed(self, item):
-        red = Vec4(1, 0.5, 0.5, 1)
-        self.book['image_color'] = red
-        self.book.nextArrow['image_color'] = red
-        self.book.prevArrow['image_color'] = red

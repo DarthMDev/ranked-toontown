@@ -118,17 +118,35 @@ class DistributedCrashBallVehicle(DistributedObject):
         taskMgr.add(self.__aimTask, self.aimTaskName)
 
         self.__isExtraKickUp = False
-        self.accept(base.controls.JUMP, self.useExtraKick)
-        self.accept(base.controls.SPRINT, self.__handleSprintPress)
-        self.accept(base.controls.SPRINT + '-up', self.__handleSprintRelease)
+        # Accept both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.accept(bind, self.useExtraKick)
+        
+        # Accept both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.accept(bind, self.__handleSprintPress)
+                self.accept(bind + '-up', self.__handleSprintRelease)
 
         self.startPosHprBroadcast()
 
     def disableControls(self) -> None:
         taskMgr.remove(self.aimTaskName)
-        self.ignore(base.controls.JUMP)
-        self.ignore(base.controls.SPRINT)
-        self.ignore(base.controls.SPRINT + '-up')
+        # Ignore both binds for JUMP
+        jump_binds = base.settings.getControlBinds("JUMP")
+        for bind in jump_binds:
+            if bind:
+                self.ignore(bind)
+        
+        # Ignore both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
 
     def __handleSprintPress(self) -> None:
         self.__isSprintHeld = True

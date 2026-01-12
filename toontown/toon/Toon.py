@@ -178,32 +178,51 @@ Phase6AnimList = (('headdown-putt', 'headdown-putt'),
 Phase9AnimList = (('push', 'push'),)
 Phase10AnimList = (('leverReach', 'leverReach'), ('leverPull', 'leverPull'), ('leverNeutral', 'leverNeutral'))
 Phase12AnimList = ()
+# Model style constants: 0 = modern/TTR, 1 = retro/Clash
+MODEL_STYLE_MODERN = 0
+MODEL_STYLE_RETRO = 1
+
+def getLegDict(modelStyle=0):
+    """Get leg dictionary based on model style. 0 = modern/TTR, 1 = retro/Clash"""
+    if not base.config.GetBool('want-new-anims', 1):
+        return {'s': '/models/char/dogSS_Shorts-legs-',
+         'm': '/models/char/dogMM_Shorts-legs-',
+         'l': '/models/char/dogLL_Shorts-legs-'}
+    else:
+        return {'s': '/models/char/tt_a_chr_dgs_shorts_legs_',
+         'm': '/models/char/tt_a_chr_dgm_shorts_legs_',
+         'l': '/models/char/tt_a_chr_dgl_shorts_legs_'}
+
+def getTorsoDict(modelStyle=0):
+    """Get torso dictionary based on model style. 0 = modern/TTR, 1 = retro/Clash"""
+    if not base.config.GetBool('want-new-anims', 1):
+        return {'s': '/models/char/dogSS_Naked-torso-',
+         'm': '/models/char/dogMM_Naked-torso-',
+         'l': '/models/char/dogLL_Naked-torso-',
+         'ss': '/models/char/dogSS_Shorts-torso-',
+         'ms': '/models/char/dogMM_Shorts-torso-',
+         'ls': '/models/char/dogLL_Shorts-torso-',
+         'sd': '/models/char/dogSS_Skirt-torso-',
+         'md': '/models/char/dogMM_Skirt-torso-',
+         'ld': '/models/char/dogLL_Skirt-torso-'}
+    else:
+        return {'s': '/models/char/dogSS_Naked-torso-',
+         'm': '/models/char/dogMM_Naked-torso-',
+         'l': '/models/char/dogLL_Naked-torso-',
+         'ss': '/models/char/tt_a_chr_dgs_shorts_torso_',
+         'ms': '/models/char/tt_a_chr_dgm_shorts_torso_',
+         'ls': '/models/char/tt_a_chr_dgl_shorts_torso_',
+         'sd': '/models/char/tt_a_chr_dgs_skirt_torso_',
+         'md': '/models/char/tt_a_chr_dgm_skirt_torso_',
+         'ld': '/models/char/tt_a_chr_dgl_skirt_torso_'}
+
+# For backward compatibility
 if not base.config.GetBool('want-new-anims', 1):
-    LegDict = {'s': '/models/char/dogSS_Shorts-legs-',
-     'm': '/models/char/dogMM_Shorts-legs-',
-     'l': '/models/char/dogLL_Shorts-legs-'}
-    TorsoDict = {'s': '/models/char/dogSS_Naked-torso-',
-     'm': '/models/char/dogMM_Naked-torso-',
-     'l': '/models/char/dogLL_Naked-torso-',
-     'ss': '/models/char/dogSS_Shorts-torso-',
-     'ms': '/models/char/dogMM_Shorts-torso-',
-     'ls': '/models/char/dogLL_Shorts-torso-',
-     'sd': '/models/char/dogSS_Skirt-torso-',
-     'md': '/models/char/dogMM_Skirt-torso-',
-     'ld': '/models/char/dogLL_Skirt-torso-'}
+    LegDict = getLegDict(MODEL_STYLE_RETRO)
+    TorsoDict = getTorsoDict(MODEL_STYLE_RETRO)
 else:
-    LegDict = {'s': '/models/char/tt_a_chr_dgs_shorts_legs_',
-     'm': '/models/char/tt_a_chr_dgm_shorts_legs_',
-     'l': '/models/char/tt_a_chr_dgl_shorts_legs_'}
-    TorsoDict = {'s': '/models/char/dogSS_Naked-torso-',
-     'm': '/models/char/dogMM_Naked-torso-',
-     'l': '/models/char/dogLL_Naked-torso-',
-     'ss': '/models/char/tt_a_chr_dgs_shorts_torso_',
-     'ms': '/models/char/tt_a_chr_dgm_shorts_torso_',
-     'ls': '/models/char/tt_a_chr_dgl_shorts_torso_',
-     'sd': '/models/char/tt_a_chr_dgs_skirt_torso_',
-     'md': '/models/char/tt_a_chr_dgm_skirt_torso_',
-     'ld': '/models/char/tt_a_chr_dgl_skirt_torso_'}
+    LegDict = getLegDict(MODEL_STYLE_MODERN)
+    TorsoDict = getTorsoDict(MODEL_STYLE_MODERN)
 
 def loadModels():
     global Preloaded
@@ -905,7 +924,9 @@ class Toon(Avatar.Avatar, ToonHead):
 
     def generateToonLegs(self, copy = 1):
         legStyle = self.style.legs
-        filePrefix = LegDict.get(legStyle)
+        modelStyle = getattr(self.style, 'modelStyle', 0)
+        legDict = getLegDict(modelStyle)
+        filePrefix = legDict.get(legStyle)
         if filePrefix is None:
             self.notify.error('unknown leg style: %s' % legStyle)
         self.loadModel('phase_3' + filePrefix + '1000', 'legs', '1000', copy)
@@ -941,7 +962,9 @@ class Toon(Avatar.Avatar, ToonHead):
 
     def generateToonTorso(self, copy = 1, genClothes = 1):
         torsoStyle = self.style.torso
-        filePrefix = TorsoDict.get(torsoStyle)
+        modelStyle = getattr(self.style, 'modelStyle', 0)
+        torsoDict = getTorsoDict(modelStyle)
+        filePrefix = torsoDict.get(torsoStyle)
         if filePrefix is None:
             self.notify.error('unknown torso style: %s' % torsoStyle)
         self.loadModel('phase_3' + filePrefix + '1000', 'torso', '1000', copy)
@@ -3153,14 +3176,128 @@ class Toon(Avatar.Avatar, ToonHead):
         def getVelocity(toon = self, relVel = relVel):
             return render.getRelativeVector(toon, relVel)
 
+        # Check if this is TNT and apply special scaling and rotation
+        isTNT = (pieName == 'tnt')
+        tntScale = self.pieScale * 1.25 if isTNT else self.pieScale  # Make TNT 1.25x bigger
+        
         toss = Track((0, Sequence(Func(self.setPosHpr, x, y, z, h, p, r), Func(pie.reparentTo, self.rightHand), Func(pie.setPosHpr, 0, 0, 0, 0, 0, 0), Parallel(ActorInterval(self, 'throw', startFrame=48), animPie), Func(self.loop, 'neutral'))), (16.0 / 24.0, Func(pie.detachNode)))
-        fly = Track((14.0 / 24.0, SoundInterval(sound, node=self)), (16.0 / 24.0, Sequence(Func(flyPie.reparentTo, render), Func(flyPie.setScale, self.pieScale), Func(flyPie.setPosHpr, self, 0.52, 0.97, 2.24, 89.42, -10.56, 87.94), beginFlyIval, ProjectileInterval(flyPie, startVel=getVelocity, duration=3), Func(flyPie.detachNode))))
+        
+        # Create fly sequence with optional TNT rotation
+        flySequence = Sequence(
+            Func(flyPie.reparentTo, render),
+            Func(flyPie.setScale, tntScale),
+            Func(flyPie.setPosHpr, self, 0.52, 0.97, 2.24, 89.42, -10.56, 87.94),
+            beginFlyIval
+        )
+        
+        # Add smooth rotation for TNT
+        if isTNT:
+            # Smooth, moderate rotation: ~2 full rotations on yaw, 0.75 rotation on pitch, 1 rotation on roll
+            # Using a single smooth interval for consistent rotation without wonkiness
+            rotationInterval = LerpHprInterval(
+                flyPie,
+                duration=3,
+                startHpr=Point3(0, 0, 0),
+                hpr=Point3(720, 270, 360),  # Yaw: 2 rotations, Pitch: 0.75 rotation, Roll: 1 rotation
+                blendType='noBlend'  # Linear interpolation for smooth, consistent rotation
+            )
+            flySequence.append(Parallel(
+                ProjectileInterval(flyPie, startVel=getVelocity, duration=3),
+                rotationInterval
+            ))
+        else:
+            flySequence.append(ProjectileInterval(flyPie, startVel=getVelocity, duration=3))
+        
+        flySequence.append(Func(flyPie.detachNode))
+        fly = Track((14.0 / 24.0, SoundInterval(sound, node=self)), (16.0 / 24.0, flySequence))
         return (toss, fly, flyPie)
 
-    def getPieSplatInterval(self, x, y, z, pieCode):
+    def getPieSplatInterval(self, x, y, z, pieCode, goonsDestroyed=False):
         from toontown.toonbase import ToontownBattleGlobals
         from toontown.battle import BattleProps
+        from toontown.suit import GoonDeath
+        from toontown.battle import BattleParticles
         pieName = ToontownBattleGlobals.pieNames[self.pieType]
+        
+        if pieName == 'tnt':
+            from toontown.battle import MovieUtil, BattleProps
+            explosionPoint = Point3(x, y, z)
+            
+            # If goons were destroyed, only show explosion effects (no kapow)
+            if goonsDestroyed:
+                # Create a simple explosion for goon destruction
+                from toontown.suit import GoonDeath
+                from toontown.battle import BattleParticles
+                BattleParticles.loadParticles()
+                scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions
+                particleScale = 1.5  # Bigger particle spread
+                
+                deathNode = NodePath('tntDeath')
+                deathNode.setPos(explosionPoint)
+                deathNode.setScale(particleScale)
+                
+                explosion = loader.loadModel('phase_3.5/models/props/explosion.bam')
+                explosion.getChild(0).setScale(scale)
+                explosion.reparentTo(deathNode)
+                explosion.setBillboardPointEye()
+                explosion.setPos(0, 0, 2)
+                explosionTrack = Sequence(
+                    Func(deathNode.reparentTo, render),
+                    Wait(0.6),
+                    Func(deathNode.detachNode)
+                )
+                
+                smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=10)
+                bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=5)
+                deathSound = loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
+                
+                particleTrack = Parallel(
+                    explosionTrack,
+                    SoundInterval(deathSound),
+                    ParticleInterval(smallGearExplosion, deathNode, worldRelative=0, duration=4.3, cleanup=True),
+                    ParticleInterval(bigGearExplosion, deathNode, worldRelative=0, duration=1.0, cleanup=True)
+                )
+                return particleTrack
+            
+            # Otherwise, show full explosion with particles and sound
+            from toontown.suit import GoonDeath
+            from toontown.battle import BattleParticles
+            BattleParticles.loadParticles()
+            scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions
+            particleScale = 1.5  # Bigger particle spread
+            
+            # Create death node and scale it for bigger explosion
+            deathNode = NodePath('tntDeath')
+            deathNode.setPos(explosionPoint)
+            deathNode.setScale(particleScale)
+            
+            # Create explosion track (scaled model)
+            explosion = loader.loadModel('phase_3.5/models/props/explosion.bam')
+            explosion.getChild(0).setScale(scale)
+            explosion.reparentTo(deathNode)
+            explosion.setBillboardPointEye()
+            explosion.setPos(0, 0, 2)
+            explosionTrack = Sequence(
+                Func(deathNode.reparentTo, render),
+                Wait(0.6),
+                Func(deathNode.detachNode)
+            )
+            
+            # Create bigger particle effects
+            smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=10)
+            bigGearExplosion = BattleParticles.createParticleEffect('WideGearExplosion', numParticles=5)
+            deathSound = loader.loadSfx('phase_3.5/audio/sfx/ENC_cogfall_apart.ogg')
+            
+            # Create particle intervals on scaled deathNode
+            particleTrack = Parallel(
+                explosionTrack,
+                SoundInterval(deathSound),
+                ParticleInterval(smallGearExplosion, deathNode, worldRelative=0, duration=4.3, cleanup=True),
+                ParticleInterval(bigGearExplosion, deathNode, worldRelative=0, duration=1.0, cleanup=True)
+            )
+            
+            return particleTrack
+        
         splatName = 'splat-%s' % pieName
         if pieName == 'lawbook':
             splatName = 'dust'

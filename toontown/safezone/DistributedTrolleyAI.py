@@ -11,6 +11,7 @@ from toontown.minigame import TrolleyHolidayMgrAI
 from toontown.minigame import TrolleyWeekendMgrAI
 from toontown.groups.DistributedGroupManagerAI import DistributedGroupManagerAI
 from ..groups.DistributedGroupAI import DistributedGroupAI
+from ..toonbase import ToontownGlobals
 
 
 class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
@@ -337,7 +338,7 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
                 if simbase.config.GetBool('metagame-min-2-players', 1) and len(playerArray) == 1:
                     metagameRound = -1
 
-            minigame = self.air.minigameMgr.createMinigame(playerArray, self.zoneId, hostId=playerArray[0])
+            minigame = self.air.minigameMgr.createMinigame(playerArray, self.zoneId, hostId=playerArray[0], desiredNextGame=ToontownGlobals.CraneGameId)
             for seatIndex in range(len(self.seats)):
                 avId = self.seats[seatIndex]
                 if avId:

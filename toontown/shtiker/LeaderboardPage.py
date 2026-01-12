@@ -1,9 +1,10 @@
 from typing import Any
 
+from direct.gui import DirectGuiGlobals
 from direct.gui.DirectButton import DirectButton
 from direct.gui.DirectFrame import DirectFrame
 from direct.gui.DirectLabel import DirectLabel
-from panda3d.core import TextNode
+from panda3d.core import TextNode, PGMouseWatcherParameter
 
 from toontown.archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart
 from toontown.matchmaking.rank import Rank
@@ -14,24 +15,44 @@ from toontown.toonbase import TTLocalizer, ToontownGlobals
 class LeaderboardRow(DirectFrame):
     def __init__(self, parent, **kwargs):
         DirectFrame.__init__(self, parent, **kwargs)
-        self.ranking: DirectLabel = DirectLabel(parent=self, relief=None, pos=(-15, 0, 0), text='#1', text_font=ToontownGlobals.getCompetitionFont(), text_align=TextNode.A_left)
-        self.player_name: DirectLabel = DirectLabel(parent=self, relief=None, pos=(-12, 0, 0), text='name goes here', text_font=ToontownGlobals.getCompetitionFont(), text_align=TextNode.A_left)
-        self.skill_rating: DirectLabel = DirectLabel(parent=self, relief=None, pos=(1, 0, 0), text='Plastic II (0000)', text_font=ToontownGlobals.getCompetitionFont(), text_align=TextNode.A_left)
-        self.win_rate: DirectLabel = DirectLabel(parent=self, relief=None, pos=(12, 0, 0), text='69W-69L', text_font=ToontownGlobals.getCompetitionFont(), text_align=TextNode.A_left)
+        self.player_name: DirectButton = DirectButton(parent=self, relief=DirectGuiGlobals.FLAT, pos=(-12, 0, 0),
+                                                      text='name goes here', frameSize=(-4, 28, -0.3, .9),
+                                                      frameColor=(1, 1, 1, 0),
+                                                      text_font=ToontownGlobals.getCompetitionFont(),
+                                                      text_align=TextNode.A_left,
+                                                      command=self.__handle_toon_clicked)
+        self.ranking: DirectLabel = DirectLabel(parent=self, relief=None, pos=(-15, 0, 0), text='#1',
+                                                text_font=ToontownGlobals.getCompetitionFont(),
+                                                text_align=TextNode.A_left)
+        self.player_name.bind(DirectGuiGlobals.ENTER, self.__onHover, extraArgs=[True])
+        self.player_name.bind(DirectGuiGlobals.EXIT, self.__onHover, extraArgs=[False])
+        self.skill_rating: DirectLabel = DirectLabel(parent=self, relief=None, pos=(1, 0, 0), text='Plastic II (0000)',
+                                                     text_font=ToontownGlobals.getCompetitionFont(),
+                                                     text_align=TextNode.A_left)
+        self.win_rate: DirectLabel = DirectLabel(parent=self, relief=None, pos=(11, 0, 0), text='69W-69L',
+                                                 text_font=ToontownGlobals.getCompetitionFont(),
+                                                 text_align=TextNode.A_left)
+        self._has_data = False
+        self._av_id = None
 
-    def update(self, ranking: int, player_name: str, skill_rating: int, wins: int, games: int):
+    def populated(self) -> bool:
+        return self._has_data
+
+    def update(self, avId: int, ranking: int, player_name: str, skill_rating: int, wins: int, games: int):
         self.setColorScale(1, 1, 1, 1)
         self.ranking['text'] = f"#{ranking}"
         name = player_name
         if len(name) >= 20:
             name = name[:20] + "..."
         self.player_name['text'] = name
+        self._av_id = avId
 
         rank = Rank.get_from_skill_rating(skill_rating)
         sr_str = get_raw_formatted_string([MinimalJsonMessagePart(message=f"({skill_rating})", color='gray')])
         self.skill_rating['text'] = f"{rank.colored()} {sr_str}"
         losses = games - wins
         self.win_rate['text'] = f"{wins}W-{losses}L"
+        self._has_data = True
 
     def loading(self):
         self.setColorScale(.5, .5, .5, .5)
@@ -39,6 +60,8 @@ class LeaderboardRow(DirectFrame):
         self.player_name['text'] = f"Loading..."
         self.skill_rating['text'] = f""
         self.win_rate['text'] = f""
+        self._has_data = False
+        self._av_id = None
 
     def empty(self):
         self.setColorScale(.5, .5, .5, .5)
@@ -46,6 +69,8 @@ class LeaderboardRow(DirectFrame):
         self.player_name['text'] = f"Nobody yet!"
         self.skill_rating['text'] = f""
         self.win_rate['text'] = f""
+        self._has_data = False
+        self._av_id = None
 
     def destroy(self):
         super().destroy()
@@ -53,6 +78,8 @@ class LeaderboardRow(DirectFrame):
         self.player_name.destroy()
         self.skill_rating.destroy()
         self.win_rate.destroy()
+        self._has_data = False
+        self._av_id = None
 
     def setColorScale(self, *args, **kwargs):
         super().setColorScale(*args, **kwargs)
@@ -60,6 +87,47 @@ class LeaderboardRow(DirectFrame):
         self.player_name.setColorScale(*args, **kwargs)
         self.skill_rating.setColorScale(*args, **kwargs)
         self.win_rate.setColorScale(*args, **kwargs)
+
+    def __handle_toon_clicked(self, avId=None):
+        if self._av_id is None:
+            return
+
+        # Stolen from the friends list code. Essentially pulls up their toon panel.
+        messenger.send('wakeup')
+        hasManager = hasattr(base.cr, 'playerFriendsManager')
+        handle = None
+
+        # Always always always first try to find this toon if they are in our area.
+        if self._av_id in base.cr.doId2do:
+            handle = base.cr.doId2do.get(self._av_id)
+
+        # Attempt to extract the handle from our online player manager.
+        onlineToon = base.cr.onlinePlayerManager.getOnlineToon(self._av_id)
+        if not handle and onlineToon is not None:
+            handle = onlineToon.handle()
+
+        # Attempt to get our handle from our disgusting otp code if ours failed.
+        if not handle:
+            handle = base.cr.identifyFriend(self._av_id)
+
+        if not handle and hasManager:
+            handle = base.cr.playerFriendsManager.getAvHandleFromId(self._av_id)
+
+        if handle is None and self._av_id == base.localAvatar.doId:
+            handle = base.localAvatar
+
+        # We failed to find a handle. We need to queue up a response from the database to query the toon.
+        if handle is None:
+            self.accept(f'avatar-query-response-{self._av_id}', self.__handle_toon_clicked)
+            base.cr.onlinePlayerManager.d_getAvatarDetails(self._av_id)
+            return
+
+        messenger.send('clickedNametag', [handle])
+
+
+    def __onHover(self, on: bool, mouse_watcher: PGMouseWatcherParameter = None):
+        color = (.5, .5, .5, .5) if on else (0, 0, 0, 0)
+        self.player_name['frameColor'] = color
 
 
 class LeaderboardPage(ShtikerPage):
@@ -74,6 +142,9 @@ class LeaderboardPage(ShtikerPage):
         self.current_mode: SkillProfileKey = SkillProfileKey.CRANING_SOLOS
         self._mode_previous_button: DirectButton | None = None
         self._mode_next_button: DirectButton | None = None
+        self._players_previous_button: DirectButton | None = None
+        self._players_next_button: DirectButton | None = None
+        self._players_range_label: DirectLabel | None = None
         self._mode_label: DirectLabel | None = None
         self._top_ranking: int = 1  # Used to query which ranks we want to start displaying.
 
@@ -107,6 +178,29 @@ class LeaderboardPage(ShtikerPage):
                 image_scale=(1, 1, 1),
                 command=lambda: self.__change_gamemode(1)
         )
+        self._players_previous_button = DirectButton(
+                parent=self, relief=None, pos=(-.55, 0, -.5),
+                text="Previous",
+                scale=.5,
+                text_scale=0.06,
+                text_align=TextNode.ACenter,
+                image=arrows,
+                image_scale=(-1, 1, 1),
+                command=lambda: self.__change_player_page(-1)
+        )
+        self._players_next_button = DirectButton(
+                parent=self, relief=None, pos=(.55, 0, -.5),
+                text="Next",
+                scale=.5,
+                text_scale=0.06,
+                text_align=TextNode.ACenter,
+                image=arrows,
+                image_scale=(1, 1, 1),
+                command=lambda: self.__change_player_page(1)
+        )
+        self._players_range_label = DirectLabel(parent=self, relief=None, text=f"Players #{self._top_ranking}-{self._top_ranking+9}", text_scale=0.075,
+                                       textMayChange=1, pos=(0, 0, -0.52), text_align=TextNode.ACenter,
+                                       text_font=ToontownGlobals.getCompetitionFont())
         self._mode_label = DirectLabel(parent=self, relief=None, text="No Mode Selected", text_scale=0.09,
                                        textMayChange=1, pos=(0, 0, 0.43), text_align=TextNode.ACenter,
                                        text_font=ToontownGlobals.getCompetitionFont())
@@ -138,6 +232,7 @@ class LeaderboardPage(ShtikerPage):
 
     def __change_gamemode(self, delta: int):
 
+        messenger.send('wakeup')
         # Update the member by doing some indexing math.
         modes = list(SkillProfileKey)
         index = modes.index(self.current_mode)
@@ -160,11 +255,49 @@ class LeaderboardPage(ShtikerPage):
 
         # Attempts to see if anything is already cached for what we are currently querying. If not, UD will be contacted
         # and we will update later.
+        self._top_ranking = 1
+        self.__update_player_range_label()
         results = base.cr.leaderboardManager.getRankings(self.current_mode, self._top_ranking, 10)
 
         # Did we already have it cached?
         if len(results) == 10:
             self.__handle_rankings_update(self.current_mode.value, results)
+
+    def __update_player_range_label(self):
+        self._players_range_label['text'] = f"Players #{self._top_ranking}-{self._top_ranking+9}"
+
+    def __change_player_page(self, delta: int):
+        messenger.send('wakeup')
+        self.ignore('leaderboard-ranking-response')
+        self.acceptOnce('leaderboard-ranking-response', self.__handle_rankings_update)
+        if delta > 0:
+            self._top_ranking += 10
+        else:
+            self._top_ranking -= 10
+        self._top_ranking = max(1, self._top_ranking)
+        self.__update_player_range_label()
+        for row in self.rows:
+            row.loading()
+        results = base.cr.leaderboardManager.getRankings(self.current_mode, self._top_ranking, 10)
+        self.__handle_rankings_update(self.current_mode.value, results)
+
+    def __update_button_states(self):
+        self._players_next_button['state'] = DirectGuiGlobals.NORMAL
+        self._players_previous_button['state'] = DirectGuiGlobals.NORMAL
+        self._players_next_button.setColorScale(1, 1, 1, 1)
+        self._players_previous_button.setColorScale(1, 1, 1, 1)
+
+        populated_rows = 0
+        for row in self.rows:
+            if row.populated():
+                populated_rows += 1
+
+        if populated_rows < 10:
+            self._players_next_button['state'] = DirectGuiGlobals.DISABLED
+            self._players_next_button.setColorScale(1, 1, 1, .5)
+        if self._top_ranking == 1:
+            self._players_previous_button['state'] = DirectGuiGlobals.DISABLED
+            self._players_previous_button.setColorScale(1, 1, 1, .5)
 
     def __handle_rankings_update(self, key: str, results: list[Any]):
         """
@@ -181,5 +314,8 @@ class LeaderboardPage(ShtikerPage):
         for i, row in enumerate(self.rows):
             if i >= len(results):
                 continue
-            ranking, name, sr, wins, games = results[i]
-            row.update(ranking, name, sr, wins, games)
+            ranking, avId, name, sr, wins, games = results[i]
+            row.update(avId, ranking + self._top_ranking - 1, name, sr, wins, games)
+
+        # Update state of the player page buttons.
+        self.__update_button_states()

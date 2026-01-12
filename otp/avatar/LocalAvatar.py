@@ -26,6 +26,7 @@ from otp.otpbase import OTPLocalizer
 from direct.controls.GhostWalker import GhostWalker
 from direct.controls.GravityWalker import GravityWalker
 from direct.controls.ObserverWalker import ObserverWalker
+from otp.avatar.CustomGravityWalker import CustomGravityWalker
 from direct.controls.PhysicsWalker import PhysicsWalker
 from direct.controls.SwimWalker import SwimWalker
 from direct.controls.TwoDWalker import TwoDWalker
@@ -142,17 +143,34 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
 
     def listenForSprint(self):
         controls = base.controls
-        self.accept(controls.MOVE_UP, self.__handleForwardPress)
-        self.accept(controls.MOVE_UP + '-up', self.__handleForwardRelease)
-        self.accept(controls.SPRINT, self.__handleSprintPress)
-        self.accept(controls.SPRINT + '-up', self.__handleSprintRelease)
+        # Accept both binds for MOVE_UP (for double-tap sprint in TTR mode)
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.accept(bind, self.__handleForwardPress)
+                self.accept(bind + '-up', self.__handleForwardRelease)
+        
+        # Accept both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.accept(bind, self.__handleSprintPress)
+                self.accept(bind + '-up', self.__handleSprintRelease)
 
     def ignoreSprint(self):
-        controls = base.controls
-        self.ignore(controls.MOVE_UP)
-        self.ignore(controls.MOVE_UP + '-up')
-        self.ignore(controls.SPRINT)
-        self.ignore(controls.SPRINT + '-up')
+        # Ignore both binds for MOVE_UP
+        up_binds = base.settings.getControlBinds("MOVE_UP")
+        for bind in up_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
+        
+        # Ignore both binds for SPRINT
+        sprint_binds = base.settings.getControlBinds("SPRINT")
+        for bind in sprint_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
 
     # Pass in either 'ttcc' or 'ttr'
     def setSprintMode(self, game):
@@ -358,7 +376,7 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
         return False
 
     def setupControls(self, avatarRadius = 1.4, floorOffset = OTPGlobals.FloorOffset, reach = 4.0, wallBitmask = OTPGlobals.WallBitmask, floorBitmask = OTPGlobals.FloorBitmask, ghostBitmask = OTPGlobals.GhostBitmask):
-        walkControls = GravityWalker(legacyLifter=self.wantLegacyLifter())
+        walkControls = CustomGravityWalker(legacyLifter=self.wantLegacyLifter(), hardLandingDelay=0.2, normalLandingDelay=0.2, gravity=64.348, standableGround=0.707, hardLandingForce=16.0)
         walkControls.setWallBitMask(wallBitmask)
         walkControls.setFloorBitMask(floorBitmask)
         walkControls.initializeCollisions(self.cTrav, self, avatarRadius, floorOffset, reach)

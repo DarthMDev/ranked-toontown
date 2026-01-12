@@ -69,7 +69,7 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
                 data = {}
                 self.__sr_cache[profile.key] = data
 
-            data[profile.identifier] = [names[profile.identifier], profile.skill_rating, profile.wins, profile.games_played]
+            data[profile.identifier] = [profile.identifier, names[profile.identifier], profile.skill_rating, profile.wins, profile.games_played]
             self.__sr_cache[profile.key] = data
 
         self.__save_leaderboard_data()
@@ -103,7 +103,7 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
         # We are good to return some data. Do not make DB calls. Create a sorted list of the top profile entries.
         records = copy.deepcopy(list(self.__sr_cache[profileKey.value].values()))
         # Sort the records based on SR.
-        records.sort(key=lambda x: x[1], reverse=True)
+        records.sort(key=lambda x: x[2], reverse=True)
         # Slice the list from where the user wanted it to start. Just to make this easier, let's add a dummy record
         # First of all, do we even have enough records? If they requested out of bounds, we want to give them an empty list.
         end_index = start + amount - 1
@@ -170,7 +170,7 @@ class LeaderboardManagerUD(DistributedObjectGlobalUD):
                 mode_data = {}
 
             # Store the player's name and SR under their toon ID for this gamemode and save the changes to the cache.
-            mode_data[profile.identifier] = [name, profile.skill_rating, profile.wins, profile.games_played]
+            mode_data[profile.identifier] = [profile.identifier, name, profile.skill_rating, profile.wins, profile.games_played]
             self.__sr_cache[profile.key] = mode_data
 
     def __refresh_task(self, task):

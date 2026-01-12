@@ -101,6 +101,16 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
     def doNextAttack(self, task):
         # Choose an attack and do it.
+        
+        # BRUTE FORCE: Don't attack if game isn't in play state
+        if self.game is None:
+            return
+        if not hasattr(self.game, 'gameFSM'):
+            return
+        if self.game.gameFSM.getCurrentState() is None:
+            return
+        if self.game.gameFSM.getCurrentState().getName() != 'play':
+            return
 
         # Make sure we're waiting for a helmet.
         if self.heldObject is None and not self.waitingForHelmet:
@@ -127,6 +137,10 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         return self.game.getParticipantIdsNotSpectating()
 
     def __doDirectedAttack(self):
+
+        # BRUTE FORCE: Initialize toonsToAttack if it doesn't exist
+        if not hasattr(self, 'toonsToAttack'):
+            self.toonsToAttack = []
 
         # Choose the next toon in line to get the assault.
         targets = self.__findEligibleTargets()
@@ -207,13 +221,24 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         if not toon:
             return
 
+        # Check if toon has active shield BEFORE triggering visual effects
+        hasShield = False
+        if hasattr(self.game, 'activeShields') and toon.getDoId() in self.game.activeShields:
+            shield = self.game.activeShields[toon.getDoId()]
+            if shield.isShieldActive():
+                hasShield = True
+                # Shield will absorb the hit - don't trigger visual effects
+                # We'll still calculate damage to break the shield, but skip animations
+
         # Is the cfo stunned?
         isStunned = self.attackCode == ToontownGlobals.BossCogDizzy
         # Are we setting to swat?
         if isStunned and attackCode == ToontownGlobals.BossCogElectricFence:
             self.game.addScore(avId, self.game.ruleset.POINTS_PENALTY_UNSTUN, reason=CraneLeagueGlobals.UNSTUN)
 
-        self.d_showZapToon(avId, x, y, z, h, p, r, attackCode, timestamp)
+        # Only show zap animation if toon doesn't have shield
+        if not hasShield:
+            self.d_showZapToon(avId, x, y, z, h, p, r, attackCode, timestamp)
 
         damage = self.ruleset.CFO_ATTACKS_BASE_DAMAGE.get(attackCode)
         if damage == None:
@@ -330,6 +355,70 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
         self.toonsWon = False
 
+    def pieHitBoss(self, pieType):
+        """Called when a pie hits the CFO's head"""
+        print('[CFO] pieHitBoss called! pieType=%s' % pieType)
+        avId = self.air.getAvatarIdFromSender()
+        print('[CFO] pieHitBoss: avId=%s, participants=%s' % (avId, self.game.getParticipants()))
+        
+        if not self.validate(avId, avId in self.game.getParticipants(), 'pieHitBoss from unknown avatar'):
+            print('[CFO] pieHitBoss: Invalid avatar %s' % avId)
+            return
+        
+        # Don't process if the game is not in play state (same check as recordHit)
+        gameState = self.game.gameFSM.getCurrentState().getName() if hasattr(self.game, 'gameFSM') else None
+        print('[CFO] pieHitBoss: gameState=%s' % gameState)
+        if gameState != 'play':
+            print('[CFO] pieHitBoss: Game not in play state, current state: %s' % gameState)
+            return
+        
+        # Check if this is a TNT pie (pieType 8)
+        isTNT = (pieType == 8)
+        isAlreadyStunned = (self.attackCode == ToontownGlobals.BossCogDizzy or self.attackCode == ToontownGlobals.BossCogDizzyNow)
+        hasHelmet = (self.heldObject is not None)
+        
+        print('[CFO] pieHitBoss: isTNT=%s, isAlreadyStunned=%s, hasHelmet=%s' % (isTNT, isAlreadyStunned, hasHelmet))
+        
+        # If TNT, check if CFO has helmet - if so, don't deal damage or stun
+        if isTNT:
+            if hasHelmet:
+                print('[CFO] pieHitBoss: TNT hit but CFO has helmet - no damage or stun')
+                return
+            print('[CFO] pieHitBoss: TNT hit - dealing 5 damage')
+            self.game.recordHit(
+                10,  # 5 damage for TNT
+                impact=0.99,  # High impact for visual effect
+                craneId=-1,  # No crane
+                objId=0,  # No object
+                isGoon=False,
+                isDOT=False,
+                avIdOverride=avId,
+                forceStun=(not isAlreadyStunned)  # Stun if not already stunned
+            )
+            print('[CFO] pieHitBoss: TNT damage and stun recorded')
+            return
+        
+        # For non-TNT pies, only stun if not already stunned
+        if isAlreadyStunned:
+            print('[CFO] pieHitBoss: CFO already stunned, ignoring non-TNT pie')
+            return
+        
+        print('[CFO] pieHitBoss: Processing non-TNT pie hit from avatar %s, calling recordHit for stun' % avId)
+        
+        # Record hit with 0 damage and forceStun=True to stun the CFO
+        # This will cause flinch animation and stun, similar to goons
+        self.game.recordHit(
+            0,  # 0 damage for non-TNT pies
+            impact=0.99,  # High impact for visual effect
+            craneId=-1,  # No crane
+            objId=0,  # No object
+            isGoon=False,
+            isDOT=False,
+            avIdOverride=avId,
+            forceStun=True  # Force stun regardless of damage threshold
+        )
+        print('[CFO] pieHitBoss: recordHit called for stun')
+    
     def cleanupBossBattle(self):
         self.stopAttacks()
         self.stopHelmets()
@@ -458,8 +547,9 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         damage = 3
         appliedByAvId = burnData['appliedByAvId']
         
+        # Use recordHitWithAttribution to ensure damage is attributed to the correct player
         # Use isDOT=True to prevent flinching and combo credit
-        self.game.recordHit(damage, impact=0, craneId=0, objId=0, isGoon=False, isDOT=True)
+        self.game.recordHitWithAttribution(damage, appliedByAvId, impact=0, craneId=0, objId=0, isGoon=False, isDOT=True)
         
         burnData['ticksRemaining'] -= 1
         
@@ -1047,7 +1137,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         if droneType is None:
             droneType = CraneLeagueGlobals.DroneType.LASER
         
-        # For heal and explosive drones, we don't need opponents check
+        # For heal, explodey, stun, and shield drones, we don't need opponents check
         if droneType == CraneLeagueGlobals.DroneType.LASER:
             # Check if there are any opponents (toons other than the owner)
             if not self.game:
@@ -1068,9 +1158,31 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         toonPos = toon.getPos()
         dronePos = Point3(toonPos.getX(), toonPos.getY(), toonPos.getZ() + 15)  # 15 units above
         
-        # Create the drone with specified type
-        from toontown.coghq import DistributedGoonDroneAI
-        drone = DistributedGoonDroneAI.DistributedGoonDroneAI(self.air, self, toonId, droneType)
+        # Create the drone with specified type - use specialized classes
+        # Select the appropriate drone class based on type
+        if droneType == CraneLeagueGlobals.DroneType.LASER:
+            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.HEAL:
+            from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
+            drone = DistributedGoonDroneHealAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+            from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
+            drone = DistributedGoonDroneExplodeyAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.STUN:
+            from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
+            drone = DistributedGoonDroneStunAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.SHIELD:
+            from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
+            drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
+        elif droneType == CraneLeagueGlobals.DroneType.GHOSTY:
+            from toontown.coghq.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
+            drone = DistributedGoonDroneGhostyAI(self.air, self, toonId)
+        else:
+            self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
+            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
+        
         drone.generateWithRequired(self.zoneId)
         # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI
         # b_setPosition expects a tuple/list of (x, y, z)

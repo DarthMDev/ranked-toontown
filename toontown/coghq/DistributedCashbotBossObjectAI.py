@@ -60,8 +60,10 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
             self.demand('Free')
             p = self.getPos()
             h = self.getH()
-            self.setPosHpr(p[0], p[1], 0, h, 0, 0)
-            self.sendUpdate('updateClientPositions', [p[0], p[1], 0, h, 0, 0])
+            # Preserve the Z position instead of resetting to 0
+            # This allows objects to stay on platforms when entering Free state
+            self.setPosHpr(p[0], p[1], p[2], h, 0, 0)
+            self.sendUpdate('updateClientPositions', [p[0], p[1], p[2], h, 0, 0])
         return Task.done
         
         
@@ -120,7 +122,9 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         avId = self.air.getAvatarIdFromSender()
         
         if avId == self.avId:
-            self.setPosHpr(x, y, 0, h, 0, 0)
+            # Preserve the Z position instead of resetting to 0
+            # This allows objects to stay on platforms when entering Free state
+            self.setPosHpr(x, y, z, h, 0, 0)
             self.demand('WaitFree')
 
     def hitBoss(self, impact, craneId):

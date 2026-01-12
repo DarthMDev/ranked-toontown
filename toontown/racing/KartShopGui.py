@@ -9,7 +9,6 @@ from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownTimer
 from .KartShopGlobals import *
 from toontown.racing.Kart import Kart
-from toontown.shtiker.KartPage import KartViewer
 from .KartDNA import *
 from toontown.toontowngui.TeaserPanel import TeaserPanel
 if (__debug__):

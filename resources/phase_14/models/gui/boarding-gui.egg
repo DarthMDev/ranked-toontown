@@ -1,0 +1,125 @@
+<Comment> {
+  "egg-texture-cards -o boarding-gui_texcard.egg button-kick.png button-leavedisband.png button-promote.png button-selectgame.png button-start.png button-switch.png group-frame.png status-leader.png status-notready.png status-ready.png"
+}
+<Texture> status-ready {
+  status-ready.png
+}
+<Texture> status-notready {
+  status-notready.png
+}
+<Texture> status-leader {
+  status-leader.png
+}
+<Texture> group-frame {
+  group-frame.png
+}
+<Texture> button-switch {
+  button-switch.png
+}
+<Texture> button-start {
+  button-start.png
+}
+<Texture> button-selectgame {
+  button-selectgame.png
+}
+<Texture> button-promote {
+  button-promote.png
+}
+<Texture> button-leavedisband {
+  button-leavedisband.png
+}
+<Texture> button-kick {
+  button-kick.png
+}
+<Group> {
+  <Switch> { 1 }
+  <Scalar> fps { 2 }
+  <VertexPool> vpool {
+    <Vertex> 0 {
+      -0.5 0.5 0
+      <UV> { 0 1 }
+    }
+    <Vertex> 1 {
+      -0.5 -0.5 0
+      <UV> { 0 0 }
+    }
+    <Vertex> 2 {
+      0.5 -0.5 0
+      <UV> { 1 0 }
+    }
+    <Vertex> 3 {
+      0.5 0.5 0
+      <UV> { 1 1 }
+    }
+  }
+  <Group> button-kick {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-kick }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> button-leavedisband {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-leavedisband }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> button-promote {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-promote }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> button-selectgame {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-selectgame }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> button-start {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-start }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> button-switch {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { button-switch }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> group-frame {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { group-frame }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> status-leader {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { status-leader }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> status-notready {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { status-notready }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+  <Group> status-ready {
+    <Polygon> {
+      <RGBA> { 1 1 1 1 }
+      <TRef> { status-ready }
+      <VertexRef> { 0 1 2 3 <Ref> { vpool } }
+    }
+  }
+}

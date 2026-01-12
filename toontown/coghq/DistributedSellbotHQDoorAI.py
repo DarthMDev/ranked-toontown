@@ -36,10 +36,6 @@ class DistributedSellbotHQDoorAI(DistributedCogHQDoorAI.DistributedCogHQDoorAI):
                 parts = av.getCogParts()
                 dept = ToontownGlobals.cogHQZoneId2deptIndex(self.destinationZone)
                 if CogDisguiseGlobals.isPaidSuitComplete(av, parts, dept):
-                    if av.getCogMerits()[dept] >= CogDisguiseGlobals.getTotalMerits(av, dept):
-                        suitType = CogDisguiseGlobals.suitTypes.FullSuit
-                    else:
-                        suitType = CogDisguiseGlobals.suitTypes.NoMerits
                     allowed = 1
                 else:
                     suitType = CogDisguiseGlobals.suitTypes.NoSuit

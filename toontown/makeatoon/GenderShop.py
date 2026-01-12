@@ -97,7 +97,8 @@ class GenderShop(StateData.StateData):
             self.toon.stopLookAroundNow()
             self.toon.delete()
         self.dna = ToonDNA.ToonDNA()
-        self.dna.newToonRandom(gender=gender, stage=1)
+        # Default to modern (0) for new toons
+        self.dna.newToonRandom(gender=gender, stage=1, modelStyle=0)
         self.toon = Toon.Toon()
         self.toon.setDNA(self.dna)
         self.toon.useLOD(1000)

@@ -314,8 +314,6 @@ class DistributedEstateAI(DistributedObjectAI):
             # av.toonUp(maxHp)
             self.sendUpdate('awardedTrophy', [avId])
 
-        av.b_setGardenTrophies(list(range(len(collection) // 10)))
-
     def setClouds(self, clouds):
         self.clouds = clouds
 

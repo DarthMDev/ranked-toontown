@@ -7,6 +7,8 @@ from libotp import CFSpeech, CFTimeout
 from toontown.friends.OnlineToon import OnlineToon
 from toontown.groups import GroupGlobals
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
+from toontown.toonbase import ToontownGlobals
+from toontown.ui.UIHelpers import coords_to_pos, px_to_scale, fontpx_to_scale
 
 if typing.TYPE_CHECKING:
     from toontown.groups.DistributedGroup import DistributedGroup
@@ -14,13 +16,11 @@ if typing.TYPE_CHECKING:
 
 class GroupInterface(DirectFrame):
 
-    GUI_MODEL_PATH = 'phase_14/models/gui/boarding-gui'
+    GUI_MODEL_PATH = 'phase_14/models/gui/boarding-gui.egg'
 
     OPTS = {
-        'pos': (.38, 0, -.05),
-        'scale': 1.3,
-        'image_scale': (.5, 1, 1),
-        'frameSize': (-.24, .24, -.49, .49),
+        'pos': coords_to_pos(208.5734, 540),
+        'image_scale': px_to_scale(332, 704),
         'frameColor': (1, 1, 1, 0)
     }
 
@@ -38,6 +38,7 @@ class GroupInterface(DirectFrame):
 
         # Load in the elements we need.
         model = loader.loadModel(GroupInterface.GUI_MODEL_PATH)
+        uiFont2 = loader.loadFont('phase_3/models/fonts/Vipnagorgialla-Bd-It.otf')
 
         # Find the textures we need.
         frameTexture = model.find('**/group-frame')
@@ -52,33 +53,37 @@ class GroupInterface(DirectFrame):
 
         leaderTexture = model.find('**/status-leader')
         notReadyStatusTexture = model.find('**/status-notready')
-        readyStatusTexture = model.find('**/ready-final')
+        readyStatusTexture = model.find('**/status-ready')
 
         # Apply any keywords that our highest level frame needs.
         kw.update(GroupInterface.OPTS)
         kw['image'] = frameTexture
-        kw['parent'] = base.a2dLeftCenter
+        kw['parent'] = base.aspect2d
 
         # Initialize the underlying frame.
         super().__init__(**kw)
         self.initialiseoptions(GroupInterface)
 
         # Create any other elements that should be on this frame immediately when it is created.
-        self.gameSettingsButton = DirectButton(parent=self, text='Crane Game', text_pos=(0, -.12), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(GroupInterface.GAME_OPTIONS_BUTTON_TEXT_SCALE / GroupInterface.GAME_OPTIONS_BUTTON_STRETCH_FACTOR, GroupInterface.GAME_OPTIONS_BUTTON_TEXT_SCALE), text_align=TextNode.ABoxedCenter, scale=(.115*GroupInterface.GAME_OPTIONS_BUTTON_STRETCH_FACTOR, .115, .115), relief=None, pos=(0, 0, -.294),image=selectGameTexture, command=self.__onGameSettingsClicked)
-        self.leaveButton = DirectButton(parent=self, scale=.115, relief=None, pos=(.16, 0, -.413), image=leaveTexture, command=self.__onLeaveClicked)
-        self.startButton = DirectButton(parent=self, text='Start!', text_pos=(0, -.15), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(GroupInterface.START_BUTTON_TEXT_SCALE / GroupInterface.START_BUTTON_STRETCH_FACTOR, GroupInterface.START_BUTTON_TEXT_SCALE), text_align=TextNode.ABoxedCenter, scale=(.115 * GroupInterface.START_BUTTON_STRETCH_FACTOR, .115, .115), relief=None, pos=(-.06, 0, -.413), image=playGameTexture, command=self.__onPlayClicked)
+        self.gameSettingsButton = DirectButton(parent=base.aspect2d, text='Crane Game', text_font=uiFont2, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(0.08, 0.08, 1), text_pos=(-0.018, -0.02, 0), image_scale=px_to_scale(308, 78), pos=coords_to_pos(208.5734, 757.75), relief=None,image=selectGameTexture, command=self.__onGameSettingsClicked)
+        self.__updateMinigameLabel()
+        self.leaveButton = DirectButton(parent=base.aspect2d, image_scale=px_to_scale(78,78), relief=None, pos=coords_to_pos(323.5082, 842.75), image=leaveTexture, command=self.__onLeaveClicked)
+        self.startButton = DirectButton(parent=base.aspect2d, text='Start!', text_font=uiFont2, text_pos=(-0.01, -0.02, 0), text_scale=(0.09, 0.09, 1), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), relief=None, image=playGameTexture, pos=coords_to_pos(166.6386, 842.75), image_scale=px_to_scale(224,78), command=self.__onPlayClicked)
+
         self.rows: list[GroupInterfaceMemberButton] = []
         for i in range(GroupInterface.MEMBER_ROWS):
             pos = (GroupInterfaceMemberButton.X_ORIGIN, 0, GroupInterfaceMemberButton.Y_ORIGIN + GroupInterfaceMemberButton.Y_PADDING * i)
             textures = (promoteTexture, switchTeamTexture, kickTexture,
                         leaderTexture, readyStatusTexture, notReadyStatusTexture)
-            button = GroupInterfaceMemberButton(textures, parent=self, pos=pos)
+            button = GroupInterfaceMemberButton(textures, parent=base.aspect2d, pos=pos)
             # Bind a special hover event to this button to handle the sub option hiding/showing.
             button.bind(DGG.ENTER, self.__onHoverRow, extraArgs=[button])
             self.rows.append(button)
 
         # Cleanup.
         model.removeNode()
+
+        self.accept(self.group.uniqueName('minigame-updated'), self.__updateMinigameLabel)
 
     def updateMembers(self, members: list[GroupMemberStruct]):
         self.clearMembers()
@@ -99,8 +104,25 @@ class GroupInterface(DirectFrame):
     Button Handlers
     """
 
+    def __updateMinigameLabel(self):
+        self.gameSettingsButton.setText(ToontownGlobals.MinigameId2Name.get(self.group.minigameType, "???"))
+
+        if "\n" in self.gameSettingsButton['text']:
+            self.gameSettingsButton['text_scale'] = (0.055, 0.055, 1)
+            self.gameSettingsButton['text_pos'] = (-0.01, 0.02, 0)
+        else:
+            self.gameSettingsButton['text_scale'] = (0.08, 0.08, 1)
+            self.gameSettingsButton['text_pos'] = (-0.01, -0.02, 0)
+
     def __onGameSettingsClicked(self):
-        base.localAvatar.setChatAbsolute("I WANT TO CHANGE THE GAME!!!", CFSpeech | CFTimeout)
+        try:
+            _index = ToontownGlobals.ValidMinigameIds.index(self.group.minigameType)
+        except ValueError:
+            _index = -1
+        _index += 1
+        if _index >= len(ToontownGlobals.ValidMinigameIds):
+            _index = 0
+        base.localAvatar.getGroupManager().requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
 
     def __onLeaveClicked(self):
         """
@@ -134,6 +156,7 @@ class GroupInterface(DirectFrame):
         for button in self.rows:
             button.destroy()
         self.rows.clear()
+        self.ignoreAll()
 
 
 class GroupInterfaceMemberButton(DirectButton):
@@ -142,30 +165,33 @@ class GroupInterfaceMemberButton(DirectButton):
     There should be 16 of these rows that can fit into the entire frame.
     """
 
-    DEFAULT_TEXT = "Waiting for toon...."
+    DEFAULT_TEXT = "Waiting for toon..."
 
     BUTTON_SCALE = 1
-    TEXT_SCALE = .025
+    TEXT_SCALE = .0375
+
+    uiFont1 = loader.loadFont('phase_3/models/fonts/TitilliumWeb-Bold.ttf')
 
     OPTS = {
         'relief': DGG.FLAT,
         'scale': BUTTON_SCALE,
         'text': "Waiting for toon...",
+        'text_font' : uiFont1,
         'text_align': TextNode.ALeft,
         'text_scale': TEXT_SCALE,
-        'text_pos': (0, -.005),
+        'text_pos': (.045, -.009),
         'textMayChange': 1,
-        'frameSize': (0, .391, -.015, .015),
+        'frameSize': (0, 0.5703703703703704, -0.044444444444444446/2, 0.044444444444444446/2),
         'frameColor': (1, 1, 1, 0)
     }
 
-    HOVER_FRAME_COLOR = (.6, .8, 1, .2)
+    HOVER_FRAME_COLOR = (.0625, .0625, 0.109375, 1)
 
-    X_ORIGIN = -0.18
-    Y_ORIGIN = .31
-    Y_PADDING = -.035
+    X_ORIGIN = -1.6767159259259259
+    Y_ORIGIN = 0.38356481481481486
+    Y_PADDING = -0.7111111111111111/16
 
-    SUBOPTION_BUTTON_SCALE = .035
+    SUBOPTION_BUTTON_SCALE = .04
 
     STATUS_EMPTY = 0
     STATUS_LEADER = 1
@@ -188,10 +214,11 @@ class GroupInterfaceMemberButton(DirectButton):
         self._leaderTexture = leaderTexture
         self._readyTexture = readyTexture
         self._notReadyTexture = notReadyTexture
-        self.promoteButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.34, 0, 0), image=promoteTexture, command=self.__onPromoteClicked)
-        self.switchButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.305, 0, 0), image=switchTexture, command=self.__onSwitchClicked)
-        self.kickButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.375, 0, 0), image=kickTexture, command=self.__onKickClicked)
-        self.statusLabel = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE * .65, pos=(-.02, 0, 0), image=self._notReadyTexture)
+        self.promoteButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.508, 0, 0), image=promoteTexture, command=self.__onPromoteClicked)
+        self.switchButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.465, 0, 0), image=switchTexture, command=self.__onSwitchClicked)
+        self.kickButton = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE, pos=(.55, 0, 0), image=kickTexture, command=self.__onKickClicked)
+
+        self.statusLabel = DirectButton(parent=self, relief=None, scale=GroupInterfaceMemberButton.SUBOPTION_BUTTON_SCALE * .65, pos=(0.02, 0, 0), image=self._notReadyTexture)
         self.hideOptions()
 
         # Now bind hover events to the buttons so the user knows what they do.
@@ -212,7 +239,7 @@ class GroupInterfaceMemberButton(DirectButton):
             name = onlineToon.name
         self.avatar = onlineToon
         self.avatarID = member.avId
-        self['text_fg'] = (.3, .3, .3, 1) if member.team == GroupGlobals.TEAM_SPECTATOR else (.25, .25, .6, 1)
+        self['text_fg'] = (1, 1, 1, 0.5) if member.team == GroupGlobals.TEAM_SPECTATOR else (1, 1, 1, 1)
         self['state'] = DGG.NORMAL
         self['text'] = name
 
@@ -229,13 +256,17 @@ class GroupInterfaceMemberButton(DirectButton):
         match code:
             case GroupInterfaceMemberButton.STATUS_READY:
                 self.statusLabel['image'] = self._readyTexture
+                self.statusLabel['image_scale'] = (1.5*0.7, 1, 1.15385*0.7)
             case GroupInterfaceMemberButton.STATUS_UNREADY:
                 self.statusLabel['image'] = self._notReadyTexture
+                self.statusLabel['image_scale'] = (1,1,1)
             case GroupInterfaceMemberButton.STATUS_LEADER:
                 self.statusLabel['image'] = self._leaderTexture
+                self.statusLabel['image_scale'] = (1.6731833333333332*0.75, 1, 1.2757166666666666*0.75)
             case GroupInterfaceMemberButton.STATUS_EMPTY:
                 self.statusLabel['image'] = self._notReadyTexture
-                self.statusLabel.setColorScale(.25, .25, .25, .75)
+                self.statusLabel['image_scale'] = (1,1,1)
+                self.statusLabel.setColorScale(1, 1, 1, 0.35)
 
     def updateStateFromGroup(self, group):
 

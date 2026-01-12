@@ -12,6 +12,7 @@ from toontown.coghq import ScaleLeagueGlobals
 from toontown.coghq.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedLawbotBossGavelAI import DistributedLawbotBossGavelAI
 from toontown.coghq.DistributedLawbotChairAI import DistributedLawbotChairAI
+from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
 from toontown.suit.DistributedLawbotBossSuitAI import DistributedLawbotBossSuitAI
@@ -75,6 +76,10 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.boss.generateWithRequired(self.zoneId)
 
         super().generate()
+
+    def announceGenerate(self):
+        super().announceGenerate()
+        self.b_setProfileSkillKey(SkillProfileKey.SCALE)
 
     def cleanup(self) -> None:
         if self.boss is not None:
@@ -155,7 +160,10 @@ class DistributedScaleGameAI(DistributedMinigameAI):
                 av.stopToonUp()
 
                 # Give the toon a nice heal.
-                av.b_setHp(av.getMaxHp())
+                if self.ruleset.FORCE_MAX_LAFF:
+                    av.b_setMaxHp(self.ruleset.FORCE_MAX_LAFF_AMOUNT)
+                if self.ruleset.HEAL_TOONS_ON_START:
+                    av.b_setHp(av.getMaxHp())
 
         self.initializeComboTrackers()
         self.listenForToonDeaths()
@@ -185,7 +193,8 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.d_updateTimer(actualTime)
 
     def enterVictory(self):
-        victorId = max(self.scoreDict.items(), key=itemgetter(1))[0]
+
+        victorId = max(self.getScoringContext().get_round(0).get_all_scores().items(), key=itemgetter(1))[0]
         self.sendUpdate("declareVictor", [victorId])
         taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("scaleGameVictory"), extraArgs=[])
 
@@ -311,14 +320,14 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.sendUpdate('toonDied', [toon.doId])
 
         # Add a task to revive the toon.
-        taskMgr.doMethodLater(5, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
+        taskMgr.doMethodLater(self.ruleset.REVIVE_TOONS_TIME, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
 
     def reviveToon(self, toonId: int) -> None:
         toon = self.air.getDo(toonId)
         if toon is None:
             return
 
-        toon.b_setHp(1)
+        toon.b_setHp(max(1, toon.getMaxHp() * self.ruleset.REVIVE_TOONS_LAFF_PERCENTAGE))
 
         self.sendUpdate("revivedToon", [toonId])
 
@@ -343,15 +352,15 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.sendUpdate('awardCombo', [avId, comboLength, amount])
 
     def d_damageDealt(self, avId, dmg):
-        self.scoreDict[avId] += dmg
+        self.getScoringContext().get_round(0).add_score(avId, dmg)
         self.sendUpdate('updateDamageDealt', [avId, dmg])
 
     def d_stunBonus(self, avId, points):
-        self.scoreDict[avId] += points
+        self.getScoringContext().get_round(0).add_score(avId, points)
         self.sendUpdate('updateStunCount', [avId, points])
 
     def d_avHealed(self, avId, hp):
-        self.scoreDict[avId] += hp
+        self.getScoringContext().get_round(0).add_score(avId, hp)
         self.sendUpdate('avHealed', [avId, hp])
 
     def d_updateTimer(self, time):
@@ -476,14 +485,16 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         if self.gameFSM.getCurrentState().getName() != "play":
             return
 
-        bossDamage = self.weightPerToon + 1
-        bossDamage = min(self.boss.getBossDamage() + bossDamage, self.boss.bossMaxDamage)
+        dmg = self.weightPerToon + 1
+        if self.bonusState:
+            dmg *= ToontownGlobals.LawbotBossBonusWeightMultiplier
+        bossDamage = min(self.boss.getBossDamage() + dmg, self.boss.bossMaxDamage)
         self.boss.b_setBossDamage(bossDamage, 0, 0)
         if self.boss.bossDamage >= self.boss.bossMaxDamage:
             self.gameFSM.request('victory')
 
         self.incrementCombo(avId, int(round(self.getComboLength(avId)) / 5 + 1))
-        self.d_damageDealt(avId, bossDamage)
+        self.d_damageDealt(avId, dmg)
 
     def healBoss(self, bossHeal):
         if self.gameFSM.getCurrentState().getName() != "play":

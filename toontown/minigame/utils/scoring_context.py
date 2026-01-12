@@ -61,6 +61,12 @@ class RoundContext:
         """
         self._player_id_to_score.clear()
 
+    def set_score(self, player_id, score):
+        """
+        Sets the score of this player to the given score.
+        """
+        self._player_id_to_score[player_id] = score
+
 
 class ScoringContext:
     """

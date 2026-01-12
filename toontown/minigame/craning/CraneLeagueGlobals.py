@@ -145,6 +145,7 @@ class CraneGameRuleset:
 
         self.WANT_BACKWALL = False
         self.WANT_SIDECRANES = True
+        self.WANT_BOOM_BARROWS = False
         self.WANT_HEAVY_CRANES = False
 
         # Set to true to allow toons to "un-stun" the CFO by bumping into him.
@@ -155,6 +156,9 @@ class CraneGameRuleset:
         
         # Drone mechanic
         self.WANT_DRONES = False
+
+        # Remove impact cap modifier
+        self.REMOVE_IMPACT_CAP = False  # When true, removes the 1.0 cap on impact calculations
 
         self.HEAVY_CRANE_DAMAGE_MULTIPLIER = 1.25
 
@@ -322,6 +326,7 @@ class CraneGameRuleset:
             self.SAFES_STUN_GOONS,
             self.GOONS_ALWAYS_WAKE_WHEN_GRABBED,
             self.WANT_DRONES,
+            self.REMOVE_IMPACT_CAP,
         ]
 
     @classmethod
@@ -356,6 +361,7 @@ class CraneGameRuleset:
         rulesetInstance.SAFES_STUN_GOONS = attrs[26]
         rulesetInstance.GOONS_ALWAYS_WAKE_WHEN_GRABBED = attrs[27]
         rulesetInstance.WANT_DRONES = attrs[28]
+        rulesetInstance.REMOVE_IMPACT_CAP = attrs[29]
         return rulesetInstance
 
     def __str__(self):
@@ -1548,7 +1554,9 @@ class ModifierSideCranesEnabler(CFORulesetModifierBase):
         return -1  # Helpful modifier, reduces difficulty
     
     def apply(self, cfoRuleset):
+        # Pie stands and side cranes are mutually exclusive peripherals
         cfoRuleset.WANT_SIDECRANES = True
+        cfoRuleset.WANT_BOOM_BARROWS = False
 
 
 class ModifierBackWallEnabler(CFORulesetModifierBase):
@@ -1570,6 +1578,53 @@ class ModifierBackWallEnabler(CFORulesetModifierBase):
     
     def apply(self, cfoRuleset):
         cfoRuleset.WANT_BACKWALL = True
+
+
+class ModifierBoomBarrowsEnabler(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 37
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Boom Barrows'
+
+    def getDescription(self):
+        return f'Enables %(color_start)sBoom Barrows%(color_end)s that grant TNTs!'
+    
+    def getHeat(self):
+        return -1  # Helpful modifier, reduces difficulty
+    
+    def apply(self, cfoRuleset):
+        # Pie stands and side cranes are mutually exclusive peripherals
+        cfoRuleset.WANT_SIDECRANES = False
+        cfoRuleset.WANT_BOOM_BARROWS = True
+
+
+# (+) Uncapped Impact
+# --------------------------------
+# - Removes the 1.0 cap on impact calculations, allowing for higher impact values
+class ModifierRemoveImpactCap(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 38
+    MODIFIER_TYPE = CFORulesetModifierBase.HELPFUL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_GREEN
+    DESCRIPTION_COLOR = CFORulesetModifierBase.GREEN
+
+    def getName(self):
+        return 'Uncapped Impact'
+
+    def getDescription(self):
+        return 'Removes the %(color_start)s1.0 impact cap%(color_end)s, allowing for higher impact values'
+
+    def getHeat(self):
+        return -2  # Helpful modifier, reduces difficulty by allowing higher damage
+
+    def apply(self, cfoRuleset):
+        cfoRuleset.REMOVE_IMPACT_CAP = True
 
 
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point
@@ -1607,8 +1662,10 @@ class DroneType(Enum):
     """Types of drones that can be deployed."""
     LASER = 0  # Red hat - shoots lasers at opponents
     HEAL = 1   # Green hat - heals deployer to full laff
-    EXPLOSIVE = 2  # Orange hat - flies to CFO, explodes, deals damage
+    EXPLODEY = 2  # Orange hat - flies to CFO, explodes, deals damage
     STUN = 3  # Blue hat - sends out a shockwave and stomps all goons currently active in the room
+    SHIELD = 4  # Cyan hat - creates a protective shield that absorbs one hit
+    GHOSTY = 5  # Purple hat - ghosts opponent's nearest 2 safes, making them pass through everything
     
     def getHatColor(self):
         """Get the hat color for this drone type."""
@@ -1616,22 +1673,30 @@ class DroneType(Enum):
             return (1.0, 0.2, 0.2, 1.0)  # Red
         elif self == DroneType.HEAL:
             return (0.2, 1.0, 0.2, 1.0)  # Green
-        elif self == DroneType.EXPLOSIVE:
+        elif self == DroneType.EXPLODEY:
             return (1.0, 0.6, 0.2, 1.0)  # Orange
         elif self == DroneType.STUN:
             return 0.2, 0.2, 1.0, 1.0  # Blue
+        elif self == DroneType.SHIELD:
+            return (0.0, 0.8, 1.0, 1.0)  # Cyan
+        elif self == DroneType.GHOSTY:
+            return (0.5, 0.0, 0.8, 1.0)  # Purple
         return (0.5, 0.5, 0.5, 1.0)  # Default gray
     
     def getName(self):
         """Get the display name for this drone type."""
         if self == DroneType.LASER:
-            return "Laser Drone"
+            return "Pewpew"
         elif self == DroneType.HEAL:
-            return "Heal Drone"
-        elif self == DroneType.EXPLOSIVE:
-            return "Explosive Drone"
+            return "Nurse"
+        elif self == DroneType.EXPLODEY:
+            return "Xplodey"
         elif self == DroneType.STUN:
-            return "Stun Drone"
+            return "Stunna"
+        elif self == DroneType.SHIELD:
+            return "Michael"
+        elif self == DroneType.GHOSTY:
+            return "Poofy"
         return "Unknown Drone"
 
 

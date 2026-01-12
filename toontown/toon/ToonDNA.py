@@ -2489,6 +2489,7 @@ class ToonDNA(AvatarDNA.AvatarDNA):
             return
 
         self.type = 'u'
+        self.modelStyle = 0  # 0 = modern/TTR, 1 = retro/Clash
         self.cache = ()
 
     def __str__(self):
@@ -2536,6 +2537,9 @@ class ToonDNA(AvatarDNA.AvatarDNA):
             dg.addUint8(self.gloveColor)
             dg.addUint8(self.legColor)
             dg.addUint8(self.headColor)
+            # Add modelStyle (0 = modern/TTR, 1 = retro/Clash)
+            modelStyle = getattr(self, 'modelStyle', 0)
+            dg.addUint8(modelStyle)
         elif self.type == 'u':
             notify.error('undefined avatar')
         else:
@@ -2545,7 +2549,9 @@ class ToonDNA(AvatarDNA.AvatarDNA):
     def isValidNetString(self, string):
         dg = PyDatagram(string)
         dgi = PyDatagramIterator(dg)
-        if dgi.getRemainingSize() != 15:
+        remainingSize = dgi.getRemainingSize()
+        # Accept both old format (15 bytes) and new format (16 bytes with modelStyle)
+        if remainingSize != 15 and remainingSize != 16:
             return False
         type = dgi.getFixedString(1)
         if type not in ('t',):
@@ -2622,6 +2628,11 @@ class ToonDNA(AvatarDNA.AvatarDNA):
             self.gloveColor = dgi.getUint8()
             self.legColor = dgi.getUint8()
             self.headColor = dgi.getUint8()
+            # Read modelStyle if present (new format), default to 0 for backward compatibility
+            if dgi.getRemainingSize() > 0:
+                self.modelStyle = dgi.getUint8()
+            else:
+                self.modelStyle = 0
         else:
             notify.error('unknown avatar type: ', self.type)
         return None
@@ -2655,11 +2666,12 @@ class ToonDNA(AvatarDNA.AvatarDNA):
             self.legColor = color
             self.headColor = color
             self.gloveColor = 0
+            self.modelStyle = 0
         else:
             notify.error("tuple must be in format ('%s', '%s', '%s', '%s')")
         return
 
-    def newToonFromProperties(self, head, torso, legs, gender, armColor, gloveColor, legColor, headColor, topTexture, topTextureColor, sleeveTexture, sleeveTextureColor, bottomTexture, bottomTextureColor):
+    def newToonFromProperties(self, head, torso, legs, gender, armColor, gloveColor, legColor, headColor, topTexture, topTextureColor, sleeveTexture, sleeveTextureColor, bottomTexture, bottomTextureColor, modelStyle = 0):
         self.type = 't'
         self.head = head
         self.torso = torso
@@ -2675,8 +2687,9 @@ class ToonDNA(AvatarDNA.AvatarDNA):
         self.sleeveTexColor = sleeveTextureColor
         self.botTex = bottomTexture
         self.botTexColor = bottomTextureColor
+        self.modelStyle = modelStyle
 
-    def updateToonProperties(self, head = None, torso = None, legs = None, gender = None, armColor = None, gloveColor = None, legColor = None, headColor = None, topTexture = None, topTextureColor = None, sleeveTexture = None, sleeveTextureColor = None, bottomTexture = None, bottomTextureColor = None, shirt = None, bottom = None):
+    def updateToonProperties(self, head = None, torso = None, legs = None, gender = None, armColor = None, gloveColor = None, legColor = None, headColor = None, topTexture = None, topTextureColor = None, sleeveTexture = None, sleeveTextureColor = None, bottomTexture = None, bottomTextureColor = None, shirt = None, bottom = None, modelStyle = None):
         if head:
             self.head = head
         if torso:
@@ -2717,14 +2730,17 @@ class ToonDNA(AvatarDNA.AvatarDNA):
             defn = BottomStyles[str]
             self.botTex = defn[0]
             self.botTexColor = defn[1][colorIndex]
+        if modelStyle is not None:
+            self.modelStyle = modelStyle
 
-    def newToonRandom(self, seed = None, gender = 'm', npc = 0, stage = None):
+    def newToonRandom(self, seed = None, gender = 'm', npc = 0, stage = None, modelStyle = 0):
         if seed:
             generator = random.Random()
             generator.seed(seed)
         else:
             generator = random
         self.type = 't'
+        self.modelStyle = modelStyle
         self.legs = generator.choice(toonLegTypes + ['m',
          'l',
          'l',
@@ -2788,7 +2804,8 @@ class ToonDNA(AvatarDNA.AvatarDNA):
          self.sleeveTex,
          self.sleeveTexColor,
          self.botTex,
-         self.botTexColor)
+         self.botTexColor,
+         getattr(self, 'modelStyle', 0))
 
     def getType(self):
         if self.type == 't':

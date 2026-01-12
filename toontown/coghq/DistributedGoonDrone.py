@@ -13,8 +13,34 @@ from toontown.effects import DustCloud
 from panda3d.core import Vec2, Vec3
 import math
 
-class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushableEntity.DistributedCrushableEntity):
-    """A drone goon that flies around and targets opponents."""
+"""
+DEPRECATED: This file is kept for backwards compatibility.
+The drone system has been refactored into specialized classes.
+
+New structure:
+- DistributedGoonDroneBase - Base class with common functionality
+- DistributedGoonDroneLaser - Laser drone implementation
+- DistributedGoonDroneHeal - Heal drone implementation  
+- DistributedGoonDroneExplodey - Explodey drone implementation
+- DistributedGoonDroneStun - Stun drone implementation
+
+This file now acts as a compatibility layer that routes to the appropriate class.
+"""
+
+from toontown.coghq.DistributedGoonDroneLaser import DistributedGoonDroneLaser
+from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
+from toontown.coghq.DistributedGoonDroneExplodey import DistributedGoonDroneExplodey
+from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
+from toontown.coghq.DistributedGoonDroneShield import DistributedGoonDroneShield
+from toontown.coghq.DistributedGoonDroneGhosty import DistributedGoonDroneGhosty
+
+# For backwards compatibility, map the old class name to Laser drone
+# (since Laser was the default/original type)
+class DistributedGoonDrone(DistributedGoonDroneLaser):
+    """
+    Backwards compatibility wrapper.
+    Defaults to Laser drone behavior.
+    """
     
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedGoonDrone')
     
@@ -32,6 +58,11 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         self.laserShots = []
         self.behaviorSequence = None
         self.hitToons = set()  # Track toons hit by this drone's lasers to prevent multiple hits bypassing iframes
+        # Load laser sound effect
+        try:
+            self.laserPewSfx = base.loader.loadSfx('phase_3.5/audio/sfx/laser_drone_pew.ogg')
+        except:
+            self.laserPewSfx = None
         
     def setOwnerId(self, ownerId):
         """Set the owner ID (received from AI)."""
@@ -86,7 +117,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
                 taskMgr.remove(self.uniqueName('startBehavior'))
                 if self.droneType == CraneLeagueGlobals.DroneType.LASER:
                     self.startFlying()
-                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
+                elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
                     self.startFlyingToCFO()
         
     def generate(self):
@@ -118,7 +149,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
                         break
         
         # Check if there are any opponents (only for laser drones)
-        # Heal and explosive drones don't need opponents
+        # Heal and explodey drones don't need opponents
         if not hasattr(self, 'droneType'):
             self.droneType = CraneLeagueGlobals.DroneType.LASER  # Default
         
@@ -179,8 +210,8 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
                     elif self.droneType == CraneLeagueGlobals.DroneType.HEAL:
                         # Heal drone doesn't need target, just hover above owner
                         self.startHovering()
-                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE:
-                        # Explosive drone flies to CFO (targetId should be CFO's doId)
+                    elif self.droneType == CraneLeagueGlobals.DroneType.EXPLODEY:
+                        # Explodey drone flies to CFO (targetId should be CFO's doId)
                         if self.targetId or self.boss:
                             self.startFlyingToCFO()
                         else:
@@ -194,29 +225,17 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
     def setupSafeCollision(self):
         """Set up collision detection so safes can destroy this drone."""
         # Add collision sphere for safe detection
-        cn = CollisionNode('droneCollision')
-        cs = CollisionSphere(0, 0, 0, 4)
+        # Name it 'goon' so the safe's collision event pattern '-goon' matches
+        cn = CollisionNode('goon')
+        cs = CollisionSphere(0, 0, 4, 4)  # Same as regular goons
         cn.addSolid(cs)
-        cn.setIntoCollideMask(ToontownGlobals.CashbotBossObjectBitmask)
-        cn.setFromCollideMask(ToontownGlobals.CashbotBossObjectBitmask)
+        # Use PieBitmask so safes (which have PieBitmask in FromCollideMask) can collide with us
+        cn.setIntoCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.CashbotBossObjectBitmask)
         self.droneCollisionNodePath = self.attachNewNode(cn)
         
-        # Set up collision handler
-        from direct.directnotify import DirectNotifyGlobal
-        self.collisionEvent = self.uniqueName('droneHit')
-        self.collisionHandler = CollisionHandlerEvent()
-        self.collisionHandler.addInPattern(self.collisionEvent + '-%in')
-        base.cTrav.addCollider(self.droneCollisionNodePath, self.collisionHandler)
-        self.accept(self.collisionEvent + '-%in', self.handleSafeCollision)
-        
-    def handleSafeCollision(self, entry):
-        """Handle collision with a safe - destroy the drone."""
-        # Check if it's a safe
-        into = entry.getIntoNodePath()
-        if into and 'safe' in into.getName().lower():
-            self.sendUpdate('destroyDrone', [])
-            self.destroyDrone()
-            
+        # Set the doId tag on both the collision node path and the drone itself
+        self.droneCollisionNodePath.setTag('doId', str(self.doId))
+        self.setTag('doId', str(self.doId))
     def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect (called from AI or locally)."""
         if self.isEmpty():
@@ -246,10 +265,23 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         vanishDustCloud.play()
         self.hide()
     
+    def b_destroyGoon(self):
+        """Called by safes when they hit this drone."""
+        # Send update to AI to destroy this drone
+        self.sendUpdate('destroyDrone', [])
+        # Don't call destroyDrone() locally - wait for the AI broadcast
+    
+    def doLocalStun(self):
+        """Called by safes when SAFES_STUN_GOONS is enabled."""
+        # For drones, stunning just destroys them
+        self.b_destroyGoon()
+    
     def destroyDrone(self):
-        """Destroy the drone visually."""
-        # Clean up and remove
-        self.disable()
+        """Destroy the drone visually (called from AI broadcast)."""
+        if not self.isEmpty():
+            # Use the same crush effect as regular goons
+            self.playCrushMovie(None, None)
+        # Don't call disable() here - playCrushMovie handles cleanup via dead()
         
     def attachPropellers(self):
         """Attach rotating propellers to the goon's head."""
@@ -578,6 +610,10 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         
         targetPos = target.getPos(render)
         
+        # Play laser sound effect
+        if hasattr(self, 'laserPewSfx') and self.laserPewSfx:
+            self.laserPewSfx.play()
+        
         # Create laser visual effect
         self.createLaserEffect(eyePos, targetPos, target)
         
@@ -747,6 +783,14 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         # This prevents ANY laser in this volley from hitting them, regardless of iframes
         self.hitToons.add(toon.doId)
         
+        # Check if toon has active shield BEFORE any effects
+        hasShield = self._checkToonHasShield(toon.doId)
+        if hasShield:
+            # Shield will absorb the hit - skip all effects but still send damage request
+            # The AI will handle breaking the shield
+            self.sendUpdate('requestLaserHit', [toon.doId])
+            return  # Shield protects from visual effects and crane knockoff
+        
         # NOW check iframes - if toon has iframes, skip damage entirely
         # We DON'T remove from hitToons, so subsequent lasers in this volley also skip
         if toon.isStunned:
@@ -766,6 +810,18 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         # Knock toon off crane if they're on one - same as goons do
         if toon == base.localAvatar:
             messenger.send('exitCrane')
+    
+    def _checkToonHasShield(self, toonId):
+        """Check if a toon has an active shield drone."""
+        from toontown.coghq import CraneLeagueGlobals
+        # Check all drones in the scene to see if any are shield drones for this toon
+        for obj in base.cr.doId2do.values():
+            if hasattr(obj, 'getDroneType') and hasattr(obj, 'ownerId'):
+                if obj.getDroneType() == CraneLeagueGlobals.DroneType.SHIELD:
+                    if hasattr(obj, 'ownerId') and obj.ownerId == toonId:
+                        if hasattr(obj, 'shieldActive') and obj.shieldActive:
+                            return True
+        return False
         
     def startHovering(self):
         """Start hovering behavior for heal drone - just hovers above owner."""
@@ -780,7 +836,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         # Heal drone just hovers - the AI will trigger the heal after 2 seconds
     
     def startFlyingToCFO(self):
-        """Start flying to CFO for explosive drone."""
+        """Start flying to CFO for explodey drone."""
         # Find boss if not set - try multiple methods
         if not self.boss:
             # Method 1: Get from minigame
@@ -800,7 +856,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
                         break
         
         if not self.boss:
-            self.notify.warning('Explosive drone could not find CFO boss')
+            self.notify.warning('Explodey drone could not find CFO boss')
             self.vanishWithPoof()
             return
         
@@ -826,7 +882,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
         self.behaviorSequence.start()
     
     def onReachedCFO(self):
-        """Called when explosive drone reaches CFO."""
+        """Called when explodey drone reaches CFO."""
         # The AI will trigger the explosion, we just wait for the visual
         pass
     
@@ -879,7 +935,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             self.performStunVisualEffect()
         elif droneType == CraneLeagueGlobals.DroneType.HEAL.value:
             self.performHealVisualEffect()
-        elif droneType == CraneLeagueGlobals.DroneType.EXPLOSIVE.value:
+        elif droneType == CraneLeagueGlobals.DroneType.EXPLODEY.value:
             self.performExplodeVisualEffect()
     
     def disable(self):
@@ -902,10 +958,7 @@ class DistributedGoonDrone(DistributedGoon.DistributedGoon, DistributedCrushable
             self.propeller.cleanup()
             self.propeller.removeNode()
             self.propeller = None
-        if hasattr(self, 'collisionEvent'):
-            self.ignore(self.collisionEvent + '-%in')
         if hasattr(self, 'droneCollisionNodePath'):
-            base.cTrav.removeCollider(self.droneCollisionNodePath)
             self.droneCollisionNodePath.removeNode()
         taskMgr.remove(self.uniqueName('shootLasers'))
         # Remove all shootLaser tasks

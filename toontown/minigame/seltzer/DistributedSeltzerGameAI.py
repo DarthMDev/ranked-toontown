@@ -10,6 +10,7 @@ from toontown.coghq.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedBanquetTableAI import DistributedBanquetTableAI
 from toontown.coghq.DistributedFoodBeltAI import DistributedFoodBeltAI
 from toontown.coghq.DistributedGolfSpotAI import DistributedGolfSpotAI
+from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.suit.DistributedBossbotBossStrippedAI import DistributedBossbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
@@ -68,6 +69,10 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         self.boss.generateWithRequired(self.zoneId)
 
         super().generate()
+
+    def announceGenerate(self):
+        super().announceGenerate()
+        self.b_setProfileSkillKey(SkillProfileKey.SELTZER)
 
     def cleanup(self) -> None:
         self.deleteBanquetTables()
@@ -166,7 +171,7 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         self.d_updateTimer(actualTime)
 
     def enterVictory(self):
-        victorId = max(self.scoreDict.items(), key=itemgetter(1))[0]
+        victorId = max(self.getScoringContext().get_round(0).get_all_scores().items(), key=itemgetter(1))[0]
         self.sendUpdate("declareVictor", [victorId])
         taskMgr.doMethodLater(10, self.gameOver, self.uniqueName("seltzerGameVictory"), extraArgs=[])
 
@@ -274,6 +279,8 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         taskMgr.doMethodLater(5, self.reviveToon, self.uniqueName(f"reviveToon-{toon.doId}"), extraArgs=[toon.doId])
 
     def reviveToon(self, toonId: int) -> None:
+        if not hasattr(self, 'air'):
+            return
         toon = self.air.getDo(toonId)
         if toon is None:
             return
@@ -309,15 +316,15 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         self.sendUpdate("setBossCogId", [self.boss.getDoId()])
 
     def d_damageDealt(self, avId, dmg):
-        self.scoreDict[avId] += dmg
+        self.getScoringContext().get_round(0).add_score(avId, dmg)
         self.sendUpdate('updateDamageDealt', [avId, dmg])
 
     def d_stunBonus(self, avId, points):
-        self.scoreDict[avId] += points
+        self.getScoringContext().get_round(0).add_score(avId, points)
         self.sendUpdate('updateStunCount', [avId, points])
 
     def d_avHealed(self, avId, hp):
-        self.scoreDict[avId] += hp
+        self.getScoringContext().get_round(0).add_score(avId, hp)
         self.sendUpdate('avHealed', [avId, hp])
 
     def d_updateTimer(self, time):

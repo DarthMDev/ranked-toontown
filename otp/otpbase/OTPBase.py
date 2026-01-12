@@ -38,6 +38,8 @@ class OTPBase(ShowBase):
             else:
                 base.cam.node().setCameraMask(OTPRender.MainCameraBitmask | OTPRender.EnviroCameraBitmask)
         taskMgr.setupTaskChain('net')
+        # Apply Panda3D 1.11.0 compatibility patches
+        self._applyPanda311CompatibilityPatches()
         return
 
     def setTaskChainNetThreaded(self):
@@ -233,3 +235,70 @@ class OTPBase(ShowBase):
         if self.win != None:
             return self.win.isValid()
         return 0
+
+    @staticmethod
+    def isPanda311CullTraverserError(error):
+        """
+        Check if an AssertionError is the Panda3D 1.11.0 cull traverser error.
+        This error occurs when nodes don't have proper geometry bounding volumes.
+        """
+        if not isinstance(error, AssertionError):
+            return False
+        error_msg = str(error).lower()
+        return 'node_gbv' in error_msg or 'culltraverserdata' in error_msg or 'culltraverser' in error_msg
+
+    def _applyPanda311CompatibilityPatches(self):
+        """
+        Apply compatibility patches for Panda3D 1.11.0's stricter bounds checking.
+        """
+        try:
+            from direct.distributed.DistributedObject import DistributedObject
+            # Save the original sendUpdate method
+            if not hasattr(DistributedObject, '_original_sendUpdate'):
+                DistributedObject._original_sendUpdate = DistributedObject.sendUpdate
+                
+                # Create a closure that captures the isPanda311CullTraverserError method
+                is_panda311_error = self.isPanda311CullTraverserError
+                
+                def safeSendUpdate(self, fieldName, args=[]):
+                    """
+                    Wrapper for sendUpdate that catches Panda3D 1.11.0 cull traverser errors.
+                    """
+                    try:
+                        return DistributedObject._original_sendUpdate(self, fieldName, args)
+                    except AssertionError as e:
+                        if is_panda311_error(e):
+                            # Log the error but don't crash
+                            if hasattr(self, 'notify'):
+                                self.notify.warning('Panda3D 1.11.0 compatibility error in sendUpdate (ignored): %s' % str(e))
+                            # Return None to indicate the update was not sent
+                            return None
+                        raise
+                
+                # Replace sendUpdate with the safe version
+                DistributedObject.sendUpdate = safeSendUpdate
+        except (ImportError, AttributeError):
+            # If we can't patch it, that's okay - the error handling in LauncherBase will catch it
+            pass
+
+    def __collisionLoop(self, task):
+        """
+        Override ShowBase's __collisionLoop to catch AssertionError from Panda3D 1.11.0
+        shadow traversal when nodes don't have proper geometry bounding volumes.
+        This is a workaround for the stricter bounds checking in Panda3D 1.11.0.
+        """
+        try:
+            # Perform shadow traversal with error handling for Panda3D 1.11.0 compatibility
+            if hasattr(self, 'shadowTrav') and self.shadowTrav:
+                self.shadowTrav.traverse(self.render)
+        except AssertionError as e:
+            # Check if this is the specific shadow traversal error from Panda3D 1.11.0
+            if self.isPanda311CullTraverserError(e):
+                # Log the error but don't crash - this is a compatibility issue with Panda3D 1.11.0
+                # where nodes without proper geometry bounding volumes cause crashes
+                if hasattr(self, 'notify'):
+                    self.notify.warning('Shadow traversal error caught (Panda3D 1.11.0 compatibility issue): %s' % str(e))
+            else:
+                # Re-raise if it's a different AssertionError
+                raise
+        return task.cont

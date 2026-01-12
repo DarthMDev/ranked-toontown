@@ -21,19 +21,8 @@ class DistributedCogHQDoorAI(DistributedDoorAI.DistributedDoorAI):
         dept = ToontownGlobals.cogHQZoneId2deptIndex(self.destinationZone)
         av = self.air.doId2do.get(avatarID)
         if av:
-            if self.doorType == DoorTypes.EXT_COGHQ and self.isLockedDoor():
-                parts = av.getCogParts()
-                if CogDisguiseGlobals.isSuitComplete(parts, dept):
-                    allowed = 1
-                else:
-                    allowed = 0
-            else:
-                allowed = 1
-            if not allowed:
-                self.sendReject(avatarID, self.isLockedDoor())
-            else:
-                self.enqueueAvatarIdEnter(avatarID)
-                self.sendUpdateToAvatarId(avatarID, 'setOtherZoneIdAndDoId', [self.destinationZone, self.otherDoor.getDoId()])
+            self.enqueueAvatarIdEnter(avatarID)
+            self.sendUpdateToAvatarId(avatarID, 'setOtherZoneIdAndDoId', [self.destinationZone, self.otherDoor.getDoId()])
 
     def requestExit(self):
         avatarID = self.air.getAvatarIdFromSender()

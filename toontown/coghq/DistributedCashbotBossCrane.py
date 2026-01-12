@@ -222,20 +222,28 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         # Also, a solid tube to keep us from running through the
         # control stick itself.  This one scales with the control
         # model.
+        # Also used for TNT detection
         cs = CollisionTube(0, 2.7, 0, 0, 2.7, 3, 1.2)
         cn = CollisionNode('tube')
         cn.addSolid(cs)
-        cn.setIntoCollideMask(OTPGlobals.WallBitmask)
+        # Accept both wall collisions and TNT collisions
+        cn.setIntoCollideMask(OTPGlobals.WallBitmask | ToontownGlobals.TNTBitmask)
         self.tube = self.controlModel.attachNewNode(cn)
+        # Tag the node with our doId so we can find the crane from collision
+        self.tube.setTag('craneDoId', str(self.doId))
 
         # And finally, a safe-proof bubble we put over the whole thing
         # to keep safes from falling on us while we're on the controls
         # (or from occupying the spot when the controls are vacant).
+        # Also used for TNT detection
         cs = CollisionSphere(0, 0, 2, 3)
         cn = CollisionNode('safetyBubble')
         cn.addSolid(cs)
-        cn.setIntoCollideMask(ToontownGlobals.PieBitmask)
-        self.controls.attachNewNode(cn)
+        # Accept both regular pies and TNTs
+        cn.setIntoCollideMask(ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
+        self.safetyBubbleNode = self.controls.attachNewNode(cn)
+        # Tag the node with our doId so we can find the crane from collision
+        self.safetyBubbleNode.setTag('craneDoId', str(self.doId))
         
         arm = self.boss.craneArm.copyTo(self.crane)
         
@@ -656,64 +664,82 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
          gui.find('**/CloseBtn_Rllvr'),
          gui.find('**/CloseBtn_UP')), relief=None, scale=2, text=TTLocalizer.CashbotCraneLeave, text_scale=0.04, text_pos=(0, -0.07), text_fg=VBase4(1, 1, 1, 1), pos=(1.05, 0, -0.82), command=self.__leaveCrane)
         
-        self.accept(base.controls.CRANE_EXIT_KEY, self.__leaveCrane)
+        # Accept CRANE_EXIT_KEY (both binds)
+        exit_binds = base.settings.getControlBinds("CRANE_EXIT_KEY")
+        for bind in exit_binds:
+            if bind:
+                self.accept(bind, self.__leaveCrane)
         
-        self.accept(base.controls.CRANE_GRAB_KEY, self.__controlPressed)
-        self.accept(base.controls.CRANE_GRAB_KEY + '-up', self.__controlReleased)
+        # Accept CRANE_GRAB_KEY (both binds, with -up events)
+        grab_binds = base.settings.getControlBinds("CRANE_GRAB_KEY")
+        for bind in grab_binds:
+            if bind:
+                self.accept(bind, self.__controlPressed)
+                self.accept(bind + '-up', self.__controlReleased)
         
-        # Cable length adjustment keybinds
+        # Cable length adjustment keybinds (both binds)
         # Handle mouse wheel events differently (they don't have -up events)
-        extendKey = base.controls.CRANE_EXTEND_KEY
-        retractKey = base.controls.CRANE_RETRACT_KEY
+        extend_binds = base.settings.getControlBinds("CRANE_EXTEND_KEY")
+        for extendKey in extend_binds:
+            if not extendKey:
+                continue
+            if extendKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__cableExtendDirect)
+            elif extendKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__cableExtendDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(extendKey, self.__cableExtendPressed)
+                self.accept(extendKey + '-up', self.__cableExtendReleased)
         
-        if extendKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__cableExtendDirect)
-        elif extendKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__cableExtendDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(extendKey, self.__cableExtendPressed)
-            self.accept(extendKey + '-up', self.__cableExtendReleased)
+        retract_binds = base.settings.getControlBinds("CRANE_RETRACT_KEY")
+        for retractKey in retract_binds:
+            if not retractKey:
+                continue
+            if retractKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__cableRetractDirect)
+            elif retractKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__cableRetractDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(retractKey, self.__cableRetractPressed)
+                self.accept(retractKey + '-up', self.__cableRetractReleased)
         
-        if retractKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__cableRetractDirect)
-        elif retractKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__cableRetractDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(retractKey, self.__cableRetractPressed)
-            self.accept(retractKey + '-up', self.__cableRetractReleased)
-        
-        # Speed adjustment keybinds
+        # Speed adjustment keybinds (both binds)
         # Handle mouse wheel events differently (they don't have -up events)
-        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
-        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        speed_increase_binds = base.settings.getControlBinds("CRANE_SPEED_INCREASE_KEY")
+        for speedIncreaseKey in speed_increase_binds:
+            if not speedIncreaseKey:
+                continue
+            if speedIncreaseKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__speedIncreaseDirect)
+            elif speedIncreaseKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__speedIncreaseDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(speedIncreaseKey, self.__speedIncreasePressed)
+                self.accept(speedIncreaseKey + '-up', self.__speedIncreaseReleased)
         
-        if speedIncreaseKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__speedIncreaseDirect)
-        elif speedIncreaseKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__speedIncreaseDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(speedIncreaseKey, self.__speedIncreasePressed)
-            self.accept(speedIncreaseKey + '-up', self.__speedIncreaseReleased)
-        
-        if speedDecreaseKey == 'wheel_up':
-            # Mouse wheel up - direct action, no -up event
-            self.accept('wheel_up', self.__speedDecreaseDirect)
-        elif speedDecreaseKey == 'wheel_down':
-            # Mouse wheel down - direct action, no -up event
-            self.accept('wheel_down', self.__speedDecreaseDirect)
-        else:
-            # Keyboard keys use press/release pattern
-            self.accept(speedDecreaseKey, self.__speedDecreasePressed)
-            self.accept(speedDecreaseKey + '-up', self.__speedDecreaseReleased)
+        speed_decrease_binds = base.settings.getControlBinds("CRANE_SPEED_DECREASE_KEY")
+        for speedDecreaseKey in speed_decrease_binds:
+            if not speedDecreaseKey:
+                continue
+            if speedDecreaseKey == 'wheel_up':
+                # Mouse wheel up - direct action, no -up event
+                self.accept('wheel_up', self.__speedDecreaseDirect)
+            elif speedDecreaseKey == 'wheel_down':
+                # Mouse wheel down - direct action, no -up event
+                self.accept('wheel_down', self.__speedDecreaseDirect)
+            else:
+                # Keyboard keys use press/release pattern
+                self.accept(speedDecreaseKey, self.__speedDecreasePressed)
+                self.accept(speedDecreaseKey + '-up', self.__speedDecreaseReleased)
 
         base.localAvatar.enableCraneControls()
         self.accept('InputState-forward', self.__upArrow)
@@ -738,40 +764,60 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
             self.closeButton.destroy()
             self.closeButton = None
         
-        self.ignore(base.controls.CRANE_EXIT_KEY)
-        self.ignore(base.controls.CRANE_GRAB_KEY)
-        self.ignore(f'{base.controls.CRANE_GRAB_KEY}-up')
-        # Clean up cable length adjustment keybinds
-        extendKey = base.controls.CRANE_EXTEND_KEY
-        retractKey = base.controls.CRANE_RETRACT_KEY
+        # Ignore CRANE_EXIT_KEY (both binds)
+        exit_binds = base.settings.getControlBinds("CRANE_EXIT_KEY")
+        for bind in exit_binds:
+            if bind:
+                self.ignore(bind)
         
-        if extendKey in ('wheel_up', 'wheel_down'):
-            self.ignore(extendKey)
-        else:
-            self.ignore(extendKey)
-            self.ignore(extendKey + '-up')
+        # Ignore CRANE_GRAB_KEY (both binds)
+        grab_binds = base.settings.getControlBinds("CRANE_GRAB_KEY")
+        for bind in grab_binds:
+            if bind:
+                self.ignore(bind)
+                self.ignore(bind + '-up')
         
-        if retractKey in ('wheel_up', 'wheel_down'):
-            self.ignore(retractKey)
-        else:
-            self.ignore(retractKey)
-            self.ignore(retractKey + '-up')
+        # Clean up cable length adjustment keybinds (both binds)
+        extend_binds = base.settings.getControlBinds("CRANE_EXTEND_KEY")
+        for extendKey in extend_binds:
+            if not extendKey:
+                continue
+            if extendKey in ('wheel_up', 'wheel_down'):
+                self.ignore(extendKey)
+            else:
+                self.ignore(extendKey)
+                self.ignore(extendKey + '-up')
         
-        # Clean up speed adjustment keybinds
-        speedIncreaseKey = base.controls.CRANE_SPEED_INCREASE_KEY
-        speedDecreaseKey = base.controls.CRANE_SPEED_DECREASE_KEY
+        retract_binds = base.settings.getControlBinds("CRANE_RETRACT_KEY")
+        for retractKey in retract_binds:
+            if not retractKey:
+                continue
+            if retractKey in ('wheel_up', 'wheel_down'):
+                self.ignore(retractKey)
+            else:
+                self.ignore(retractKey)
+                self.ignore(retractKey + '-up')
         
-        if speedIncreaseKey in ('wheel_up', 'wheel_down'):
-            self.ignore(speedIncreaseKey)
-        else:
-            self.ignore(speedIncreaseKey)
-            self.ignore(speedIncreaseKey + '-up')
+        # Clean up speed adjustment keybinds (both binds)
+        speed_increase_binds = base.settings.getControlBinds("CRANE_SPEED_INCREASE_KEY")
+        for speedIncreaseKey in speed_increase_binds:
+            if not speedIncreaseKey:
+                continue
+            if speedIncreaseKey in ('wheel_up', 'wheel_down'):
+                self.ignore(speedIncreaseKey)
+            else:
+                self.ignore(speedIncreaseKey)
+                self.ignore(speedIncreaseKey + '-up')
         
-        if speedDecreaseKey in ('wheel_up', 'wheel_down'):
-            self.ignore(speedDecreaseKey)
-        else:
-            self.ignore(speedDecreaseKey)
-            self.ignore(speedDecreaseKey + '-up')
+        speed_decrease_binds = base.settings.getControlBinds("CRANE_SPEED_DECREASE_KEY")
+        for speedDecreaseKey in speed_decrease_binds:
+            if not speedDecreaseKey:
+                continue
+            if speedDecreaseKey in ('wheel_up', 'wheel_down'):
+                self.ignore(speedDecreaseKey)
+            else:
+                self.ignore(speedDecreaseKey)
+                self.ignore(speedDecreaseKey + '-up')
         self.ignore('InputState-forward')
         self.ignore('InputState-reverse')
         self.ignore('InputState-turnLeft')
@@ -1834,6 +1880,140 @@ class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
         self.fadeTrack.start()
         self.trigger.unstash()
         self.accept(self.triggerEvent, self.__hitTrigger)
+    
+    def performDisableAnimation(self):
+        """Perform the disabling animation (fade track, restore scale track, trigger handling)
+        This is called when a toon leaves or when TNT hits the crane."""
+        # Cancel any existing fade/restore tracks
+        if self.fadeTrack:
+            self.fadeTrack.finish()
+            self.fadeTrack = None
+        
+        if hasattr(self, 'restoreScaleTrack') and self.restoreScaleTrack:
+            self.restoreScaleTrack.finish()
+            self.restoreScaleTrack = None
+        
+        # Remove any pending trigger tasks
+        taskMgr.remove(self.triggerName)
+        
+        # Stash the trigger immediately
+        self.trigger.stash()
+        self.ignore(self.triggerEvent)
+        
+        # Wait a few seconds before neutralizing the scale
+        self.restoreScaleTrack = Sequence(Wait(6), self.getRestoreScaleInterval())
+        self.restoreScaleTrack.start()
+        
+        # Fade the control model
+        self.controlModel.setAlphaScale(0.3)
+        self.controlModel.setTransparency(1)
+        self.fadeTrack = Sequence(Func(self.controlModel.setTransparency, 1), self.controlModel.colorScaleInterval(0.2, VBase4(1, 1, 1, 0.3)))
+        self.fadeTrack.start()
+        
+        # After 5 seconds, restore the trigger and fade
+        taskMgr.doMethodLater(5, self.__allowDetect, self.triggerName)
+    
+    def d_tntHit(self):
+        """Send update to server that TNT hit this crane"""
+        # Client doesn't know who's on the crane, so send 0
+        # Server will determine the actual toonId and broadcast it
+        self.sendUpdate('tntHit', [0])
+    
+    def tntHit(self, toonIdOnCrane=0):
+        """Called from server when TNT hits this crane - perform disabling animation on all clients"""
+        # If crane is controlled, TNT hits are ignored (handled on AI side)
+        # Only perform disable animation if crane is free
+        if self.state == 'Controlled':
+            return
+        
+        # Perform the disabling animation
+        # This will handle fade track, restore scale track, and trigger stashing/unstashing
+        self.performDisableAnimation()
+        
+        # Handle animation for toon on crane (local or remote)
+        # Use toonIdOnCrane from broadcast (self.avId may already be 0 due to state change)
+        # Note: toonIdOnCrane should always be 0 now since controlled cranes ignore TNT hits
+        if toonIdOnCrane != 0:
+            toon = base.cr.doId2do.get(toonIdOnCrane)
+            if toon and not toon.isEmpty() and toon.hp > 0:
+                isLocalToon = (toon == base.localAvatar)
+                
+                # Local toon: grant i-frames and prevent movement (same as gear throws)
+                if isLocalToon:
+                    if not toon.isStunned:
+                        # Knock toon off crane immediately (server will also force it, but this ensures immediate client response)
+                        messenger.send('exitCrane')
+                        
+                        # Set ouch mode to prevent movement (same as gear throws)
+                        messenger.send("LocalSetOuchMode")
+                        
+                        # Create custom track with slip-backward animation, backward push, and i-frames (same as gear throws)
+                        def getSlideToPos(toon=toon):
+                            return render.getRelativePoint(toon, Point3(0, -5, 0))
+                        
+                        # I-frame flashing track (same as stunToon)
+                        def setStunned(stunned):
+                            toon.isStunned = stunned
+                            messenger.send('toonStunned-' + str(toon.doId), [toon.isStunned])
+                        
+                        node = toon.getGeomNode()
+                        lerpTime = 0.5
+                        down = toon.doToonColorScale(VBase4(1, 1, 1, 0.6), lerpTime)
+                        up = toon.doToonColorScale(VBase4(1, 1, 1, 0.9), lerpTime)
+                        clear = toon.doToonColorScale(toon.defaultColorScale, lerpTime)
+                        iframeTrack = Sequence(Func(setStunned, 1), down, up, down, up, down, up, down, clear, Func(toon.restoreDefaultColorScale), Func(setStunned, 0))
+                        
+                        # Animation and position movement (same as gear throws)
+                        slipBackwardDuration = toon.getDuration('slip-backward', 'torso')
+                        toonTrack = Parallel(
+                            ActorInterval(toon, 'slip-backward'),
+                            toon.posInterval(0.5, getSlideToPos, fluid=1),  # 0.5 seconds like gear throws
+                            iframeTrack
+                        )
+                        
+                        # Restore movement after animation completes (not after iframes end)
+                        # Create a separate track that waits only for the animation duration
+                        restoreMovementTrack = Sequence(
+                            Wait(slipBackwardDuration),
+                            Func(messenger.send, "LocalSetFinalBattleMode")
+                        )
+                        
+                        # Store and start both tracks
+                        if toon.stunTrack:
+                            toon.stunTrack.finish()
+                        toon.stunTrack = toonTrack
+                        toonTrack.start()
+                        restoreMovementTrack.start()
+                
+                # Remote toon: show animation without affecting local toon's camera/controls (same as gear throws)
+                else:
+                    # Stop smooth movement for remote toon (same as gear throws)
+                    toon.stopSmooth()
+                    
+                    # Create animation track with backward push (no i-frames for remote toons)
+                    def getSlideToPos(toon=toon):
+                        return render.getRelativePoint(toon, Point3(0, -5, 0))
+                    
+                    slipBackwardDuration = toon.getDuration('slip-backward', 'torso')
+                    toonTrack = Parallel(
+                        ActorInterval(toon, 'slip-backward'),
+                        toon.posInterval(0.5, getSlideToPos, fluid=1)  # 0.5 seconds like gear throws
+                    )
+                    
+                    # Restart smooth movement after animation (same as gear throws)
+                    fullTrack = Sequence(
+                        toonTrack,
+                        Func(toon.startSmooth)
+                    )
+                    
+                    # Store and start the track
+                    if toon.stunTrack:
+                        toon.stunTrack.finish()
+                    toon.stunTrack = fullTrack
+                    fullTrack.start()
+        
+        # Note: If crane is controlled, the server will force the toon off automatically
+        # We don't need to handle that here - just perform the visual disabling
 
     def exitFree(self):
         if self.fadeTrack:

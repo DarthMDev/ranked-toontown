@@ -22,31 +22,17 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.pageTabFrame = DirectFrame(parent=self, relief=None, pos=(0.93, 1, 0.575), scale=1.25)
         self.pageTabFrame.hide()
         self.currPageIndex: int = 0
-        self.pageBeforeNews = None
         self.entered = 0
         self.safeMode = 0
         self.__obscured = 0
         self.__shown = 0
         self.__isOpen = 0
         self.hide()
-        self.setPos(0, 0, 0.1)
+        self.setPos(0, 0, 0)
         self.pageOrder = [TTLocalizer.OptionsPageTitle,
-         TTLocalizer.CheckPageTitle,
-         TTLocalizer.LocationPageTitle,
-         TTLocalizer.MapPageTitle,
          TTLocalizer.LeaderboardPageTitle,
-         TTLocalizer.InventoryPageTitle,
-         TTLocalizer.QuestPageToonTasks,
-         TTLocalizer.SuitPageTitle,
          TTLocalizer.FishPageTitle,
-         TTLocalizer.KartPageTitle,
-         TTLocalizer.DisguisePageTitle,
-         TTLocalizer.NPCFriendPageTitle,
          TTLocalizer.NametagPageTitle,
-         TTLocalizer.GardenPageTitle,
-         TTLocalizer.GolfPageTitle,
-         TTLocalizer.EventsPageName,
-         TTLocalizer.NewsPageName,
          TTLocalizer.SpellbookPageTitle]
         return
 
@@ -61,7 +47,7 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.entered = 1
         messenger.send('releaseDirector')
         messenger.send('stickerBookEntered')
-        base.render.setColorScale(.25, .25, .25, 1)
+        base.render.setColorScale(0.5, 0.5, 0.5, 1) #used if we want to dim background while in stickerbook
         base.playSfx(self.openSound)
         base.disableMouse()
         base.setBackgroundColor(0.05, 0.15, 0.4)
@@ -73,15 +59,12 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.__isOpen = 1
         self.__setButtonVisibility()
         self.show()
-        self.showPageArrows()
         if not self.safeMode:
             self.accept('shtiker-page-done', self.__pageDone)
             self.accept(ToontownGlobals.StickerBookHotkey, self.__close)
             self.accept(ToontownGlobals.OptionsPageHotkey, self.__close)
             self.pageTabFrame.show()
         self.pages[self.currPageIndex].enter()
-        if hasattr(localAvatar, 'newsButtonMgr') and localAvatar.newsButtonMgr:
-            localAvatar.newsButtonMgr.hideNewIssueButton()
 
     def exit(self):
         if not self.entered:
@@ -117,7 +100,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             self.notify.info('QA-REGRESSION: SHTICKERBOOK: Close')
 
     def load(self):
-        self.checkGardenStarted = localAvatar.getGardenStarted()
         bookModel = loader.loadModel('phase_3.5/models/gui/stickerbook_gui')
         self['image'] = bookModel.find('**/big_book')
         self['image_scale'] = (2, 1, 1.5)
@@ -126,8 +108,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.bookCloseButton = DirectButton(image=(bookModel.find('**/BookIcon_OPEN'), bookModel.find('**/BookIcon_CLSD'), bookModel.find('**/BookIcon_RLVR2')), relief=None, pos=(-0.158, 0, 0.17), parent=base.a2dBottomRight, scale=0.305, command=self.__close)
         self.bookOpenButton.hide()
         self.bookCloseButton.hide()
-        self.nextArrow = DirectButton(parent=self, relief=None, image=(bookModel.find('**/arrow_button'), bookModel.find('**/arrow_down'), bookModel.find('**/arrow_rollover')), scale=(0.1, 0.1, 0.1), pos=(0.838, 0, -0.661), command=self.__pageChange, extraArgs=[1])
-        self.prevArrow = DirectButton(parent=self, relief=None, image=(bookModel.find('**/arrow_button'), bookModel.find('**/arrow_down'), bookModel.find('**/arrow_rollover')), scale=(-0.1, 0.1, 0.1), pos=(-0.838, 0, -0.661), command=self.__pageChange, extraArgs=[-1])
         bookModel.removeNode()
         self.openSound = base.loader.loadSfx('phase_3.5/audio/sfx/GUI_stickerbook_open.ogg')
         self.closeSound = base.loader.loadSfx('phase_3.5/audio/sfx/GUI_stickerbook_delete.ogg')
@@ -141,10 +121,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         del self.bookOpenButton
         self.bookCloseButton.destroy()
         del self.bookCloseButton
-        self.nextArrow.destroy()
-        del self.nextArrow
-        self.prevArrow.destroy()
-        del self.prevArrow
         for page in self.pages:
             page.unload()
 
@@ -162,18 +138,10 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         if pageName not in self.pageOrder:
             self.notify.error('Trying to add page %s in the ShtickerBook. Page not listed in the order.' % pageName)
             return
-        pageIndex = 0
         if len(self.pages):
             newIndex = len(self.pages)
-            prevIndex = newIndex - 1
-            if self.pages[prevIndex].pageName == TTLocalizer.NewsPageName:
-                self.pages.insert(prevIndex, page)
-                pageIndex = prevIndex
-                if self.currPageIndex >= pageIndex:
-                    self.currPageIndex += 1
-            else:
-                self.pages.append(page)
-                pageIndex = len(self.pages) - 1
+            self.pages.append(page)
+            pageIndex = len(self.pages) - 1
         else:
             self.pages.append(page)
             pageIndex = len(self.pages) - 1
@@ -181,12 +149,8 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         page.setPageName(pageName)
         page.reparentTo(self)
         self.addPageTab(page, pageIndex, pageName)
-        from toontown.shtiker import MapPage
-        if isinstance(page, MapPage.MapPage):
-            self.pageBeforeNews = page
 
     def addPageTab(self, page, pageIndex, pageName = 'Page'):
-        tabIndex = len(self.pageTabs)
 
         def goToPage():
             messenger.send('wakeup')
@@ -194,8 +158,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             self.setPage(page)
             if base.config.GetBool('want-qa-regression', 0):
                 self.notify.info('QA-REGRESSION: SHTICKERBOOK: Browse tabs %s' % page.pageName)
-            localAvatar.newsButtonMgr.setGoingToNewsPageFromStickerBook(False)
-            localAvatar.newsButtonMgr.showAppropriateButton()
 
         yOffset = 0.07 * pageIndex
         iconGeom = None
@@ -208,65 +170,9 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
             iconGeom = iconModels.find('**/switch1')
             iconModels.detachNode()
-        elif pageName == TTLocalizer.ShardPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/district')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.CheckPageTitle:
-            iconModels = loader.loadModel('phase_4/models/parties/schtickerbookHostingGUI')
-            iconGeom = iconModels.find('**/checkmark')
-            iconScale = 25
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.LocationPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/district')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.MapPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/teleportIcon')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.InventoryPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/inventory_icons')
-            iconGeom = iconModels.find('**/inventory_tart')
-            iconScale = 7
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.QuestPageToonTasks:
-            iconModels = loader.loadModel('phase_3.5/models/gui/stickerbook_gui')
-            iconGeom = iconModels.find('**/questCard')
-            iconScale = 0.9
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.TrackPageShortTitle:
-            iconGeom = iconModels = loader.loadModel('phase_3.5/models/gui/filmstrip')
-            iconScale = 1.1
-            iconColor = Vec4(0.7, 0.7, 0.7, 1)
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.SuitPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/gui_gear')
-            iconModels.detachNode()
         elif pageName == TTLocalizer.FishPageTitle:
             iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
             iconGeom = iconModels.find('**/fish')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.GardenPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/gardenIcon')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.DisguisePageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/disguise2')
-            iconColor = Vec4(0.7, 0.7, 0.7, 1)
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.NPCFriendPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/playingCard')
-            iconImage = iconModels.find('**/card_back')
-            iconGeom = iconModels.find('**/logo')
-            iconGeom.setState(RenderState.makeEmpty())
-            cardTex = loader.loadTexture('phase_3/maps/toontown-logo.png')
-            cardTex.setMinfilter(Texture.FTLinearMipmapLinear)
-            cardTex.setMagfilter(Texture.FTLinear)
-            iconGeom.setTexture(cardTex, 1)
-            iconScale = 0.22
             iconModels.detachNode()
         elif pageName == TTLocalizer.NametagPageTitle:
             iconModels = loader.loadModel('phase_3.5/models/gui/speedChatGui')
@@ -275,24 +181,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
                 iconGeom = iconModels.find('**/switch1')  # Fallback icon
             iconColor = Vec4(0.2, 0.8, 0.2, 1)  # Green color
             iconModels.detachNode()
-        elif pageName == TTLocalizer.KartPageTitle:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/kartIcon')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.GolfPageTitle:
-            iconModels = loader.loadModel('phase_6/models/golf/golf_gui')
-            iconGeom = iconModels.find('**/score_card_icon')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.EventsPageName:
-            iconModels = loader.loadModel('phase_4/models/parties/partyStickerbook')
-            iconGeom = iconModels.find('**/Stickerbook_PartyIcon')
-            iconModels.detachNode()
-        elif pageName == TTLocalizer.NewsPageName:
-            iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
-            iconGeom = iconModels.find('**/tt_t_gui_sbk_newsPageTab')
-            iconModels.detachNode()
-            buttonPressedCommand = self.goToNewsPage
-            extraArgs = [page]
         elif pageName == TTLocalizer.SpellbookPageTitle:
             iconModels = loader.loadModel('phase_3.5/models/gui/sos_textures')
             iconGeom = iconModels.find('**/spellbookIcon')
@@ -304,13 +192,12 @@ class ShtikerBook(DirectFrame, StateData.StateData):
             iconModels.detachNode()
         if pageName == TTLocalizer.OptionsPageTitle:
             pageName = TTLocalizer.OptionsTabTitle
-        pageTab = DirectButton(parent=self.pageTabFrame, relief=DGG.RAISED, frameSize=(-0.575,
-         0.575,
-         -0.575,
-         0.575), borderWidth=(0.05, 0.05), text=('',
-         '',
-         pageName,
-         ''), text_align=TextNode.ALeft, text_pos=(1, -0.2), text_scale=TTLocalizer.SBpageTab, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), image=iconImage, image_scale=iconScale, geom=iconGeom, geom_scale=iconScale, geom_color=iconColor, pos=(0, 0, -yOffset), scale=0.06, command=buttonPressedCommand, extraArgs=extraArgs)
+        pageTab = DirectButton(parent=self.pageTabFrame, relief=DGG.RAISED, frameSize=(-0.575,0.575,-0.575,0.575),
+                               borderWidth=(0.05, 0.05), text=('','',pageName,''), text_align=TextNode.ALeft,
+                               text_pos=(1, -0.2), text_scale=TTLocalizer.SBpageTab, text_fg=(1, 1, 1, 1),
+                               text_shadow=(0, 0, 0, 1), image=iconImage, image_scale=iconScale, geom=iconGeom,
+                               geom_scale=iconScale, geom_color=iconColor, pos=(0, 0, -yOffset), scale=0.06,
+                               command=buttonPressedCommand, extraArgs=extraArgs)
         self.pageTabs.insert(pageIndex, pageTab)
         return
 
@@ -319,17 +206,8 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.currPageIndex = self.pages.index(page)
         self.setPageTabIndex(self.currPageIndex)
         if enterPage:
-            self.showPageArrows()
             page.enter()
-        from toontown.shtiker import NewsPage
-        if not isinstance(page, NewsPage.NewsPage):
-            self.pageBeforeNews = page
         return
-
-    def setPageBeforeNews(self, enterPage = True):
-        self.setPage(self.pageBeforeNews, enterPage)
-        self.accept(ToontownGlobals.StickerBookHotkey, self.__close)
-        self.accept(ToontownGlobals.OptionsPageHotkey, self.__close)
 
     def setPageTabIndex(self, pageTabIndex):
         if self.currPageTabIndex is not None and pageTabIndex != self.currPageTabIndex:
@@ -355,12 +233,10 @@ class ShtikerBook(DirectFrame, StateData.StateData):
     def showButton(self):
         self.__shown = 1
         self.__setButtonVisibility()
-        localAvatar.newsButtonMgr.showAppropriateButton()
 
     def hideButton(self):
         self.__shown = 0
         self.__setButtonVisibility()
-        localAvatar.newsButtonMgr.request('Hidden')
 
     def __setButtonVisibility(self):
         if self.__isOpen:
@@ -385,10 +261,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
 
     def __open(self):
         messenger.send('enterStickerBook')
-        if not localAvatar.getGardenStarted():
-            for tab in self.pageTabs:
-                if tab['text'][2] == TTLocalizer.GardenPageTitle:
-                    tab.hide()
 
     def __close(self):
         base.playSfx(self.closeSound)
@@ -418,49 +290,8 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         self.currPageIndex = max(self.currPageIndex, 0)
         self.currPageIndex = min(self.currPageIndex, len(self.pages) - 1)
         self.setPageTabIndex(self.currPageIndex)
-        self.showPageArrows()
         page = self.pages[self.currPageIndex]
-        from toontown.shtiker import NewsPage
-        if isinstance(page, NewsPage.NewsPage):
-            self.goToNewsPage(page)
-        else:
-            page.enter()
-            self.pageBeforeNews = page
-
-    def showPageArrows(self):
-        if self.currPageIndex == len(self.pages) - 1:
-            self.prevArrow.show()
-            self.nextArrow.hide()
-        else:
-            self.prevArrow.show()
-            self.nextArrow.show()
-        self.__checkForNewsPage()
-        if self.currPageIndex == 0:
-            self.prevArrow.hide()
-            self.nextArrow.show()
-
-    def __checkForNewsPage(self):
-        from toontown.shtiker import NewsPage
-        self.ignore(ToontownGlobals.StickerBookPageLeft)
-        self.ignore(ToontownGlobals.StickerBookPageRight)
-        if isinstance(self.pages[self.currPageIndex], NewsPage.NewsPage):
-            self.ignore(ToontownGlobals.StickerBookPageLeft)
-            self.ignore(ToontownGlobals.StickerBookPageRight)
-        else:
-            self.accept(ToontownGlobals.StickerBookPageRight, self.__pageChange, [1])
-            self.accept(ToontownGlobals.StickerBookPageLeft, self.__pageChange, [-1])
-
-    def goToNewsPage(self, page):
-        messenger.send('wakeup')
-        base.playSfx(self.pageSound)
-        localAvatar.newsButtonMgr.setGoingToNewsPageFromStickerBook(True)
-        localAvatar.newsButtonMgr.showAppropriateButton()
-        self.setPage(page)
-        if base.config.GetBool('want-qa-regression', 0):
-            self.notify.info('QA-REGRESSION: SHTICKERBOOK: Browse tabs %s' % page.pageName)
-        self.ignore(ToontownGlobals.StickerBookHotkey)
-        self.ignore(ToontownGlobals.OptionsPageHotkey)
-        localAvatar.newsButtonMgr.acceptEscapeKeyPress()
+        page.enter()
 
     def disableBookCloseButton(self):
         if self.bookCloseButton:

@@ -108,7 +108,7 @@ class DistributedCrashBallGame(DistributedMinigame, CrashBallGamePhysicsWorld):
 
     @property
     def totalPlayerIdList(self) -> list[int]:
-        return self.avIdList + self.npcPlayerIds
+        return self.getParticipantIdsNotSpectating() + self.npcPlayerIds
 
     def load(self):
         self.notify.debug("load")
@@ -277,7 +277,7 @@ class DistributedCrashBallGame(DistributedMinigame, CrashBallGamePhysicsWorld):
             return
         # all of the remote toons have joined the game;
         # it's safe to show them now.
-        for index, avId in enumerate(self.avIdList):
+        for index, avId in enumerate(self.getParticipantIdsNotSpectating()):
             # Find the actual avatar in the cr
             toon = self.getAvatar(avId)
             if toon is None:
@@ -303,7 +303,7 @@ class DistributedCrashBallGame(DistributedMinigame, CrashBallGamePhysicsWorld):
         npcRng.shuffle(choices)
 
         self.npcPlayers = {}
-        for index, npcId in enumerate(self.npcPlayerIds, start=len(self.avIdList)):
+        for index, npcId in enumerate(self.npcPlayerIds, start=len(self.getParticipantIdsNotSpectating())):
             suit = Suit()
             dna = SuitDNA()
             dna.newSuit(choices[index])
@@ -332,6 +332,8 @@ class DistributedCrashBallGame(DistributedMinigame, CrashBallGamePhysicsWorld):
 
     def moveCameraToTop(self):
         myPos = self.avIdList.index(self.localAvId)
+        if myPos >= len(self.toonNodes):
+            myPos = 0
         toonNode = self.toonNodes[myPos]
         camera.reparentTo(toonNode)
         camera.setPosHpr(*self.CameraPosHpr)
@@ -554,7 +556,9 @@ class DistributedCrashBallGame(DistributedMinigame, CrashBallGamePhysicsWorld):
             self.scorePanels[avId] = scorePanel
 
         # Enable controls for the local avatar.
-        self.getLocalVehicle().enableControls()
+        localVehicle = self.getLocalVehicle()
+        if localVehicle is not None:
+            self.getLocalVehicle().enableControls()
 
         # Begin smoothing for other vehicles.
         for avId, vehicle in self.vehicles.items():

@@ -241,7 +241,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.extra_stats_text = DirectLabel(parent=self.frame , relief=None, text='', text_shadow=(0, 0, 0, 1), text_fg=WHITE, text_align=TextNode.ABoxedCenter, text_scale=.09, pos=(self.FIRST_PLACE_TEXT_X+.62, 0, 0), text_font=ToontownGlobals.getCompetitionFont())
 
         # Indicator for if this toon is being spectated. Currently, this is using a placeholder texture.
-        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui')
+        boarding_model = loader.loadModel('phase_14/models/gui/boarding-gui.egg')
         notReadyStatusTexture = boarding_model.find('**/status-notready')
         self.spectating_indicator = DirectLabel(parent=self.frame, pos=(self.FIRST_PLACE_HEAD_X - .1, 0, .015), relief=None, text='', image=notReadyStatusTexture, scale=.03)
         self.spectating_indicator.hide()
@@ -525,10 +525,27 @@ class CashbotBossScoreboardToonRow(DirectObject):
         self.sad_text.setText('SAD!')
         self.cancel_inc_ival()
 
-    def cleanup(self):
+    def cleanup(self, preserveSpectating=False):
+        """
+        Clean up this row.
+        
+        Args:
+            preserveSpectating: If True, don't stop spectating. Used when rebuilding scoreboard.
+        """
         self.flushQueuedPoints()
-        if self.isBeingSpectated:
+        
+        # If we're preserving spectating, temporarily save state but clean up laff meter
+        if self.isBeingSpectated and preserveSpectating:
+            # Clean up the spectator laff meter so it doesn't duplicate
+            if self.spectator_laff_meter is not None:
+                self.spectator_laff_meter.destroy()
+                self.spectator_laff_meter = None
+            # Keep camera attached, keep isBeingSpectated=True, keep event listeners
+            # These will be handled by restoreSpectatingState
+        elif self.isBeingSpectated:
+            # Normal cleanup - stop spectating completely
             self.stopSpectating()
+        
         self.cancel_inc_ival()
         del self.inc_ival
         self.toon_head.cleanup()
@@ -704,11 +721,76 @@ class CashbotBossScoreboard(DirectObject):
                 
         self.show()
 
-    def clearToons(self):
+    def clearToons(self, preserveSpectating=False):
+        """
+        Clear all toons from the scoreboard.
+        
+        Args:
+            preserveSpectating: If True, don't stop spectating when cleaning up rows.
+                                Used when rebuilding scoreboard during tournaments.
+        """
         for row in list(self.rows.values()):
-            row.cleanup()
+            row.cleanup(preserveSpectating=preserveSpectating)
             del self.rows[row.avId]
         self.hide()
+    
+    def saveSpectatingState(self):
+        """
+        Save the current spectating state.
+        Returns the avId of the currently spectated player, or None.
+        """
+        return self.getSpectatedAvId()
+    
+    def restoreSpectatingState(self, spectatedAvId, autoSpectate=True):
+        """
+        Restore spectating to a specific player.
+        
+        Args:
+            spectatedAvId: The avId of the player to spectate, or None to do nothing
+            autoSpectate: If False, don't auto-spectate the first player (used when manually restoring)
+        """
+        if spectatedAvId is None:
+            return
+        
+        # Only restore if the player is in the scoreboard
+        if spectatedAvId in self.rows:
+            row = self.rows[spectatedAvId]
+            
+            # Get the toon
+            t = base.cr.doId2do.get(spectatedAvId)
+            if not t:
+                return
+            
+            # Make sure other rows are NOT being spectated
+            for otherRow in self.rows.values():
+                if otherRow.avId != spectatedAvId and otherRow.isBeingSpectated:
+                    otherRow.isBeingSpectated = False
+                    otherRow.spectating_indicator.hide()
+            
+            # Manually set up spectating without stopping first
+            # (since camera is already attached and we're already spectating)
+            row.isBeingSpectated = True
+            row.spectating_indicator.show()
+            
+            # Re-create the spectator laff meter (old one was destroyed in cleanup)
+            if row.spectator_laff_meter is not None:
+                row.spectator_laff_meter.destroy()
+            base.localAvatar.laffMeter.hide()
+            row.spectator_laff_meter = LaffMeter(t.style, t.hp, t.maxHp)
+            row.spectator_laff_meter.setAvatar(t)
+            row.spectator_laff_meter.setScale(0.075)
+            row.spectator_laff_meter.reparentTo(base.a2dBottomLeft)
+            if t.style.getAnimal() == 'monkey':
+                row.spectator_laff_meter.setPos(0.153, 0.0, 0.13)
+            else:
+                row.spectator_laff_meter.setPos(0.133, 0.0, 0.13)
+            row.spectator_laff_meter.start()
+            
+            # Re-attach event listeners
+            row.accept('crane-enter-exit-%s' % spectatedAvId, row._CashbotBossScoreboardToonRow__change_camera_angle)
+            
+            # Notify the crane game
+            messenger.send('spectatedPlayerChanged', [spectatedAvId])
 
     def addScore(self, avId, amount, reason: CraneLeagueGlobals.ScoreReason = CraneLeagueGlobals.ScoreReason.DEFAULT):
         """
@@ -841,16 +923,22 @@ class CashbotBossScoreboard(DirectObject):
         if row:
             row.addStomp()
 
-    def enableSpectating(self):
+    def enableSpectating(self, autoSpectateFirst=True):
         """
         Allows this scoreboard to be clicked to spectate toons.
+        
+        Args:
+            autoSpectateFirst: If True, automatically spectates the first row (default behavior).
+                               If False, just enables spectating without auto-spectating.
         """
         for row in self.rows.values():
             row.enableSpectating()
 
-        if len(self.rows) > 0:
-            firstRow = list(self.rows.values())[0]
-            firstRow.attemptSpectateToon()
+        if autoSpectateFirst and len(self.rows) > 0:
+            # Only auto-spectate if no one is currently being spectated
+            if self.getSpectatedAvId() is None:
+                firstRow = list(self.rows.values())[0]
+                firstRow.attemptSpectateToon()
 
     def disableSpectating(self):
         """
