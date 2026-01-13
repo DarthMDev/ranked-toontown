@@ -2,24 +2,32 @@
 title Toontown Ranked: AI Launcher
 cd ../../../
 
-REM Try to find Python in PATH first, then use PPYTHON_PATH if available
-set PYTHON_CMD=python
-where python >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    where py >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        set PYTHON_CMD=py
-    ) else (
-        REM Try to read PPYTHON_PATH if it exists
-        if exist ../PPYTHON_PATH (
-            set /P PYTHON_CMD=<../PPYTHON_PATH
-        ) else (
-            echo Python not found in PATH and PPYTHON_PATH file not found.
-            echo Please install Python 3.12+ and add it to your PATH.
-            pause
-            exit /b 1
-        )
-    )
+REM Check for Python installation using PowerShell script (handles installation if needed)
+echo Verifying Python installation...
+powershell -ExecutionPolicy Bypass -File "launch\windows\check_python.ps1"
+set PYTHON_CHECK_RESULT=%ERRORLEVEL%
+
+if %PYTHON_CHECK_RESULT% EQU 2 (
+    echo.
+    echo Python was just installed. Please restart this launcher.
+    pause
+    exit /b 0
+)
+
+if %PYTHON_CHECK_RESULT% NEQ 0 (
+    echo.
+    echo Python check failed. Please install Python and try again.
+    pause
+    exit /b 1
+)
+
+REM Read the Python command from PPYTHON_PATH (created by PowerShell script)
+if exist launch\windows\PPYTHON_PATH (
+    set /P PYTHON_CMD=<launch\windows\PPYTHON_PATH
+) else (
+    echo Error: PPYTHON_PATH not found after successful Python check.
+    echo Falling back to 'python' command...
+    set PYTHON_CMD=python
 )
 
 REM Run dependency checker (MongoDB required for server)
@@ -33,12 +41,8 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Now use PPYTHON_PATH if it exists, otherwise use the Python we found
-if exist ../PPYTHON_PATH (
-    set /P PPYTHON_PATH=<../PPYTHON_PATH
-) else (
-    set PPYTHON_PATH=%PYTHON_CMD%
-)
+REM Use the Python command we found
+set PPYTHON_PATH=%PYTHON_CMD%
 
 set SERVICE_TO_RUN=AI
 set BASE_CHANNEL=401000000

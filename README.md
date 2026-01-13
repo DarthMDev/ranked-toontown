@@ -45,7 +45,25 @@ At this time, Windows is the only supported platform. For other platforms, pleas
 
 ### Windows
 
-todo
+1. **Download the source:**
+   - Download the `Source Code (ZIP)` from [here](https://github.com/ranked-toontown/ranked-toontown/releases/latest) or clone this repository
+   - Extract the ZIP to a folder of your choice
+
+2. **Install Python (Automatic):**
+   - Navigate to `launch/windows/` and run the launcher scripts
+   - If Python is not installed, the launcher will automatically offer to install the latest Python version for you
+   - Simply follow the on-screen prompts to install Python via Windows Package Manager (winget)
+   - After installation, restart the launcher
+
+3. **Start the game:**
+   - Run the server launchers in order from `launch/windows/server/`:
+     - `start-server-astron.bat`
+     - `start-server-uberdog.bat`
+     - `start-server-ai.bat`
+   - Then run `start-game.bat` from `launch/windows/`
+   - The launcher will automatically check for dependencies (Python and MongoDB) and offer to install them if missing
+
+**Note:** If you prefer to install Python manually, download Python 3.12+ from [python.org](https://www.python.org/downloads/) and ensure you check "Add Python to PATH" during installation
 
 ### Docker (Linux Server)
 
@@ -97,12 +115,18 @@ You should be able to figure it out with a bit of research on Google.
 
 ### I launched the game and I am getting the error: The system cannot find the path specified
 
-There are multiple reasons that can cause this to occur. Feel free to ask any of the contributors in the Discord for assistance.
-If you want to try to resolve this issue on your own, you should **uninstall every instance of Panda3D and Python** on your system.
-Once you do that, **install Python 3.12** from their official website. Ensure that when you are running through the install
-wizard, that you **make sure that add Python to PATH** is checked. This is important as it is how Toontown knows how to launch.
-If you are more technical savvy, ensure that your `PPYTHON_PATH` (next to the start game script) **directly matches** the `python` command that triggers
-a Python3.12 environment for you.
+There are multiple reasons that can cause this to occur. The launcher now includes an automatic Python installation checker that should resolve most Python-related issues. If you continue to have problems:
+
+1. **Try the automatic installer:** Run the launcher again and follow the prompts to automatically install Python
+2. **Manual installation:** If the automatic installer fails:
+   - Uninstall all instances of Python from your system
+   - Download Python 3.12+ from [python.org](https://www.python.org/downloads/)
+   - During installation, **ensure "Add Python to PATH" is checked**
+   - Restart your computer and try again
+
+3. **Still having issues?** Feel free to ask any of the contributors in the Discord for assistance
+
+**Technical Note:** The launcher automatically detects the correct Python installation and saves it to `PPYTHON_PATH`. If you're technically savvy and want to manually configure this, ensure your `PPYTHON_PATH` file contains the path to your Python 3.12+ installation
 
 ### I logged in and I have no gags and can't go anywhere.... why can't I play?
 
