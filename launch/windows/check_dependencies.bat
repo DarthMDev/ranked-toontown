@@ -22,26 +22,74 @@ set PYTHON_VERSION=
 set PYTHON_FOUND=0
 
 REM Try 'py' launcher first (Windows)
-py --version >nul 2>&1
+REM Capture output and check for actual version number (not Windows Store stub message)
+set PYTHON_VERSION_RAW=
+for /f "delims=" %%v in ('py --version 2^>^&1') do set PYTHON_VERSION_RAW=%%v
+
+REM Check if this is the Windows Store stub message
+echo !PYTHON_VERSION_RAW! | findstr /i "Microsoft Store" >nul
 if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=2" %%v in ('py --version 2^>^&1') do (
-        set PYTHON_VERSION=%%v
+    REM This is the Windows Store stub, not real Python
+    set PYTHON_FOUND=0
+) else (
+    REM Check if output contains a version number pattern
+    echo !PYTHON_VERSION_RAW! | findstr /r "[0-9]\.[0-9]" >nul
+    if %ERRORLEVEL% EQU 0 (
+        REM Extract version - handle both "Python 3.12.1" and "3.12.1" formats
+        for /f "tokens=1,2" %%a in ("!PYTHON_VERSION_RAW!") do (
+            if /i "%%a"=="Python" (
+                set PYTHON_VERSION=%%b
+            ) else (
+                REM Check if first token is a version number
+                echo %%a | findstr /r "^[0-9]\.[0-9]" >nul
+                if %ERRORLEVEL% EQU 0 (
+                    set PYTHON_VERSION=%%a
+                )
+            )
+        )
+        REM Verify we got a valid version string (must start with digit)
         if not "!PYTHON_VERSION!"=="" (
-            set PYTHON_CMD=py
-            set PYTHON_FOUND=1
+            echo !PYTHON_VERSION! | findstr /r "^[0-9]" >nul
+            if %ERRORLEVEL% EQU 0 (
+                set PYTHON_CMD=py
+                set PYTHON_FOUND=1
+            )
         )
     )
 )
 
 REM If py didn't work, try 'python' command
-if %PYTHON_FOUND% EQU 0 (
-    python --version >nul 2>&1
+if !PYTHON_FOUND! EQU 0 (
+    set PYTHON_VERSION_RAW=
+    for /f "delims=" %%v in ('python --version 2^>^&1') do set PYTHON_VERSION_RAW=%%v
+    
+    REM Check if this is the Windows Store stub message
+    echo !PYTHON_VERSION_RAW! | findstr /i "Microsoft Store" >nul
     if %ERRORLEVEL% EQU 0 (
-        for /f "tokens=2" %%v in ('python --version 2^>^&1') do (
-            set PYTHON_VERSION=%%v
+        REM This is the Windows Store stub, not real Python
+        set PYTHON_FOUND=0
+    ) else (
+        REM Check if output contains a version number pattern
+        echo !PYTHON_VERSION_RAW! | findstr /r "[0-9]\.[0-9]" >nul
+        if %ERRORLEVEL% EQU 0 (
+            REM Extract version
+            for /f "tokens=1,2" %%a in ("!PYTHON_VERSION_RAW!") do (
+                if /i "%%a"=="Python" (
+                    set PYTHON_VERSION=%%b
+                ) else (
+                    echo %%a | findstr /r "^[0-9]\.[0-9]" >nul
+                    if %ERRORLEVEL% EQU 0 (
+                        set PYTHON_VERSION=%%a
+                    )
+                )
+            )
+            REM Verify we got a valid version string (must start with digit)
             if not "!PYTHON_VERSION!"=="" (
-                set PYTHON_CMD=python
-                set PYTHON_FOUND=1
+                echo !PYTHON_VERSION! | findstr /r "^[0-9]" >nul
+                if %ERRORLEVEL% EQU 0 (
+                    set PYTHON_CMD=python
+                    set PYTHON_FOUND=1
+                )
             )
         )
     )
