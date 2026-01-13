@@ -19,52 +19,70 @@ REM Check for Python
 echo Checking Python installation...
 set PYTHON_CMD=
 set PYTHON_VERSION=
+set PYTHON_FOUND=0
 
 REM Try 'py' launcher first (Windows)
 py --version >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=2" %%v in ('py --version 2^>^&1') do set PYTHON_VERSION=%%v
-    set PYTHON_CMD=py
-    set PYTHON_FOUND=1
-) else (
-    REM Try 'python' command
-    python --version >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYTHON_VERSION=%%v
-        set PYTHON_CMD=python
-        set PYTHON_FOUND=1
+    for /f "tokens=2" %%v in ('py --version 2^>^&1') do (
+        set PYTHON_VERSION=%%v
+        if not "!PYTHON_VERSION!"=="" (
+            set PYTHON_CMD=py
+            set PYTHON_FOUND=1
+        )
     )
 )
 
-if %PYTHON_FOUND% EQU 1 (
-    echo Found Python: %PYTHON_VERSION%
-    
-    REM Extract version numbers - handle formats like "Python 3.12.1" or "3.12.1"
-    REM Remove "Python " prefix if present
-    set CLEAN_VERSION=!PYTHON_VERSION:Python =!
-    
-    REM Extract major and minor version
-    for /f "tokens=1,2 delims=." %%a in ("!CLEAN_VERSION!") do (
-        set MAJOR=%%a
-        set MINOR=%%b
-    )
-    
-    REM Check if version is 3.12 or higher
-    if !MAJOR! GTR 3 (
-        set PYTHON_VERSION_OK=1
-    ) else if !MAJOR! EQU 3 (
-        if !MINOR! GEQ 12 (
-            set PYTHON_VERSION_OK=1
+REM If py didn't work, try 'python' command
+if %PYTHON_FOUND% EQU 0 (
+    python --version >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        for /f "tokens=2" %%v in ('python --version 2^>^&1') do (
+            set PYTHON_VERSION=%%v
+            if not "!PYTHON_VERSION!"=="" (
+                set PYTHON_CMD=python
+                set PYTHON_FOUND=1
+            )
         )
     )
-    
-    if !PYTHON_VERSION_OK! EQU 1 (
-        echo ✓ Python version is compatible (3.12+)
+)
+
+if !PYTHON_FOUND! EQU 1 (
+    if not "!PYTHON_VERSION!"=="" (
+        echo Found Python: !PYTHON_VERSION!
+        
+        REM Extract version numbers - handle formats like "Python 3.12.1" or "3.12.1"
+        REM Remove "Python " prefix if present
+        set CLEAN_VERSION=!PYTHON_VERSION:Python =!
+        
+        REM Extract major and minor version
+        for /f "tokens=1,2 delims=." %%a in ("!CLEAN_VERSION!") do (
+            set MAJOR=%%a
+            set MINOR=%%b
+        )
+        
+        REM Check if version is 3.12 or higher
+        if !MAJOR! GTR 3 (
+            set PYTHON_VERSION_OK=1
+        ) else if !MAJOR! EQU 3 (
+            if !MINOR! GEQ 12 (
+                set PYTHON_VERSION_OK=1
+            )
+        )
+        
+        if !PYTHON_VERSION_OK! EQU 1 (
+            echo [OK] Python version is compatible (3.12+)
+        ) else (
+            echo [ERROR] Python version is too old: !PYTHON_VERSION! (requires 3.12+)
+        )
     ) else (
-        echo ✗ Python version is too old: %PYTHON_VERSION% (requires 3.12+)
+        echo [ERROR] Python found but version could not be determined
+        set PYTHON_FOUND=0
     )
-) else (
-    echo ✗ Python not found
+)
+
+if !PYTHON_FOUND! EQU 0 (
+    echo [ERROR] Python not found
 )
 
 echo.
@@ -75,20 +93,20 @@ if %PYTHON_FOUND% EQU 1 (
     mongod --version >nul 2>&1
     if %ERRORLEVEL% EQU 0 (
         set MONGODB_FOUND=1
-        echo ✓ MongoDB is installed
+        echo [OK] MongoDB is installed
         
         REM Check if MongoDB is running (only if Python is available)
         echo Checking if MongoDB is running...
         %PYTHON_CMD% -c "from pymongo import MongoClient; from pymongo.errors import ServerSelectionTimeoutError; client = MongoClient('mongodb://127.0.0.1:27017/', serverSelectionTimeoutMS=2000); client.admin.command('ping'); client.close()" >nul 2>&1
         if %ERRORLEVEL% EQU 0 (
             set MONGODB_RUNNING=1
-            echo ✓ MongoDB is running
+            echo [OK] MongoDB is running
         ) else (
-            echo ✗ MongoDB is installed but not running
+            echo [WARNING] MongoDB is installed but not running
             echo   Please start MongoDB service or run: net start MongoDB
         )
     ) else (
-        echo ✗ MongoDB not found
+        echo [ERROR] MongoDB not found
     )
 ) else (
     echo Skipping MongoDB check (Python required for MongoDB connection test)
@@ -196,7 +214,7 @@ if %PYTHON_FOUND% EQU 1 (
 
 REM All dependencies are satisfied
 echo.
-echo ✓ All dependencies are satisfied!
+echo [OK] All dependencies are satisfied!
 echo.
 endlocal
 exit /b 0
