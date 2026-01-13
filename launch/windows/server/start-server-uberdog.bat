@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title Toontown Ranked: UD Launcher
 cd ../../../
 
@@ -38,22 +39,40 @@ if %PYTHON_FOUND% EQU 0 (
     echo Python is mandatory to run Toontown Ranked.
     echo.
     set /p INSTALL_PYTHON="Would you like to install Python 3.12+ now? (y/n): "
-    if /i "%INSTALL_PYTHON%"=="y" (
+    if /i "!INSTALL_PYTHON!"=="y" (
         echo.
         echo Attempting to install Python using winget...
+        echo This may take a few minutes. Please wait...
+        echo.
         winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
-        if %ERRORLEVEL% EQU 0 (
+        set WINGET_RESULT=%ERRORLEVEL%
+        if !WINGET_RESULT! EQU 0 (
             echo.
-            echo Python installation completed!
-            echo Please restart this script after Python is added to your PATH.
-            echo You may need to close and reopen this terminal window.
+            echo ============================================================
+            echo Python installation completed successfully!
+            echo ============================================================
+            echo.
+            echo IMPORTANT: You must close and reopen this terminal window
+            echo for Python to be available in your PATH.
+            echo.
+            echo After restarting the terminal, run this script again.
             pause
             exit /b 0
         ) else (
             echo.
-            echo winget installation failed. Trying alternative method...
-            echo Please visit https://www.python.org/downloads/ to install Python manually.
-            echo Make sure to check "Add Python to PATH" during installation.
+            echo ============================================================
+            echo winget installation failed (Error code: !WINGET_RESULT!)
+            echo ============================================================
+            echo.
+            echo This could mean:
+            echo   - winget is not available on your system
+            echo   - You need administrator privileges
+            echo   - Network connection issues
+            echo.
+            echo Please try one of the following:
+            echo   1. Run this script as Administrator
+            echo   2. Install Python manually from: https://www.python.org/downloads/
+            echo      (Make sure to check "Add Python to PATH" during installation)
             pause
             exit /b 1
         )
