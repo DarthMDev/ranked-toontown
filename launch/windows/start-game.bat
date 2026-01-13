@@ -2,13 +2,7 @@
 title Toontown Ranked: Main Game Launcher
 cd ..\..
 
-REM Run pre-flight dependency checker (checks Python and MongoDB before running Python scripts)
-call launch\windows\check_dependencies.bat
-if %ERRORLEVEL% NEQ 0 (
-    exit /b 1
-)
-
-REM Now that we know Python is available, find it
+REM Try to find Python in PATH first, then use PPYTHON_PATH if available
 set PYTHON_CMD=python
 where python >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -16,10 +10,27 @@ if %ERRORLEVEL% NEQ 0 (
     if %ERRORLEVEL% EQU 0 (
         set PYTHON_CMD=py
     ) else (
-        echo Error: Python not found after dependency check.
-        pause
-        exit /b 1
+        REM Try to read PPYTHON_PATH if it exists
+        if exist PPYTHON_PATH (
+            set /P PYTHON_CMD=<PPYTHON_PATH
+        ) else (
+            echo Python not found in PATH and PPYTHON_PATH file not found.
+            echo Please install Python 3.12+ and add it to your PATH.
+            pause
+            exit /b 1
+        )
     )
+)
+
+REM Run dependency checker
+echo Checking dependencies...
+set CALLED_FROM_LAUNCH_SCRIPT=1
+%PYTHON_CMD% -m launch.launcher.dependency_checker
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo Dependency check failed. Please install missing dependencies and try again.
+    pause
+    exit /b 1
 )
 
 REM Now use PPYTHON_PATH if it exists, otherwise use the Python we found

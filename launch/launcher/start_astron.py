@@ -1,12 +1,36 @@
 #!/usr/bin/env python3
 """
-Astron launcher script that verifies MongoDB is available before launching.
-Since astrond.yml now uses MongoDB by default, we just need to verify MongoDB is running.
+Astron launcher script that automatically detects MongoDB and uses it if available.
+This allows launching Astron individually while still using MongoDB backend when possible.
 """
 
 import os
 import sys
 import subprocess
+import tempfile
+import atexit
+import shutil
+
+# Try to import PyYAML, and install it if missing
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+    # Try to install PyYAML automatically
+    try:
+        import subprocess
+        import sys
+        print("PyYAML not found. Attempting to install...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyYAML"], 
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Try importing again
+        import yaml
+        YAML_AVAILABLE = True
+        print("PyYAML installed successfully.")
+    except Exception:
+        # Installation failed, MongoDB is required
+        pass
 
 def check_mongodb_available():
     """Check if MongoDB is installed and running on the system."""
@@ -23,6 +47,58 @@ def check_mongodb_available():
     except (ImportError, ServerSelectionTimeoutError, Exception):
         # MongoDB is not available or not running
         return False
+
+def create_mongodb_config(original_config_path):
+    """Create a temporary config file with MongoDB backend."""
+    if not YAML_AVAILABLE:
+        print("ERROR: PyYAML not available. Cannot create MongoDB config.")
+        sys.exit(1)
+    
+    try:
+        # Read the original config
+        with open(original_config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Modify the database backend to use MongoDB
+        for role in config.get('roles', []):
+            if role.get('type') == 'database':
+                role['backend'] = {
+                    'type': 'mongodb',
+                    'server': 'mongodb://127.0.0.1:27017/astrondb'
+                }
+                break
+        
+        # Create a temporary config file
+        config_dir = os.path.dirname(original_config_path)
+        temp_path = os.path.join(config_dir, 'astrond_mongo_temp.yml')
+        
+        # Remove any existing temp file first
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        
+        # Write the modified config
+        with open(temp_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        
+        print(f'Created temporary MongoDB config: {temp_path}')
+        
+        # Register cleanup function
+        def cleanup():
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    print(f'Cleaned up temporary config: {temp_path}')
+            except Exception:
+                pass
+        
+        atexit.register(cleanup)
+        return temp_path
+    except Exception as e:
+        print(f'ERROR: Failed to create MongoDB config: {e}')
+        sys.exit(1)
 
 def main():
     # Get the project root (assuming this script is in launch/launcher/)
@@ -47,8 +123,31 @@ def main():
         print('MongoDB must be running on mongodb://127.0.0.1:27017/')
         sys.exit(1)
     
-    # MongoDB is available - the default config already uses MongoDB
-    print('MongoDB detected and running. Using MongoDB backend for Astron.')
+    # Check if the default config already uses MongoDB
+    # If it does, we don't need to create a temporary config
+    config_uses_mongodb = False
+    try:
+        with open(config_path, 'r') as f:
+            config_content = f.read()
+            # Check if config already uses MongoDB backend
+            if 'type: mongodb' in config_content or '"type": "mongodb"' in config_content:
+                config_uses_mongodb = True
+    except Exception as e:
+        print(f'Warning: Could not read config file: {e}')
+        print('Proceeding with default config...')
+    
+    if config_uses_mongodb:
+        print('MongoDB detected and running. Using MongoDB backend from default config.')
+        # Config already uses MongoDB, no need to modify
+    else:
+        # Config doesn't use MongoDB, need to create temp config
+        if not YAML_AVAILABLE:
+            print('ERROR: PyYAML is required to modify config but not available.')
+            print('Please install PyYAML: pip install PyYAML')
+            print('Or update astron/config/astrond.yml to use MongoDB backend manually.')
+            sys.exit(1)
+        print('MongoDB detected and running. Creating MongoDB config.')
+        config_path = create_mongodb_config(config_path)
     
     # Find astrond executable
     astron_dir = os.path.join(project_root, 'astron')
@@ -83,10 +182,6 @@ def main():
     
     print(f'Starting Astron with config: {config_relative}')
     print(f'Command: {" ".join(cmd)}')
-    print()
-    print('NOTE: If you see "address already in use" error, another Astron instance is already running.')
-    print('Please stop the existing instance before starting a new one.')
-    print()
     
     # Launch Astron
     try:
