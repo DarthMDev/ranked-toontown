@@ -1,16 +1,14 @@
 FROM python:3.12-slim
-WORKDIR /app
 
-# Install Python
+# Environment
 ENV TZ=America/New_York
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y software-properties-common
-RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update
-RUN apt-get install -y python3.12 python3-pip
 
-# Install Panda dependencies
-RUN apt-get install -y \
+WORKDIR /app
+
+# Install system dependencies (Panda3D + build tools)
+RUN apt-get update && apt-get install -y \
+    build-essential \
     libassimp-dev \
     libeigen3-dev \
     libgl1-mesa-dev \
@@ -19,13 +17,18 @@ RUN apt-get install -y \
     libode-dev \
     libpng-dev \
     libsquish-dev \
-    libssl-dev
+    libssl-dev \
+    ca-certificates \
+    tzdata \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install game dependencies \
+# Install Python dependencies
 COPY requirements.txt .
-RUN python3.12 -m ensurepip --upgrade \
- && python3.12 -m pip install --upgrade pip setuptools wheel
-RUN python3.12 -m pip install -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements.txt
+
+# Copy application source
+COPY . .
 
 # Start the server
-ENTRYPOINT ["python3.12", "-m", "launch.launcher.launch"]
+ENTRYPOINT ["python", "-m", "launch.launcher.launch"]
