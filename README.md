@@ -98,6 +98,8 @@ on your computer, reinstall Python 3.12, and try again.
 
 ## Starting the game
 
+### Option 1: Using Batch Files (Recommended for End Users)
+
 Please navigate to the `/launch` directory, then your platform:
 - Windows: `/windows`
 - Mac: `/darwin`
@@ -108,6 +110,14 @@ Then run the following scripts in order:
 - `/server/start_uberdog_server`
 - `/server/start_ai_server`
 - `./start_game`
+
+### Option 2: Using PyCharm/IDE (For Developers)
+
+You can launch directly from PyCharm by running `launch/launcher/launch.py`:
+1. Set the `SERVICE_TO_RUN` environment variable to `AI`, `UD`, or `CLIENT`
+2. Run `launch.py` - it will automatically check for MongoDB
+3. Optional: Set `DEVELOPER_MODE=1` for non-blocking dependency checks
+4. Optional: Set `SKIP_DEPENDENCY_CHECK=1` to skip all checks
 
 ## Common Issues/FAQ
 

@@ -1,17 +1,26 @@
 # Windows Installation Guide
 
-## Automatic Python Installation
+## Automatic Dependency Management
 
-As of this update, the Toontown Ranked launcher includes automatic Python detection and installation!
+As of this update, the Toontown Ranked launcher includes automatic Python and MongoDB detection and installation!
 
-### How It Works
+### How It Works (Hybrid Approach)
 
-1. **Pre-Flight Check**: Before running any Python code, the launcher runs `check_python.ps1` to verify Python is installed
-2. **Smart Detection**: The script checks for Python 3.12+ using common commands (`python`, `python3`, `py`)
-3. **Automatic Installation**: If Python is not found, the script offers to automatically install the **latest** Python version using Windows Package Manager (winget)
-4. **Version Selection**: The installer tries to get the most recent Python version available (3.13, then 3.12 if 3.13 isn't available)
-5. **MongoDB Check**: After Python is verified, `dependency_checker.py` runs to check for MongoDB (which is **required**)
-6. **Graceful Fallback**: If automatic installation fails, the script provides clear instructions for manual installation
+The launcher uses a **two-path dependency checking system**:
+
+#### Path 1: Batch File Users (End Users)
+1. **Pre-Flight Check**: Before running any Python code, the launcher runs `check_dependencies.ps1` (PowerShell)
+2. **Python Detection**: Checks for Python 3.12+ using common commands (`python`, `python3`, `py`)
+3. **MongoDB Detection**: Checks for MongoDB in PATH and common installation locations
+4. **Automatic Installation**: Offers to install missing dependencies using Windows Package Manager (winget)
+5. **Version Selection**: Installer tries to get the latest versions (Python 3.13 → 3.12, MongoDB latest)
+6. **No Python Code**: This all happens BEFORE any Python code runs, solving the "no Python" problem
+
+#### Path 2: PyCharm/Direct Python Users (Developers)
+1. **Python Already Available**: PyCharm runs Python directly, so Python is guaranteed to be available
+2. **Python-Based Check**: `dependency_checker.py` runs to verify MongoDB and other dependencies
+3. **Less Intrusive**: Respects `DEVELOPER_MODE` and `SKIP_DEPENDENCY_CHECK` environment variables
+4. **Cross-Platform**: Works on Windows, Linux, and macOS
 
 ### What This Solves
 
@@ -47,29 +56,33 @@ Would you like to install MongoDB automatically? (y/n):
 
 ### Files Modified
 
-- **`check_python.ps1`** (NEW): PowerShell script that handles Python detection and installation
-- **`start-game.bat`**: Updated to use the new Python checker
-- **`start-server-astron.bat`**: Updated to use the new Python checker  
-- **`start-server-ai.bat`**: Updated to use the new Python checker
-- **`start-server-uberdog.bat`**: Updated to use the new Python checker
-- **`PPYTHON_PATH`**: Generated automatically by the checker (stores the Python command to use)
+- **`check_dependencies.ps1`** (NEW): PowerShell script that handles Python AND MongoDB detection/installation
+- **`dependency_checker.py`** (UPDATED): Python-based checker for direct Python launches (PyCharm, etc.)
+- **`start-game.bat`**: Updated to use the new comprehensive dependency checker
+- **`start-server-astron.bat`**: Updated to use the new comprehensive dependency checker
+- **`start-server-ai.bat`**: Updated to use the new comprehensive dependency checker
+- **`start-server-uberdog.bat`**: Updated to use the new comprehensive dependency checker
+- **`PPYTHON_PATH`**: Generated automatically by the PowerShell checker (stores the Python command to use)
 
 ### Technical Details
 
 #### Exit Codes
-The `check_python.ps1` script returns:
-- `0`: Python found and meets requirements
-- `1`: Python not found and installation failed/declined
-- `2`: Python was just installed, launcher needs restart
+The `check_dependencies.ps1` script returns:
+- `0`: All dependencies found and meet requirements
+- `1`: Dependencies missing and installation failed/declined
+- `2`: Dependencies were just installed, launcher needs restart
 
-#### Python Version Strategy
-Instead of hardcoding Python 3.12, the script installs the **latest available** Python 3.x version:
-1. First tries: `Python.Python.3.13`
-2. Falls back to: `Python.Python.3.12`
-3. Manual instructions provided if both fail
+#### Version Strategy
+Instead of hardcoding versions, the script installs the **latest available** versions:
+- **Python**: Tries `Python.Python.3.13` → `Python.Python.3.12`
+- **MongoDB**: Installs latest `MongoDB.Server`
 
 #### PPYTHON_PATH File
-The checker creates a `PPYTHON_PATH` file containing the Python command that works on the user's system (e.g., `python`, `py`, etc.). This file is used by subsequent scripts and is automatically ignored by git.
+The PowerShell checker creates a `PPYTHON_PATH` file containing the Python command that works on the user's system (e.g., `python`, `py`, etc.). This file is used by subsequent scripts and is automatically ignored by git.
+
+#### Why Two Checkers?
+- **PowerShell (`check_dependencies.ps1`)**: For end users launching via batch files. Runs BEFORE Python is available.
+- **Python (`dependency_checker.py`)**: For developers launching directly from PyCharm/IDE. Python is already running.
 
 ### Manual Installation
 
