@@ -14,7 +14,9 @@ The launcher uses a **two-path dependency checking system**:
 3. **MongoDB Detection**: Checks for MongoDB in PATH and common installation locations
 4. **Automatic Installation**: Offers to install missing dependencies using Windows Package Manager (winget)
 5. **Version Selection**: Installer tries to get the latest versions (Python 3.13 → 3.12, MongoDB latest)
-6. **No Python Code**: This all happens BEFORE any Python code runs, solving the "no Python" problem
+6. **Environment Refresh**: After installation, automatically refreshes environment variables and re-checks
+7. **Auto-Continue**: If dependencies are detected after installation, **continues automatically without restart!**
+8. **No Python Code**: This all happens BEFORE any Python code runs, solving the "no Python" problem
 
 #### Path 2: PyCharm/Direct Python Users (Developers)
 1. **Python Already Available**: PyCharm runs Python directly, so Python is guaranteed to be available
@@ -68,9 +70,11 @@ Would you like to install MongoDB automatically? (y/n):
 
 #### Exit Codes
 The `check_dependencies.ps1` script returns:
-- `0`: All dependencies found and meet requirements
-- `1`: Dependencies missing and installation failed/declined
-- `2`: Dependencies were just installed, launcher needs restart
+- `0`: All dependencies found and meet requirements (launcher continues automatically)
+- `1`: Dependencies missing and installation failed/declined (launcher exits)
+- `2`: Dependencies installed but not detected in current session (restart required)
+
+**Note**: In most cases, after installing Python or MongoDB, the script will **automatically detect them and continue with exit code 0**, eliminating the need for manual restart!
 
 #### Version Strategy
 Instead of hardcoding versions, the script installs the **latest available** versions:

@@ -144,6 +144,7 @@ function Install-PythonWithWinget {
             Write-Host "Python installation completed successfully!" -ForegroundColor Green
             Write-Host "=" * 70 -ForegroundColor Green
             Write-Host ""
+            Write-Host "Refreshing environment to detect Python..." -ForegroundColor Gray
             return $true
         }
         else {
@@ -326,9 +327,7 @@ function Install-MongoDBWithWinget {
             Write-Host "MongoDB installation completed successfully!" -ForegroundColor Green
             Write-Host "=" * 70 -ForegroundColor Green
             Write-Host ""
-            Write-Host "IMPORTANT: MongoDB may not be immediately available in your PATH." -ForegroundColor Yellow
-            Write-Host "Please restart this launcher for changes to take effect." -ForegroundColor Yellow
-            Write-Host ""
+            Write-Host "Refreshing environment to detect MongoDB..." -ForegroundColor Gray
             return $true
         }
         else {
@@ -350,6 +349,28 @@ function Install-MongoDBWithWinget {
         Write-Host ""
         return $false
     }
+}
+
+#endregion
+
+#region Helper Functions
+
+# Function to refresh environment variables from registry
+function Update-EnvironmentVariables {
+    Write-Host "Refreshing environment variables..." -ForegroundColor Gray
+    
+    # Get Machine PATH
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    # Get User PATH
+    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    
+    # Combine them (User PATH takes precedence)
+    $newPath = "$userPath;$machinePath"
+    
+    # Update current process PATH
+    $env:Path = $newPath
+    
+    Write-Host "Environment variables refreshed." -ForegroundColor Gray
 }
 
 #endregion
@@ -394,7 +415,28 @@ else {
     $installed = Install-PythonWithWinget
     
     if ($installed) {
-        $needsRestart = $true
+        # Refresh environment variables to pick up newly installed Python
+        Write-Host ""
+        Update-EnvironmentVariables
+        Write-Host ""
+        Write-Host "Re-checking Python installation..." -ForegroundColor Cyan
+        
+        # Re-check if Python is now available
+        $pythonCheck = Test-PythonInstalled
+        
+        if ($pythonCheck.Found) {
+            Write-Host "  Python $($pythonCheck.Version) detected successfully!" -ForegroundColor Green
+            $allOk = $true
+            
+            # Write the Python command to PPYTHON_PATH file
+            $ppythonPath = Join-Path $PSScriptRoot "PPYTHON_PATH"
+            $pythonCheck.Command | Out-File -FilePath $ppythonPath -Encoding ASCII -NoNewline
+        }
+        else {
+            Write-Host "  Python installed but not yet available in PATH." -ForegroundColor Yellow
+            Write-Host "  Please restart this launcher for changes to take effect." -ForegroundColor Yellow
+            $needsRestart = $true
+        }
     }
     else {
         Write-Host "Cannot continue without Python." -ForegroundColor Red
@@ -433,7 +475,24 @@ else {
     $installed = Install-MongoDBWithWinget
     
     if ($installed) {
-        $needsRestart = $true
+        # Refresh environment variables to pick up newly installed MongoDB
+        Write-Host ""
+        Update-EnvironmentVariables
+        Write-Host ""
+        Write-Host "Re-checking MongoDB installation..." -ForegroundColor Cyan
+        
+        # Re-check if MongoDB is now available
+        $mongoCheck = Test-MongoDBInstalled
+        
+        if ($mongoCheck.Found) {
+            Write-Host "  MongoDB detected successfully!" -ForegroundColor Green
+            $allOk = $true
+        }
+        else {
+            Write-Host "  MongoDB installed but not yet available in PATH." -ForegroundColor Yellow
+            Write-Host "  Please restart this launcher for changes to take effect." -ForegroundColor Yellow
+            $needsRestart = $true
+        }
     }
     else {
         Write-Host "Cannot continue without MongoDB." -ForegroundColor Red
@@ -451,8 +510,11 @@ if (-not $Silent) {
     Write-Host "=" * 70 -ForegroundColor Cyan
     
     if ($needsRestart) {
-        Write-Host "Dependencies installed! Please restart this launcher." -ForegroundColor Yellow
+        Write-Host "Dependencies installed but require restart!" -ForegroundColor Yellow
         Write-Host "=" * 70 -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "The dependencies were installed successfully, but are not yet" -ForegroundColor White
+        Write-Host "available in the current session. Please restart this launcher." -ForegroundColor White
         Write-Host ""
         Read-Host "Press Enter to exit"
         exit $EXIT_RESTART_NEEDED
