@@ -10,7 +10,8 @@ As of this update, the Toontown Ranked launcher includes automatic Python detect
 2. **Smart Detection**: The script checks for Python 3.12+ using common commands (`python`, `python3`, `py`)
 3. **Automatic Installation**: If Python is not found, the script offers to automatically install the **latest** Python version using Windows Package Manager (winget)
 4. **Version Selection**: The installer tries to get the most recent Python version available (3.13, then 3.12 if 3.13 isn't available)
-5. **Graceful Fallback**: If automatic installation fails, the script provides clear instructions for manual installation
+5. **MongoDB Check**: After Python is verified, `dependency_checker.py` runs to check for MongoDB (which is **required**)
+6. **Graceful Fallback**: If automatic installation fails, the script provides clear instructions for manual installation
 
 ### What This Solves
 
@@ -20,7 +21,7 @@ Checking dependencies...
 Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.
 ```
 
-**Now**: Users get a clear, helpful prompt:
+**Now**: Users get a clear, helpful prompt for both Python and MongoDB:
 ```
 Verifying Python installation...
 
@@ -32,6 +33,17 @@ Python 3.12+ is required to run Toontown Ranked.
 
 Would you like to automatically install the latest Python version? (Y/N)
 ```
+
+And for MongoDB:
+```
+Checking MongoDB installation...
+✗ MongoDB not found: MongoDB not found in PATH or common installation locations
+MongoDB is REQUIRED to run Toontown Ranked.
+
+Would you like to install MongoDB automatically? (y/n):
+```
+
+**Important**: MongoDB is now **required** to run Toontown Ranked. Users cannot proceed without it
 
 ### Files Modified
 

@@ -327,13 +327,13 @@ def install_mongodb_macos() -> bool:
     return False
 
 
-def check_dependencies(require_mongodb: bool = False, quiet: bool = False) -> bool:
+def check_dependencies(require_mongodb: bool = True, quiet: bool = False) -> bool:
     """
     Check all dependencies and prompt for installation if missing.
     Returns True if all required dependencies are met.
     
     Args:
-        require_mongodb: If True, MongoDB is required. If False, it's optional but recommended.
+        require_mongodb: MongoDB is now always required (parameter kept for backwards compatibility).
         quiet: If True, don't print headers and be less verbose (for developer mode).
     """
     if not quiet:
@@ -387,7 +387,7 @@ def check_dependencies(require_mongodb: bool = False, quiet: bool = False) -> bo
     if not quiet:
         print()
     
-    # Check MongoDB (optional but recommended)
+    # Check MongoDB (REQUIRED)
     if not quiet:
         print("Checking MongoDB installation...")
     mongodb_ok, mongodb_version, mongodb_error = check_mongodb()
@@ -397,64 +397,45 @@ def check_dependencies(require_mongodb: bool = False, quiet: bool = False) -> bo
             print(f"✓ MongoDB is installed: {mongodb_version}")
     else:
         if not quiet:
-            print(f"⚠ MongoDB not found: {mongodb_error}")
-        if require_mongodb:
-            all_ok = False
-            if not quiet:
-                print("MongoDB is required for this configuration.")
-                print()
-                response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
+            print(f"✗ MongoDB not found: {mongodb_error}")
+            print("MongoDB is REQUIRED to run Toontown Ranked.")
+        
+        all_ok = False
+        
+        if not quiet:
+            print()
+            response = input("Would you like to install MongoDB automatically? (y/n): ").strip().lower()
+        else:
+            response = 'n'  # In quiet mode, don't prompt, just report
+        
+        if response == 'y':
+            system = platform.system()
+            if system == 'Windows':
+                install_mongodb_windows()
+            elif system == 'Linux':
+                install_mongodb_linux()
+            elif system == 'Darwin':
+                install_mongodb_macos()
             else:
-                response = 'n'  # In quiet mode, don't prompt, just report
-            
-            if response == 'y':
-                system = platform.system()
-                if system == 'Windows':
-                    install_mongodb_windows()
-                elif system == 'Linux':
-                    install_mongodb_linux()
-                elif system == 'Darwin':
-                    install_mongodb_macos()
-                else:
-                    print(f"Automatic installation not supported on {system}. Please install manually.")
-                return False  # Need to restart after installation
-            else:
-                if not quiet:
-                    print("MongoDB installation is required to continue.")
-                return False
+                print(f"Automatic installation not supported on {system}. Please install manually.")
+            return False  # Need to restart after installation
         else:
             if not quiet:
-                print("MongoDB is optional. The game will use YAML backend for data storage.")
-                print("MongoDB is recommended for better performance and features.")
                 print()
-                response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
-            else:
-                response = 'n'  # In quiet mode, don't prompt, just report
-            
-            if response == 'y':
-                system = platform.system()
-                if system == 'Windows':
-                    install_mongodb_windows()
-                elif system == 'Linux':
-                    install_mongodb_linux()
-                elif system == 'Darwin':
-                    install_mongodb_macos()
-                else:
-                    print(f"Automatic installation not supported on {system}. Please install manually.")
-                # MongoDB installation doesn't require immediate restart, but it's recommended
-            else:
-                if not quiet:
-                    print()
-                    print("⚠ WARNING: Proceeding without MongoDB.")
-                    print("The game will use YAML backend for data storage, which may have limitations.")
-                    response = input("Continue anyway? (y/n): ").strip().lower()
-                else:
-                    response = 'y'  # In quiet mode, allow proceeding
-                
-                if response != 'y':
-                    if not quiet:
-                        print("Launch cancelled. Please install MongoDB and try again.")
-                    return False
+                print("=" * 60)
+                print("MongoDB Installation Required")
+                print("=" * 60)
+                print("Toontown Ranked requires MongoDB to run.")
+                print()
+                print("Please install MongoDB manually:")
+                print("  • Windows: https://www.mongodb.com/try/download/community")
+                print("  • Or use winget: winget install MongoDB.Server")
+                print()
+                print("After installing MongoDB:")
+                print("  1. Ensure MongoDB is added to your system PATH")
+                print("  2. Restart this launcher")
+                print("=" * 60)
+            return False
     
     if not quiet:
         print()
@@ -472,7 +453,6 @@ def check_dependencies(require_mongodb: bool = False, quiet: bool = False) -> bo
 
 
 if __name__ == '__main__':
-    # Allow command-line argument to require MongoDB
-    require_mongo = '--require-mongodb' in sys.argv
-    success = check_dependencies(require_mongodb=require_mongo)
+    # MongoDB is now always required
+    success = check_dependencies(require_mongodb=True)
     sys.exit(0 if success else 1)

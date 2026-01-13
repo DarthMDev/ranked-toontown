@@ -63,7 +63,10 @@ At this time, Windows is the only supported platform. For other platforms, pleas
    - Then run `start-game.bat` from `launch/windows/`
    - The launcher will automatically check for dependencies (Python and MongoDB) and offer to install them if missing
 
-**Note:** If you prefer to install Python manually, download Python 3.12+ from [python.org](https://www.python.org/downloads/) and ensure you check "Add Python to PATH" during installation
+**Important Notes:**
+- **MongoDB is required** to run Toontown Ranked. The launcher will prompt you to install it automatically
+- If you prefer to install Python manually, download Python 3.12+ from [python.org](https://www.python.org/downloads/) and ensure you check "Add Python to PATH" during installation
+- For MongoDB manual installation, visit [mongodb.com](https://www.mongodb.com/try/download/community)
 
 ### Docker (Linux Server)
 
@@ -79,11 +82,19 @@ You can find out how to install them [here.](https://docs.docker.com/engine/inst
 
 # Running from source
 
-## Panda3D
+## Requirements
+
+### Python 3.12+
+This source requires Python 3.12 or later. **Ensure that you add Python to your PATH during installation.**
+
+### Panda3D
 This source can be run using any modern version of Panda3D. It is highly recommended that you don't install Panda3D
 as it is installed automatically as a pip dependency. If you have issues launching the source, it is **more than likely**
 that you have a Python PATH conflict. If this occurs, the simplest solution is to **uninstall all instances of Panda3D and Python**
-on your computer, reinstall Python 3.12, and try again. **Ensure that you add Python to your PATH during install.**
+on your computer, reinstall Python 3.12, and try again.
+
+### MongoDB
+**MongoDB is required** to run Toontown Ranked. The launcher will automatically offer to install it for you, or you can install it manually from [mongodb.com](https://www.mongodb.com/try/download/community). Make sure MongoDB is added to your system PATH
 
 ## Starting the game
 
