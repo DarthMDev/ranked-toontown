@@ -14,10 +14,42 @@ if %ERRORLEVEL% NEQ 0 (
         if exist ../PPYTHON_PATH (
             set /P PYTHON_CMD=<../PPYTHON_PATH
         ) else (
-            echo Python not found in PATH and PPYTHON_PATH file not found.
-            echo Please install Python 3.12+ and add it to your PATH.
-            pause
-            exit /b 1
+            echo ============================================================
+            echo Python 3.12+ is required but not found.
+            echo ============================================================
+            echo.
+            echo Python is mandatory to run Toontown Ranked.
+            echo.
+            set /p INSTALL_PYTHON="Would you like to install Python 3.12+ now? (y/n): "
+            if /i "%INSTALL_PYTHON%"=="y" (
+                echo.
+                echo Attempting to install Python using winget...
+                winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
+                if %ERRORLEVEL% EQU 0 (
+                    echo.
+                    echo Python installation completed!
+                    echo Please restart this script after Python is added to your PATH.
+                    echo You may need to close and reopen this terminal window.
+                    pause
+                    exit /b 0
+                ) else (
+                    echo.
+                    echo winget installation failed. Trying alternative method...
+                    echo Please visit https://www.python.org/downloads/ to install Python manually.
+                    echo Make sure to check "Add Python to PATH" during installation.
+                    pause
+                    exit /b 1
+                )
+            ) else (
+                echo.
+                echo Python installation is required to continue.
+                echo You cannot run Toontown Ranked without Python 3.12+.
+                echo.
+                echo Please install Python from: https://www.python.org/downloads/
+                echo Make sure to check "Add Python to PATH" during installation.
+                pause
+                exit /b 1
+            )
         )
     )
 )
