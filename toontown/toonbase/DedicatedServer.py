@@ -34,7 +34,7 @@ AI_DONE_MSG = f':{AI_NOITFY_CATEGORY_NAME}: District is now ready. Have fun in T
 class DedicatedServer(DirectObject):
     notify = DirectNotifyGlobal.directNotify.newCategory('DedicatedServer')
 
-    def __init__(self, localServer=False, useMongoDB=None):
+    def __init__(self, localServer=False):
         self.notify.info('Starting DedicatedServer.')
         self.localServer = localServer
 
@@ -53,11 +53,29 @@ class DedicatedServer(DirectObject):
         self.tempConfigFile = None
         
         # Track if MongoDB is being used for singleplayer
-        # If useMongoDB is None, auto-detect. Otherwise, use the provided value.
-        self.useMongoDB = useMongoDB
         self.usingMongoDB = False
 
+        # Clean up any orphaned temporary MongoDB config files from previous sessions
+        if self.localServer:
+            self.cleanup_orphaned_temp_configs()
+
         self.notify.setInfo(True)
+    
+    @staticmethod
+    def cleanup_orphaned_temp_configs():
+        """Clean up any orphaned temporary MongoDB config files from previous sessions."""
+        try:
+            config_dir = 'astron/config'
+            if os.path.exists(config_dir):
+                import glob
+                temp_files = glob.glob(os.path.join(config_dir, 'astrond_mongo_*.yml'))
+                for temp_file in temp_files:
+                    try:
+                        os.remove(temp_file)
+                    except Exception:
+                        pass  # Ignore errors when cleaning up
+        except Exception:
+            pass  # Ignore errors during cleanup
 
     def start(self):
         # Register self.killProcesses with atexit in the event of a hard exit,
@@ -161,8 +179,17 @@ class DedicatedServer(DirectObject):
                     break
             
             # Create a temporary config file
-            temp_fd, temp_path = tempfile.mkstemp(suffix='.yml', prefix='astrond_mongo_', dir='astron/config')
-            os.close(temp_fd)
+            # Use a fixed filename since we only need one at a time for singleplayer
+            # This makes cleanup easier and avoids accumulating temp files
+            config_dir = 'astron/config'
+            temp_path = os.path.join(config_dir, 'astrond_mongo_temp.yml')
+            
+            # Remove any existing temp file first
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
             
             # Write the modified config
             with open(temp_path, 'w') as f:
@@ -186,25 +213,15 @@ class DedicatedServer(DirectObject):
         # Use the Astron config file based on the database.
         astronConfig = ConfigVariableString('astron-config-path', 'astron/config/astrond.yml').getValue()
 
-        # For singleplayer, check if MongoDB should be used
+        # For singleplayer, always try to use MongoDB (fall back to filesystem if not available)
         if self.localServer:
-            # If useMongoDB was explicitly set, use that value
-            # Otherwise, auto-detect if MongoDB is available
-            if self.useMongoDB is None:
-                should_use_mongo = self.check_mongodb_available()
-            else:
-                should_use_mongo = self.useMongoDB
-                # If user requested MongoDB but it's not available, warn and fall back
-                if should_use_mongo and not self.check_mongodb_available():
-                    self.notify.warning('MongoDB was requested but is not available. Falling back to filesystem backend.')
-                    should_use_mongo = False
-            
-            if should_use_mongo:
+            if self.check_mongodb_available():
                 self.notify.info('Using MongoDB backend for singleplayer.')
                 astronConfig = self.create_mongodb_config(astronConfig)
                 self.usingMongoDB = True
             else:
-                self.notify.info('Using YAML filesystem backend for singleplayer.')
+                self.notify.warning('MongoDB is not available. Falling back to YAML filesystem backend.')
+                self.notify.warning('For persistent data storage, please install and start MongoDB.')
                 self.usingMongoDB = False
 
         # Start Astron process.

@@ -39,3 +39,7 @@ dedicated_server_settings.json
 sr_leaderboard_cache.json
 launch/docker/database/
 launch/docker/.env
+
+# Temporary MongoDB config files for singleplayer
+astron/config/astrond_mongo_*.yml
+astron/config/astrond_mongo_temp.yml
