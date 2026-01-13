@@ -20,6 +20,7 @@ fi
 
 # Run dependency checker
 echo "Checking dependencies..."
+export CALLED_FROM_LAUNCH_SCRIPT=1
 $PYTHON_CMD -m launch.launcher.dependency_checker
 if [ $? -ne 0 ]; then
     echo ""
@@ -35,6 +36,7 @@ else
 fi
 
 export SERVICE_TO_RUN=CLIENT
+export CALLED_FROM_LAUNCH_SCRIPT=1
 
 $PPYTHON_PATH -m pip install -r requirements.txt
 $PPYTHON_PATH -m launch.launcher.launch

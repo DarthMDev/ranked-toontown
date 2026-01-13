@@ -24,6 +24,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM Run dependency checker (MongoDB required for server)
 echo Checking dependencies...
+set CALLED_FROM_LAUNCH_SCRIPT=1
 %PYTHON_CMD% -m launch.launcher.dependency_checker --require-mongodb
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -50,6 +51,7 @@ set WANT_ERROR_REPORTING=true
 
 :main
     %PPYTHON_PATH% -m pip install -r requirements.txt
+    set CALLED_FROM_LAUNCH_SCRIPT=1
     %PPYTHON_PATH% -m launch.launcher.launch
     pause
 goto main

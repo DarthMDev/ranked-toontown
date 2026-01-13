@@ -161,8 +161,8 @@ class DedicatedServer(DirectObject):
     def create_mongodb_config(self, originalConfigPath):
         """Create a temporary config file with MongoDB backend for singleplayer."""
         if not YAML_AVAILABLE:
-            self.notify.warning('PyYAML not available. Cannot create MongoDB config. Using default YAML backend.')
-            return originalConfigPath
+            self.notify.error('PyYAML not available. Cannot create MongoDB config.')
+            raise Exception('PyYAML is required but not available. Please install PyYAML: pip install PyYAML')
         
         try:
             # Read the original config
@@ -199,8 +199,8 @@ class DedicatedServer(DirectObject):
             self.notify.info(f'Created temporary MongoDB config: {temp_path}')
             return temp_path
         except Exception as e:
-            self.notify.warning(f'Failed to create MongoDB config: {e}. Using default YAML backend.')
-            return originalConfigPath
+            self.notify.error(f'Failed to create MongoDB config: {e}')
+            raise
 
     def startAstron(self, task):
         self.notify.info('Starting Astron...')
@@ -213,16 +213,17 @@ class DedicatedServer(DirectObject):
         # Use the Astron config file based on the database.
         astronConfig = ConfigVariableString('astron-config-path', 'astron/config/astrond.yml').getValue()
 
-        # For singleplayer, always try to use MongoDB (fall back to filesystem if not available)
+        # For singleplayer, MongoDB is required
         if self.localServer:
-            if self.check_mongodb_available():
-                self.notify.info('Using MongoDB backend for singleplayer.')
-                astronConfig = self.create_mongodb_config(astronConfig)
-                self.usingMongoDB = True
-            else:
-                self.notify.warning('MongoDB is not available. Falling back to YAML filesystem backend.')
-                self.notify.warning('For persistent data storage, please install and start MongoDB.')
-                self.usingMongoDB = False
+            if not self.check_mongodb_available():
+                self.notify.error('MongoDB is required but not available.')
+                self.notify.error('Please install and start MongoDB before launching singleplayer.')
+                self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
+                raise Exception('MongoDB is required but not available.')
+            
+            self.notify.info('Using MongoDB backend for singleplayer.')
+            astronConfig = self.create_mongodb_config(astronConfig)
+            self.usingMongoDB = True
 
         # Start Astron process.
         self.openAstronProcess(astronConfig)

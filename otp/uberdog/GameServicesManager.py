@@ -46,6 +46,11 @@ class GameServicesManager(DistributedObjectGlobal):
         self.doneEvent = doneEvent
 
         if self.authenticationScheme == AuthenticationGlobals.AUTHENTICATION_SCHEME_DEVTOKEN:
+            # If we already have a playToken from the launcher (e.g., from environment variable),
+            # use it directly instead of asking for input
+            if self.cr.playToken:
+                self.d_login(self.cr.playToken)
+                return
             self.__askForPlaytokenInput()
             return
 

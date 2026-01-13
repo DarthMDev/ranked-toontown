@@ -20,6 +20,7 @@ fi
 
 # Run dependency checker (MongoDB required for server)
 echo "Checking dependencies..."
+export CALLED_FROM_LAUNCH_SCRIPT=1
 $PYTHON_CMD -m launch.launcher.dependency_checker --require-mongodb
 if [ $? -ne 0 ]; then
     echo ""
@@ -45,6 +46,7 @@ export WANT_ERROR_REPORTING="true"
 while true
 do
 	$PPYTHON_PATH -m pip install -r requirements.txt
+	export CALLED_FROM_LAUNCH_SCRIPT=1
 	$PPYTHON_PATH -m launch.launcher.launch
 	sleep 5
 done

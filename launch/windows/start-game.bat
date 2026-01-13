@@ -24,6 +24,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM Run dependency checker
 echo Checking dependencies...
+set CALLED_FROM_LAUNCH_SCRIPT=1
 %PYTHON_CMD% -m launch.launcher.dependency_checker
 if %ERRORLEVEL% NEQ 0 (
     echo.
@@ -43,6 +44,7 @@ set SERVICE_TO_RUN=CLIENT
 
 :main
     %PPYTHON_PATH% -m pip install -r requirements.txt
+    set CALLED_FROM_LAUNCH_SCRIPT=1
     %PPYTHON_PATH% -m launch.launcher.launch
     pause
 goto :main

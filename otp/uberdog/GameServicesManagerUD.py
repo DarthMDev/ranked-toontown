@@ -831,7 +831,7 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         self._clientId = environ.get('DISCORD_APP_CLIENT_ID', None)
         self._clientSecret = environ.get('DISCORD_APP_CLIENT_SECRET', None)
         self._clientRedirect = environ.get('DISCORD_APP_CLIENT_REDIRECT', None)
-        self._playtokenStrategy = environ.get('PLAYTOKEN_STORAGE_STRATEGY', 'FILESYSTEM')
+        self._playtokenStrategy = environ.get('PLAYTOKEN_STORAGE_STRATEGY', 'MONGODB')
         self.connection2fsm = {}
         self.account2fsm = {}
         self.accountDb = None
@@ -879,15 +879,22 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         self.account2fsm = {}
 
         # Instantiate the account database interface.
-        # If we have Mongo credentials set, we can assume we want to use MongoDB. Otherwise, just use Dev DB.
+        # MongoDB is now required - filesystem support has been removed.
         credentials = environ.get('MONGO_CONNECTION_STRING', None)
-        if self._playtokenStrategy == 'MONGODB':
-            if credentials is None:
-                self.notify.error(f"Your configuration is invalid. If you want to use MongoDB for playtokens, you must provide the `MONGO_CONNECTION_STRING` environment variable.")
-                exit(1)
-            self.accountDb = MongoAccountDb(self, credentials)
-        else:
-            self.accountDb = DeveloperAccountDb(self)
+        
+        # If MONGO_CONNECTION_STRING is not provided, use default local MongoDB
+        if credentials is None:
+            credentials = 'mongodb://127.0.0.1:27017/'
+        
+        # Verify MongoDB is available
+        if not self._check_mongodb_available():
+            self.notify.error('MongoDB is required but not available.')
+            self.notify.error('Please install and start MongoDB before launching the server.')
+            self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
+            exit(1)
+        
+        # Use MongoDB for account storage
+        self.accountDb = MongoAccountDb(self, credentials)
 
         self.notify.info(f"Using {self.accountDb.__class__.__name__} interface for play token resolution.")
 
@@ -1063,3 +1070,19 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         else:
             # Otherwise, the client wants to unload the avatar; run an UnloadAvatarOperation.
             self.runOperation(UnloadAvatarOperation, currentAvId)
+
+    def _check_mongodb_available(self):
+        """Check if MongoDB is installed and running on the system."""
+        try:
+            from pymongo import MongoClient
+            from pymongo.errors import ServerSelectionTimeoutError
+            
+            # Try to connect to MongoDB
+            client = MongoClient('mongodb://127.0.0.1:27017/', serverSelectionTimeoutMS=2000)
+            # Try to ping the server
+            client.admin.command('ping')
+            client.close()
+            return True
+        except (ImportError, ServerSelectionTimeoutError, Exception):
+            # MongoDB is not available or not running
+            return False

@@ -54,7 +54,7 @@ class OpeningUserInput(DirectObject):
         base.startShow(self.cr, config.ConfigVariableString('public-server-ip', '').getValue())
 
     def singlePlayerScreen(self):
-        # Always use MongoDB for singleplayer (will fall back to filesystem if not available)
+        # MongoDB is required for singleplayer
         # Start DedicatedServer
         builtins.gameServicesDialog = self.dialogClass(message=CRLoadingGameServices)
         builtins.gameServicesDialog.show()

@@ -18,6 +18,11 @@ class TTOffQuickLauncher(TTOffLauncherBase):
         else:
             self.ttoffPlayTokenKey = 'TTOFF_PLAYTOKEN'
         print('useTTOffSpecificLogin=%s' % self.useTTOffSpecificLogin)
+        # Read playToken from environment variable if set
+        # Support both PLAYTOKEN (generic) and TTOFF_LOGIN_TOKEN/TTOFF_PLAYTOKEN (specific)
+        playToken = self.getValue('PLAYTOKEN') or self.getValue(self.ttoffPlayTokenKey)
+        if playToken:
+            self.playToken = playToken
         self.parseWebAcctParams()
         self.showPhase = -1
         self.maybeStartGame()
@@ -49,7 +54,16 @@ class TTOffQuickLauncher(TTOffLauncherBase):
         return None
 
     def getPlayToken(self):
-        return self.playToken
+        # If playToken was set from environment, return it
+        if self.playToken:
+            return self.playToken
+        # Otherwise, try to get it from environment (like parent class does)
+        # Support both PLAYTOKEN (generic) and TTOFF_LOGIN_TOKEN/TTOFF_PLAYTOKEN (specific)
+        playToken = self.getValue('PLAYTOKEN') or self.getValue(self.ttoffPlayTokenKey)
+        if playToken:
+            self.playToken = playToken
+            return playToken
+        return None
 
     def setPlayToken(self, playToken):
         self.playToken = playToken

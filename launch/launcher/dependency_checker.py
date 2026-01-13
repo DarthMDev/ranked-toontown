@@ -327,38 +327,47 @@ def install_mongodb_macos() -> bool:
     return False
 
 
-def check_dependencies(require_mongodb: bool = False) -> bool:
+def check_dependencies(require_mongodb: bool = False, quiet: bool = False) -> bool:
     """
     Check all dependencies and prompt for installation if missing.
     Returns True if all required dependencies are met.
     
     Args:
         require_mongodb: If True, MongoDB is required. If False, it's optional but recommended.
+        quiet: If True, don't print headers and be less verbose (for developer mode).
     """
-    print("=" * 60)
-    print("Toontown Ranked - Dependency Checker")
-    print("=" * 60)
-    print()
+    if not quiet:
+        print("=" * 60)
+        print("Toontown Ranked - Dependency Checker")
+        print("=" * 60)
+        print()
     
     all_ok = True
     
     # Check Python version (required)
-    print("Checking Python installation...")
+    if not quiet:
+        print("Checking Python installation...")
     python_ok, error_msg, version = check_python_version()
     
     if python_ok:
-        print(f"✓ Python {version[0]}.{version[1]} is installed and compatible.")
+        if not quiet:
+            print(f"✓ Python {version[0]}.{version[1]} is installed and compatible.")
     else:
-        print(f"✗ Python check failed: {error_msg}")
+        if not quiet:
+            print(f"✗ Python check failed: {error_msg}")
         all_ok = False
         
         # Also check if Python is in PATH
         path_ok, python_path, path_error = check_python_in_path()
-        if not path_ok:
+        if not path_ok and not quiet:
             print(f"  Note: {path_error}")
         
-        print()
-        response = input(f"Would you like to install Python {REQUIRED_PYTHON_MAJOR}.{REQUIRED_PYTHON_MINOR}+? (y/n): ").strip().lower()
+        if not quiet:
+            print()
+            response = input(f"Would you like to install Python {REQUIRED_PYTHON_MAJOR}.{REQUIRED_PYTHON_MINOR}+? (y/n): ").strip().lower()
+        else:
+            response = 'n'  # In quiet mode, don't prompt, just report
+        
         if response == 'y':
             system = platform.system()
             if system == 'Windows':
@@ -371,24 +380,33 @@ def check_dependencies(require_mongodb: bool = False) -> bool:
                 print(f"Automatic installation not supported on {system}. Please install manually.")
             return False  # Need to restart after installation
         else:
-            print("Python installation is required to continue.")
+            if not quiet:
+                print("Python installation is required to continue.")
             return False
     
-    print()
+    if not quiet:
+        print()
     
     # Check MongoDB (optional but recommended)
-    print("Checking MongoDB installation...")
+    if not quiet:
+        print("Checking MongoDB installation...")
     mongodb_ok, mongodb_version, mongodb_error = check_mongodb()
     
     if mongodb_ok:
-        print(f"✓ MongoDB is installed: {mongodb_version}")
+        if not quiet:
+            print(f"✓ MongoDB is installed: {mongodb_version}")
     else:
-        print(f"⚠ MongoDB not found: {mongodb_error}")
+        if not quiet:
+            print(f"⚠ MongoDB not found: {mongodb_error}")
         if require_mongodb:
             all_ok = False
-            print("MongoDB is required for this configuration.")
-            print()
-            response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
+            if not quiet:
+                print("MongoDB is required for this configuration.")
+                print()
+                response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
+            else:
+                response = 'n'  # In quiet mode, don't prompt, just report
+            
             if response == 'y':
                 system = platform.system()
                 if system == 'Windows':
@@ -401,13 +419,18 @@ def check_dependencies(require_mongodb: bool = False) -> bool:
                     print(f"Automatic installation not supported on {system}. Please install manually.")
                 return False  # Need to restart after installation
             else:
-                print("MongoDB installation is required to continue.")
+                if not quiet:
+                    print("MongoDB installation is required to continue.")
                 return False
         else:
-            print("MongoDB is optional. The game will use YAML backend for data storage.")
-            print("MongoDB is recommended for better performance and features.")
-            print()
-            response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
+            if not quiet:
+                print("MongoDB is optional. The game will use YAML backend for data storage.")
+                print("MongoDB is recommended for better performance and features.")
+                print()
+                response = input("Would you like to install MongoDB? (y/n): ").strip().lower()
+            else:
+                response = 'n'  # In quiet mode, don't prompt, just report
+            
             if response == 'y':
                 system = platform.system()
                 if system == 'Windows':
@@ -420,24 +443,30 @@ def check_dependencies(require_mongodb: bool = False) -> bool:
                     print(f"Automatic installation not supported on {system}. Please install manually.")
                 # MongoDB installation doesn't require immediate restart, but it's recommended
             else:
-                print()
-                print("⚠ WARNING: Proceeding without MongoDB.")
-                print("The game will use YAML backend for data storage, which may have limitations.")
-                response = input("Continue anyway? (y/n): ").strip().lower()
+                if not quiet:
+                    print()
+                    print("⚠ WARNING: Proceeding without MongoDB.")
+                    print("The game will use YAML backend for data storage, which may have limitations.")
+                    response = input("Continue anyway? (y/n): ").strip().lower()
+                else:
+                    response = 'y'  # In quiet mode, allow proceeding
+                
                 if response != 'y':
-                    print("Launch cancelled. Please install MongoDB and try again.")
+                    if not quiet:
+                        print("Launch cancelled. Please install MongoDB and try again.")
                     return False
     
-    print()
-    print("=" * 60)
-    
-    if all_ok:
-        print("All dependencies are satisfied!")
-    else:
-        print("Some dependencies are missing. Please install them and try again.")
-    
-    print("=" * 60)
-    print()
+    if not quiet:
+        print()
+        print("=" * 60)
+        
+        if all_ok:
+            print("All dependencies are satisfied!")
+        else:
+            print("Some dependencies are missing. Please install them and try again.")
+        
+        print("=" * 60)
+        print()
     
     return all_ok
 
