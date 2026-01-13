@@ -23,6 +23,8 @@ RUN apt-get install -y \
 
 # Install game dependencies \
 COPY requirements.txt .
+RUN python3.12 -m ensurepip --upgrade \
+ && python3.12 -m pip install --upgrade pip setuptools wheel
 RUN python3.12 -m pip install -r requirements.txt
 
 # Start the server
