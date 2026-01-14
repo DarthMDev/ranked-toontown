@@ -1,0 +1,16 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Docker / runtime artifacts
+database/
+*.log
+
+# OS junk
+.DS_Store
