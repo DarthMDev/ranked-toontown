@@ -1,4 +1,4 @@
-panda3d==1.10.15
+panda3d==1.10.16
 pytz==2024.1
 openskill
 fastapi

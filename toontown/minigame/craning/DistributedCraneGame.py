@@ -1941,6 +1941,7 @@ class DistributedCraneGame(DistributedMinigame):
 
         # Make absolutely sure all indicators are cleaned up
         self.removeStatusIndicators()
+        self.boss.prepareBossForBattle()
 
     def exitPrepare(self):
         if self.introductionMovie:
@@ -1977,8 +1978,6 @@ class DistributedCraneGame(DistributedMinigame):
         self.bossSpeedrunTimer.reset()
         self.bossSpeedrunTimer.start_updating()
         self.bossSpeedrunTimer.show()
-
-        self.boss.prepareBossForBattle()
 
         self.accept("LocalSetFinalBattleMode", self.toFinalBattleMode)
         self.accept("LocalSetOuchMode", self.toOuchMode)
