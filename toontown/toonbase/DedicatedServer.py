@@ -221,9 +221,25 @@ class DedicatedServer(DirectObject):
                 self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
                 raise Exception('MongoDB is required but not available.')
             
-            self.notify.info('Using MongoDB backend for singleplayer.')
-            astronConfig = self.create_mongodb_config(astronConfig)
-            self.usingMongoDB = True
+            # Check if the config already uses MongoDB
+            config_uses_mongodb = False
+            try:
+                with open(astronConfig, 'r') as f:
+                    config_content = f.read()
+                    # Check if config already uses MongoDB backend
+                    if 'type: mongodb' in config_content or '"type": "mongodb"' in config_content:
+                        config_uses_mongodb = True
+            except Exception as e:
+                self.notify.warning(f'Could not read config file to check MongoDB usage: {e}')
+                # Proceed with creating temp config as fallback
+            
+            if config_uses_mongodb:
+                self.notify.info('Config already uses MongoDB backend. Using original config.')
+                self.usingMongoDB = True
+            else:
+                self.notify.info('Creating temporary MongoDB config for singleplayer.')
+                astronConfig = self.create_mongodb_config(astronConfig)
+                self.usingMongoDB = True
 
         # Start Astron process.
         self.openAstronProcess(astronConfig)
