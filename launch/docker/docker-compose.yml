@@ -1,11 +1,10 @@
 services:
-
   db:
     image: mongo:latest
-    command: mongod --quiet --bind_ip 0.0.0.0 --logpath /dev/null  # Makes mongo shut the fuck up bc it is so obnoxious
+    #    command: mongod --quiet --bind_ip 0.0.0.0 --logpath /dev/null
     # Use this command instead if you are having authentication issues.
     # It is not recommended, but as long as you are NOT exposing any ports, it is mostly safe in non-production environments.
-#    command: mongod --noauth --bind_ip 0.0.0.0
+    command: mongod --noauth --bind_ip 0.0.0.0
     container_name: db
     environment:
       - MONGO_INITDB_DATABASE=admin
@@ -17,7 +16,7 @@ services:
 #    ports: # Use for linux
 #      - "127.0.0.1:27017:27017"
     volumes:
-      - ./database:/data/db
+      - mongo_data:/data/db
     restart: unless-stopped
     mem_reservation: 512m
 
@@ -53,13 +52,7 @@ services:
       STATESERVER: 4002
       ASTRON_IP: astron:7199
       EVENTLOGGER_IP: astron:7197
-      PLAYTOKEN_STORAGE_STRATEGY: $PLAYTOKEN_STORAGE_STRATEGY
-      MONGO_CONNECTION_STRING: $MONGO_CONNECTION_STRING
-      AUTHENTICATION_SCHEME: $AUTHENTICATION_SCHEME
-      DISCORD_APP_CLIENT_ID: $DISCORD_APP_CLIENT_ID
-      DISCORD_APP_CLIENT_SECRET: $DISCORD_APP_CLIENT_SECRET
-      DISCORD_APP_CLIENT_REDIRECT: $DISCORD_APP_CLIENT_REDIRECT
-      WANT_ERROR_REPORTING: true  # Reports errors to the sentry service for TT:AP
+      WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
     volumes:
       - "../..:/app"
 
@@ -79,7 +72,10 @@ services:
       ASTRON_IP: astron:7199
       EVENTLOGGER_IP: astron:7197
       DISTRICT_NAME: "Ranked Realms"
-      WANT_ERROR_REPORTING: true  # Reports errors to the sentry service for TT:AP
-      ARCHIPELAGO_IP: 172.17.0.1  # by default assume that archipelago is running on the same machine
+      WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
+      ARCHIPELAGO_IP: 172.17.0.1 # by default assume that archipelago is running on the same machine
     volumes:
       - "../..:/app"
+
+volumes:
+  mongo_data:
