@@ -1911,7 +1911,6 @@ class DistributedCraneGame(DistributedMinigame):
             # Don't start countdown yet - show match ready UI instead
             # Position camera during break phase (same as prepare phase)
             self.__positionCameraForMatchReady()
-            self.boss.prepareBossForBattle()
             # Clean up all status effects when starting a new round
             if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
                 self.statusEffectSystem.cleanup()
@@ -1925,8 +1924,8 @@ class DistributedCraneGame(DistributedMinigame):
             # Give requestMatchReady a chance to arrive (it should come before restart)
             taskMgr.doMethodLater(0.15, lambda task: self.__checkIfShouldWaitForReady(),
                                  self.uniqueName('check-ready-wait'))
-            # Do basic setup but don't start countdown yet
-            self.boss.prepareBossForBattle()
+
+            # Cleanup status effects
             if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
                 self.statusEffectSystem.cleanup()
             self.removeStatusIndicators()
@@ -1935,7 +1934,6 @@ class DistributedCraneGame(DistributedMinigame):
         # Normal flow: start countdown immediately
         self.introductionMovie = self.__generatePrepareInterval()
         self.introductionMovie.start()
-        self.boss.prepareBossForBattle()
 
         # Clean up all status effects when starting a new round
         if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
@@ -2449,7 +2447,6 @@ class DistributedCraneGame(DistributedMinigame):
     def setBossCogId(self, bossCogId: int) -> None:
         self.boss = base.cr.getDo(bossCogId)
         self.boss.game = self
-        self.boss.prepareBossForBattle()
         self.boss.setRuleset(self.ruleset)
 
     def getStatusEffectSystem(self) -> DistributedStatusEffectSystem | None:
@@ -4139,7 +4136,6 @@ class DistributedCraneGame(DistributedMinigame):
         if not hasattr(self, 'introductionMovie') or self.introductionMovie is None:
             self.introductionMovie = self.__generatePrepareInterval()
             self.introductionMovie.start()
-        self.boss.prepareBossForBattle()
         # Clean up all status effects when starting a new round
         if hasattr(self, 'statusEffectSystem') and self.statusEffectSystem:
             self.statusEffectSystem.cleanup()

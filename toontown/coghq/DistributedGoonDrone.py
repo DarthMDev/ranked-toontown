@@ -211,6 +211,7 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
                         # Heal drone doesn't need target, just hover above owner
                         self.startHovering()
                     elif self.droneType == CraneGameGlobals.DroneType.EXPLODEY:
+
                         # Explodey drone flies to CFO (targetId should be CFO's doId)
                         if self.targetId or self.boss:
                             self.startFlyingToCFO()

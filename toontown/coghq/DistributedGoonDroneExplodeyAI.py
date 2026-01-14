@@ -110,6 +110,7 @@ class DistributedGoonDroneExplodeyAI(DistributedGoonDroneBaseAI):
                                 self.ownerId,
                                 self.boss.game.ruleset.POINTS_GOON_KILLED_BY_SAFE,
                                 reason=CraneGameGlobals.ScoreReason.GOON_KILL
+
                             )
                             self.notify.debug(f'Xplodey: Successfully destroyed goon {goonId} via b_destroyGoon and awarded points')
                     else:
@@ -122,6 +123,7 @@ class DistributedGoonDroneExplodeyAI(DistributedGoonDroneBaseAI):
         
         # Send explosion visual to all clients
         self.sendUpdate('performVisualEffect', [CraneGameGlobals.DroneType.EXPLODEY.value])
+
         
         # Vanish after explosion
         taskMgr.doMethodLater(0.5, self.vanishWithPoof, self.uniqueName('vanishAfterExplosion'))

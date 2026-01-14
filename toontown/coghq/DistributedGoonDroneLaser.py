@@ -36,7 +36,6 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
     
     def getDroneType(self):
         return CraneGameGlobals.DroneType.LASER
-    
     def needsOpponents(self):
         """Laser drones need opponents to function."""
         return True

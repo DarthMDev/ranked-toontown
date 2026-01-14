@@ -1423,8 +1423,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.setupRuleset()
         # Setup spawnpoints BEFORE sending updates to ensure clients have correct order
         self.setupSpawnpoints()
-        # Send spawn order immediately so clients have it before positioning
-        self.d_setToonSpawnpointOrder()
 
         self.__updateSkillProfile()
 
@@ -1599,9 +1597,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.boss.clearSafeHelmetCooldowns()
         self.__resetCraningObjects()
         self.boss.prepareBossForBattle()
-
-        # Just in case we didn't pass through PrepareBattleThree state.
-        self.setupSpawnpoints()
 
         # Make four goons up front to keep things interesting from the
         # beginning.

@@ -43,7 +43,7 @@ class DistributedGoonDroneHealAI(DistributedGoonDroneBaseAI):
         
         # Send visual effect to client to start particles
         self.sendUpdate('performVisualEffect', [CraneGameGlobals.DroneType.HEAL.value])
-        
+
         # Start healing over time: +10 laff per second, up to 50 laff total (5 ticks)
         self.healingActive = True
         self.healTicksRemaining = 5  # Total of 5 ticks = 50 laff
