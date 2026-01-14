@@ -53,6 +53,13 @@ services:
       ASTRON_IP: astron:7199
       EVENTLOGGER_IP: astron:7197
       WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
+      PLAYTOKEN_STORAGE_STRATEGY: $PLAYTOKEN_STORAGE_STRATEGY
+      MONGO_CONNECTION_STRING: $MONGO_CONNECTION_STRING
+      AUTHENTICATION_SCHEME: $AUTHENTICATION_SCHEME
+      DISCORD_APP_CLIENT_ID: $DISCORD_APP_CLIENT_ID
+      DISCORD_APP_CLIENT_SECRET: $DISCORD_APP_CLIENT_SECRET
+      DISCORD_APP_CLIENT_REDIRECT: $DISCORD_APP_CLIENT_REDIRECT
+      SKIP_DEPENDENCY_CHECK: $SKIP_DEPENDENCY_CHECK
     volumes:
       - "../..:/app"
 
@@ -74,6 +81,7 @@ services:
       DISTRICT_NAME: "Ranked Realms"
       WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
       ARCHIPELAGO_IP: 172.17.0.1 # by default assume that archipelago is running on the same machine
+      SKIP_DEPENDENCY_CHECK: $SKIP_DEPENDENCY_CHECK
     volumes:
       - "../..:/app"
 
