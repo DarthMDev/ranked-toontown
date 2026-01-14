@@ -57,6 +57,7 @@ want-news-tab false
 # Gameplay settings
 want-gardening true
 want-emblems true
+want-ranked-system false
 threading-model Cull/Draw
 
 # Misc. settings

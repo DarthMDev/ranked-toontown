@@ -93,6 +93,9 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
         Is this minigame going to affect ELO/SR ratings upon completion?
         Override and set to True if you would like to automatically apply ranked calculations.
         """
+        # Check if ranked system is enabled globally
+        if hasattr(self.air, 'config') and not self.air.config.GetBool('want-ranked-system', True):
+            return False
         return self.skillProfileKey is not None and len(self.getParticipantIdsNotSpectating()) > 1
 
     def getSkillProfileKey(self) -> str:

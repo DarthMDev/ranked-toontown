@@ -1851,6 +1851,11 @@ class Queue(MagicWord):
     accessLevel = 'TTOFF_DEVELOPER'
 
     def handleWord(self, invoker, avId, toon, *args):
+        # Check if ranked system is enabled
+        ranked_enabled = simbase.config.GetBool('want-ranked-system', True)
+        if not ranked_enabled:
+            return f"The ranked queue is currently disabled!"
+        
         success = simbase.air.matchmaker.addPlayerToQueue(toon)
         if not success:
             return f"{toon.getName()} was unable to join the queue. They are probably already in it."

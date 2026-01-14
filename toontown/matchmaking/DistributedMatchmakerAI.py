@@ -176,6 +176,21 @@ class DistributedMatchmakerAI(DistributedObjectGlobalAI):
         if av is None:
             return
 
+        # Check if ranked system is enabled
+        ranked_enabled = True
+        if hasattr(self.air, 'config'):
+            ranked_enabled = self.air.config.GetBool('want-ranked-system', True)
+
+        if not ranked_enabled:
+            if flag:
+                av.d_setSystemMessage(0, "The ranked queue is currently disabled!")
+            else:
+                # Allow leaving queue even when ranked is disabled (in case they were already in)
+                removed = self.removePlayerFromQueue(av)
+                if removed:
+                    av.d_setSystemMessage(0, "Removed you from the queue!")
+            return
+
         if not flag:
             removed = self.removePlayerFromQueue(av)
             if removed:
@@ -234,6 +249,21 @@ class DistributedMatchmakerAI(DistributedObjectGlobalAI):
         repeating.
         """
         task.delayTime = DistributedMatchmakerAI.MATCHMAKING_AGGRESSIVENESS
+
+        # Check if ranked system is enabled
+        ranked_enabled = True
+        if hasattr(self.air, 'config'):
+            ranked_enabled = self.air.config.GetBool('want-ranked-system', True)
+
+        # If ranked is disabled, clear the queue and don't match anyone
+        if not ranked_enabled:
+            if self.getNumPlayersInQueue() > 0:
+                # Remove all players from queue and notify them
+                for player in list(self.queue):
+                    self.removePlayerFromQueue(player.avatar)
+                    player.avatar.d_setSystemMessage(0, "The ranked queue has been disabled. You have been removed from the queue.")
+                    self.d_setMatchmakingStatus(player.avatar.getDoId(), 0, 0)
+            return Task.again
 
         # Nobody queueing? Don't do anything this run.
         if self.getNumPlayersInQueue() <= 0:
