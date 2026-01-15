@@ -1,4 +1,4 @@
-panda3d==1.10.15
+https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-win_amd64.whl
 pytz==2024.1
 openskill
 objgraph
