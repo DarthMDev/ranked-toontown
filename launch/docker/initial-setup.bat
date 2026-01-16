@@ -65,6 +65,11 @@ set MISSING_COUNT=0
 set INSTALL_LIST=
 set WSL_NEEDS_UPGRADE=0
 
+REM First check hardware virtualization - this is critical for WSL2 and Docker
+set HARDWARE_VIRT_OK=1
+call :check_hardware_virtualization
+REM Note: We don't exit if virtualization check fails, WSL/Docker will fail later if it's actually disabled
+
 REM Function to check Python 3.11
 call :check_python_311
 goto :check_git
@@ -140,49 +145,6 @@ set WSL_NEEDS_UPGRADE=0
 set WSL_TEMP_FILE=temp_wsl_check_%RANDOM%.txt
 set WSL_VMP_TEMP_FILE=temp_wsl_vmp_%RANDOM%.txt
 set WSL_STATUS_TEMP=temp_wsl_status_%RANDOM%.txt
-set VIRT_CHECK_TEMP=temp_virt_check_%RANDOM%.txt
-
-REM Check if hardware virtualization is enabled
-REM Look for either "Virtualization Enabled In Firmware: Yes" OR "Virtualization-based security" running
-set VIRT_ENABLED=0
-systeminfo 2>nul | findstr /C:"Virtualization Enabled In Firmware" >!VIRT_CHECK_TEMP! 2>nul
-if exist !VIRT_CHECK_TEMP! (
-    findstr /C:"Yes" !VIRT_CHECK_TEMP! >nul 2>nul
-    if !ERRORLEVEL! equ 0 (
-        set VIRT_ENABLED=1
-    ) else (
-        findstr /C:"No" !VIRT_CHECK_TEMP! >nul 2>nul
-        if !ERRORLEVEL! equ 0 (
-            REM Explicitly disabled
-            echo [!] Hardware Virtualization - DISABLED IN BIOS
-            echo     WSL2 and Docker Desktop require hardware virtualization
-            echo     Please enable AMD-V or Intel VT-x in your BIOS/UEFI settings
-            set WSL_NEEDS_UPGRADE=1
-            del !VIRT_CHECK_TEMP! >nul 2>&1
-            goto :wsl_check_done
-        )
-    )
-)
-del !VIRT_CHECK_TEMP! >nul 2>&1
-
-REM If not found, check for Virtualization-based security (indicates virtualization is working)
-if !VIRT_ENABLED! equ 0 (
-    systeminfo 2>nul | findstr /C:"Virtualization-based security" >!VIRT_CHECK_TEMP! 2>nul
-    if exist !VIRT_CHECK_TEMP! (
-        findstr /I /C:"Running" !VIRT_CHECK_TEMP! >nul 2>nul
-        if !ERRORLEVEL! equ 0 (
-            set VIRT_ENABLED=1
-        )
-    )
-    del !VIRT_CHECK_TEMP! >nul 2>&1
-)
-
-REM Report result
-if !VIRT_ENABLED! equ 1 (
-    echo [X] Hardware Virtualization - ENABLED
-) else (
-    echo [~] Hardware Virtualization - STATUS UNKNOWN
-)
 
 REM Check if wsl.exe is available
 where wsl >nul 2>nul
@@ -249,7 +211,6 @@ if exist !WSL_STATUS_FILE! (
 del !WSL_TEMP_FILE! >nul 2>&1
 del !WSL_VMP_TEMP_FILE! >nul 2>&1
 del !WSL_STATUS_TEMP! >nul 2>&1
-del !VIRT_CHECK_TEMP! >nul 2>&1
 exit /b
 
 :check_git
@@ -616,6 +577,39 @@ echo.
 echo IMPORTANT: If prompted, please restart your computer.
 echo After restart, WSL2 will be ready for Docker Desktop.
 echo.
+exit /b
+
+:check_hardware_virtualization
+REM Check if hardware virtualization is enabled using PowerShell
+REM Sets HARDWARE_VIRT_OK=1 if enabled, 0 otherwise
+set VIRT_ENABLED=0
+set VIRT_TEMP_CHECK=temp_virt_%RANDOM%.txt
+
+REM Use PowerShell to check for Hyper-V (indicates virtualization is working)
+powershell -NoProfile -NonInteractive -Command "(Get-WmiObject -Class Win32_ComputerSystem).HypervisorPresent" >!VIRT_TEMP_CHECK! 2>&1
+findstr /I "True" !VIRT_TEMP_CHECK! >nul 2>&1
+if !ERRORLEVEL! equ 0 (
+    set VIRT_ENABLED=1
+)
+del !VIRT_TEMP_CHECK! >nul 2>&1
+
+REM If not detected, check Device Guard Virtualization Based Security
+if !VIRT_ENABLED! equ 0 (
+    powershell -NoProfile -NonInteractive -Command "try { $dg = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue; if ($dg.VirtualizationBasedSecurityStatus -ge 1) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+    if !ERRORLEVEL! equ 0 (
+        set VIRT_ENABLED=1
+    )
+)
+
+REM Report result and set global variable
+if !VIRT_ENABLED! equ 1 (
+    echo [X] Hardware Virtualization - ENABLED
+    set HARDWARE_VIRT_OK=1
+) else (
+    echo [!] Hardware Virtualization - STATUS UNKNOWN or DISABLED
+    echo     Cannot verify virtualization - assuming disabled
+    set HARDWARE_VIRT_OK=0
+)
 exit /b
 
 :end
