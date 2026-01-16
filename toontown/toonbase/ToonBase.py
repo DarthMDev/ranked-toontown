@@ -27,7 +27,6 @@ import shutil
 import time
 
 import toontown.archipelago.util.global_text_properties as global_text_properties
-from .ErrorTrackingService import ErrorTrackingService, ServiceType, BasicErrorTrackingService
 from ..settings.Settings import Settings, ControlSettings
 from ..settings.DedicatedServerSettings import DedicatedServerSettings
 
@@ -48,8 +47,6 @@ class ToonBase(OTPBase.OTPBase):
         self.settings = Settings()
         self.serverSettings = DedicatedServerSettings()
         self.setMultiThreading()
-
-        os.environ['WANT_ERROR_REPORTING'] = 'true' if self.settings.get('report-errors') else 'false'
 
         antialias = self.settings.get("anti-aliasing")
         mode = self.settings.get("borderless")

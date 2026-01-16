@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 # Environment
 ENV TZ=America/New_York
@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
+RUN python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-linux_x86_64.whl"
 RUN pip install -r requirements.txt
 
 # Copy application source

@@ -1,15 +1,17 @@
 services:
   db:
     image: mongo:latest
-    #    command: mongod --quiet --bind_ip 0.0.0.0 --logpath /dev/null
+    # Use this command to run mongo normally with authentication. Use --quiet and --logpath /dev/null to supress output.
+    #    command: mongod --bind_ip 0.0.0.0
     # Use this command instead if you are having authentication issues.
     # It is not recommended, but as long as you are NOT exposing any ports, it is mostly safe in non-production environments.
     command: mongod --noauth --bind_ip 0.0.0.0
     container_name: db
-    environment:
-      - MONGO_INITDB_DATABASE=admin
-      - MONGO_INITDB_ROOT_USERNAME=$MONGO_ROOT_USERNAME
-      - MONGO_INITDB_ROOT_PASSWORD=$MONGO_ROOT_PASSWORD
+    # Environment variables needed if authentication is enabled.
+#    environment:
+#      - MONGO_INITDB_DATABASE=admin
+#      - MONGO_INITDB_ROOT_USERNAME=$MONGO_ROOT_USERNAME
+#      - MONGO_INITDB_ROOT_PASSWORD=$MONGO_ROOT_PASSWORD
     # Only expose ports if you NEED to externally access the database.
 #    ports:  # Use for windows
 #      - "27017:27017"
@@ -52,7 +54,6 @@ services:
       STATESERVER: 4002
       ASTRON_IP: astron:7199
       EVENTLOGGER_IP: astron:7197
-      WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
       PLAYTOKEN_STORAGE_STRATEGY: $PLAYTOKEN_STORAGE_STRATEGY
       MONGO_CONNECTION_STRING: $MONGO_CONNECTION_STRING
       AUTHENTICATION_SCHEME: $AUTHENTICATION_SCHEME
@@ -78,8 +79,6 @@ services:
       ASTRON_IP: astron:7199
       EVENTLOGGER_IP: astron:7197
       DISTRICT_NAME: "Ranked Realms"
-      WANT_ERROR_REPORTING: true # Reports errors to the sentry service for TT:AP
-      ARCHIPELAGO_IP: 172.17.0.1 # by default assume that archipelago is running on the same machine
     volumes:
       - "../..:/app"
 

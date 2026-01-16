@@ -4,8 +4,6 @@ echo
 export PPYTHON_PATH=$(cat ../PPYTHON_PATH)
 cd ../../../
 
-export WANT_ERROR_REPORTING="true"
-
 while true
 do
 	$PPYTHON_PATH -m pip install -r requirements.txt

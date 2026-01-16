@@ -1020,8 +1020,6 @@ class OptionElement(DirectFrame):
             base.enableSoundEffects(newSetting)
         elif self.optionName == "toon-chat-sounds":
             base.toonChatSounds = newSetting
-        elif self.optionName == 'report-errors':
-            os.environ['WANT_ERROR_REPORTING'] = 'true' if newSetting else 'false'
         elif self.optionName in ("borderless", "vertical-sync"):
             base.updateDisplay()
         elif self.optionName == "frame-rate-meter":
