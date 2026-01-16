@@ -195,11 +195,7 @@ class DNALoader(object):
     def loadDNAFileBase(self, store, _file):
         if type(_file) == str and _file.endswith(".dna"):
             _file = _file.replace(".dna", ".pdna")
-            #_file = _file.replace("../resources/", "")
-        if __debug__:
-            _file = Filename("resources/" + _file)
-        else:
-            _file = Filename("/" + _file)
+        _file = Filename("/" + _file)
 
         vfs = VirtualFileSystem.getGlobalPtr()
         if not vfs.exists(_file):
