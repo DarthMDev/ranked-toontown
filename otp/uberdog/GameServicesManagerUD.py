@@ -885,13 +885,7 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         # If MONGO_CONNECTION_STRING is not provided, use default local MongoDB
         if credentials is None:
             credentials = 'mongodb://127.0.0.1:27017/'
-        
-        if not self._check_mongodb_available():
-            self.notify.error('MongoDB is required but not available.')
-            self.notify.error('Please install and start MongoDB before launching the server.')
-            self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
-            exit(1)
-        
+
         # Use MongoDB for account storage
         self.accountDb = MongoAccountDb(self, credentials)
 
@@ -1069,19 +1063,3 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         else:
             # Otherwise, the client wants to unload the avatar; run an UnloadAvatarOperation.
             self.runOperation(UnloadAvatarOperation, currentAvId)
-
-    def _check_mongodb_available(self):
-        """Check if MongoDB is installed and running on the system."""
-        try:
-            from pymongo import MongoClient
-            from pymongo.errors import ServerSelectionTimeoutError
-            
-            # Try to connect to MongoDB
-            client = MongoClient('mongodb://127.0.0.1:27017/', serverSelectionTimeoutMS=2000)
-            # Try to ping the server
-            client.admin.command('ping')
-            client.close()
-            return True
-        except (ImportError, ServerSelectionTimeoutError, Exception):
-            # MongoDB is not available or not running
-            return False

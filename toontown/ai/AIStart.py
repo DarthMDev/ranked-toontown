@@ -77,7 +77,6 @@ from otp.ai.AIBaseGlobal import *
 from toontown.ai.ToontownAIRepository import ToontownAIRepository
 
 version = simbase.config.GetString('version', 'v???')
-simbase.errorReportingService = BasicErrorTrackingService(ServiceType.AI, version)
 
 simbase.air = ToontownAIRepository(
     config.ConfigVariableInt('air-base-channel', 401000000).getValue(),
@@ -101,5 +100,4 @@ except Exception as error:
     info = PythonUtil.describeException()
     simbase.air.writeServerEvent('ai-exception', avId=simbase.air.getAvatarIdFromSender(),
                                  accId=simbase.air.getAccountIdFromSender(), exception=info)
-    simbase.errorReportingService.report(error)
     raise

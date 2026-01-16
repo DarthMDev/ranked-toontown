@@ -68,7 +68,6 @@ from otp.ai.AIBaseGlobal import *
 from toontown.uberdog.ToontownUberRepository import ToontownUberRepository
 
 version = simbase.config.GetString('version', 'v???')
-simbase.errorReportingService = BasicErrorTrackingService(ServiceType.UBERDOG, version)
 
 simbase.air = ToontownUberRepository(config.ConfigVariableInt('air-base-channel', 1000000).getValue(),
                                      config.ConfigVariableInt('air-stateserver', 4002).getValue())
@@ -88,5 +87,4 @@ except Exception as error:
     info = PythonUtil.describeException()
     simbase.air.writeServerEvent('uberdog-exception', avId=simbase.air.getAvatarIdFromSender(),
                                  accId=simbase.air.getAccountIdFromSender(), info=info)
-    simbase.errorReportingService.report(error)
     raise

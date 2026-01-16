@@ -1,14 +1,16 @@
-FROM python:3.11-slim
-
-# Environment
-ENV TZ=America/New_York
-ENV DEBIAN_FRONTEND=noninteractive
-
+FROM ubuntu:22.04
 WORKDIR /app
 
-# Install system dependencies (Panda3D + build tools)
-RUN apt-get update && apt-get install -y \
-    build-essential \
+# Install Python
+ENV TZ=America/New_York
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update
+RUN apt-get install -y python3.11 python3-pip
+
+# Install Panda dependencies
+RUN apt-get install -y \
     libassimp-dev \
     libeigen3-dev \
     libgl1-mesa-dev \
@@ -17,19 +19,12 @@ RUN apt-get update && apt-get install -y \
     libode-dev \
     libpng-dev \
     libsquish-dev \
-    libssl-dev \
-    ca-certificates \
-    tzdata \
- && rm -rf /var/lib/apt/lists/*
+    libssl-dev
 
-# Install Python dependencies
+# Install game dependencies \
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel
-RUN python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-linux_x86_64.whl"
-RUN pip install -r requirements.txt
-
-# Copy application source
-COPY . .
+RUN python3.11 -m pip install -r requirements.txt
+RUN python3.11 -m pip install panda3d
 
 # Start the server
-ENTRYPOINT ["python", "-m", "launch.launcher.launch"]
+ENTRYPOINT ["python3.11", "-m", "launch.launcher.launch"]

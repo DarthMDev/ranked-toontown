@@ -5,7 +5,7 @@ services:
     #    command: mongod --bind_ip 0.0.0.0
     # Use this command instead if you are having authentication issues.
     # It is not recommended, but as long as you are NOT exposing any ports, it is mostly safe in non-production environments.
-    command: mongod --noauth --bind_ip 0.0.0.0
+    command: mongod --noauth --bind_ip 0.0.0.0 --quiet --logpath /dev/null
     container_name: db
     # Environment variables needed if authentication is enabled.
 #    environment:
@@ -38,7 +38,7 @@ services:
   uberdog:
     depends_on:
       - astron
-    image: ttap-server
+    image: rankedtt-server
     pull_policy: never # Hack to prevent building the same image twice
     build:
       context: ../..
@@ -67,7 +67,7 @@ services:
     depends_on:
       - astron
       - uberdog
-    image: ttap-server
+    image: rankedtt-server
     pull_policy: never # Hack to prevent building the same image twice
     platform: linux/amd64 # Force x64 on ARM platforms.
     restart: always

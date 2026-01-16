@@ -28,7 +28,6 @@ import time
 
 import toontown.archipelago.util.global_text_properties as global_text_properties
 from ..settings.Settings import Settings, ControlSettings
-from ..settings.DedicatedServerSettings import DedicatedServerSettings
 
 if typing.TYPE_CHECKING:
     from toontown.toonbase.ToonBaseGlobals import *
@@ -40,12 +39,10 @@ class ToonBase(OTPBase.OTPBase):
     def __init__(self):
 
         version = self.config.GetString('version', 'v???')
-        self.errorReportingService: ErrorTrackingService = BasicErrorTrackingService(ServiceType.CLIENT, version)
 
         self.global_text_properties = global_text_properties
 
         self.settings = Settings()
-        self.serverSettings = DedicatedServerSettings()
         self.setMultiThreading()
 
         antialias = self.settings.get("anti-aliasing")

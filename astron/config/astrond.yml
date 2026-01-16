@@ -85,7 +85,7 @@ roles:
           # directory: ../databases/astrondb
           # If you wish to use docker/mongo, comment the above 2 lines and uncomment the next two.
           type: mongodb
-          server: mongodb://127.0.0.1:27017/astrondb
+          server: mongodb://db:27017/astrondb
           # If you need to authenticate, use this one.
 #          server: mongodb://<username>:<password>@<host>:<port>/astrondb?authSource=admin
 

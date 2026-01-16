@@ -1109,9 +1109,6 @@ class LauncherBase(DirectObject):
                         self.notify.warning('Panda3D 1.11.0 compatibility error during sendDisconnect (ignored): %s' % str(assertion_err))
                     else:
                         raise
-            if hasattr(builtins, 'base'):
-                base.errorReportingService.report(e)
-                base.destroy()
             self.notify.info('Exception exit.\n')
             import traceback
             traceback.print_exc()

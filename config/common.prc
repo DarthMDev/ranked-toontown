@@ -58,7 +58,6 @@ want-news-tab false
 want-gardening true
 want-emblems true
 want-ranked-system false
-threading-model Cull/Draw
 
 # Misc. settings
 respect-prev-transform true
