@@ -15,7 +15,8 @@ set SERVICE_TO_RUN=CLIENT
 
 :main
     %PPYTHON_PATH% -m pip install -r requirements.txt
-    set CALLED_FROM_LAUNCH_SCRIPT=1
+    echo Checking for valid Panda3D Windows installation...
+    %PPYTHON_PATH% -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-win_amd64.whl"
     %PPYTHON_PATH% -m launch.launcher.launch
     pause
 goto :main

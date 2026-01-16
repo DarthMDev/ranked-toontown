@@ -15,5 +15,7 @@ export SERVICE_TO_RUN=CLIENT
 export CALLED_FROM_LAUNCH_SCRIPT=1
 
 $PPYTHON_PATH -m pip install -r requirements.txt
+echo Checking for valid Panda3D Windows installation...
+$PPYTHON_PATH -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-macosx_10_9_universal2.whl"
 $PPYTHON_PATH -m launch.launcher.launch
 sleep 1
