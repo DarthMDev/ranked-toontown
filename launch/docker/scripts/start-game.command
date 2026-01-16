@@ -26,7 +26,7 @@ elif command -v python3 &> /dev/null; then
     fi
 else
     echo "ERROR: Python not found"
-    echo "Please run setup.py first to install dependencies"
+    echo "Please run initial-setup.sh first to install dependencies"
     read -p "Press Enter to exit..."
     exit 1
 fi

@@ -23,7 +23,7 @@ class MongoAccountDb(AccountDbBase):
         if connectionString == '':
             self.notify.error("Empty connection string provided! Did you forget to set MONGO_CONNECTION_STRING as an environment variable?")
             exit(1)
-        
+
         # Connect to the Mongo DB. If we are unsuccessful, this is a SEVERE error. The application cannot continue.
         self._client: MongoClient = MongoClient(connectionString)
         self.notify.debug(f"Successfully initialized MongoAccountDb.")

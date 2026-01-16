@@ -25,7 +25,7 @@ if exist launch\windows\PPYTHON_PATH (
         )
     ) else (
         echo ERROR: Python not found
-        echo Please run setup.py first to install dependencies
+        echo Please run initial-setup.bat first to install dependencies
         pause
         exit /b 1
     )
