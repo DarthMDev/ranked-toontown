@@ -65,6 +65,66 @@ set MISSING_COUNT=0
 set INSTALL_LIST=
 set WSL_NEEDS_UPGRADE=0
 
+REM First check hardware virtualization - critical requirement for WSL2 and Docker
+set VIRT_CHECK_TEMP=temp_virt_check_%RANDOM%.txt
+set VIRT_ENABLED=0
+set VIRT_DISABLED=0
+
+REM Look for either "Virtualization Enabled In Firmware: Yes" OR "Virtualization-based security" running
+systeminfo 2>nul | findstr /C:"Virtualization Enabled In Firmware" >!VIRT_CHECK_TEMP! 2>nul
+if exist !VIRT_CHECK_TEMP! (
+    findstr /C:"Yes" !VIRT_CHECK_TEMP! >nul 2>nul
+    if !ERRORLEVEL! equ 0 (
+        set VIRT_ENABLED=1
+    ) else (
+        findstr /C:"No" !VIRT_CHECK_TEMP! >nul 2>nul
+        if !ERRORLEVEL! equ 0 (
+            set VIRT_DISABLED=1
+        )
+    )
+)
+del !VIRT_CHECK_TEMP! >nul 2>&1
+
+REM If not found, check for Virtualization-based security (indicates virtualization is working)
+if !VIRT_ENABLED! equ 0 (
+    if !VIRT_DISABLED! equ 0 (
+        systeminfo 2>nul | findstr /C:"Virtualization-based security" >!VIRT_CHECK_TEMP! 2>nul
+        if exist !VIRT_CHECK_TEMP! (
+            findstr /I /C:"Running" !VIRT_CHECK_TEMP! >nul 2>nul
+            if !ERRORLEVEL! equ 0 (
+                set VIRT_ENABLED=1
+            )
+        )
+        del !VIRT_CHECK_TEMP! >nul 2>&1
+    )
+)
+
+REM Report result and exit if disabled
+if !VIRT_DISABLED! equ 1 (
+    echo [!] Hardware Virtualization - DISABLED IN BIOS
+    echo.
+    echo ========================================
+    echo   Hardware Virtualization Required
+    echo ========================================
+    echo.
+    echo WSL2 and Docker Desktop require hardware virtualization to be enabled.
+    echo.
+    echo Please enable virtualization in your BIOS/UEFI settings:
+    echo   - For AMD processors: Enable AMD-V or SVM
+    echo   - For Intel processors: Enable Intel VT-x or VT-d
+    echo.
+    echo After enabling, restart your computer and run this script again.
+    echo.
+    echo For help accessing BIOS/UEFI settings, consult your motherboard manual.
+    echo.
+    pause
+    exit /b 1
+) else if !VIRT_ENABLED! equ 1 (
+    echo [X] Hardware Virtualization - ENABLED
+) else (
+    echo [~] Hardware Virtualization - STATUS UNKNOWN
+)
+
 REM Function to check Python 3.11
 call :check_python_311
 goto :check_git
@@ -140,66 +200,6 @@ set WSL_NEEDS_UPGRADE=0
 set WSL_TEMP_FILE=temp_wsl_check_%RANDOM%.txt
 set WSL_VMP_TEMP_FILE=temp_wsl_vmp_%RANDOM%.txt
 set WSL_STATUS_TEMP=temp_wsl_status_%RANDOM%.txt
-set VIRT_CHECK_TEMP=temp_virt_check_%RANDOM%.txt
-
-REM Check if hardware virtualization is enabled
-REM Look for either "Virtualization Enabled In Firmware: Yes" OR "Virtualization-based security" running
-set VIRT_ENABLED=0
-set VIRT_DISABLED=0
-systeminfo 2>nul | findstr /C:"Virtualization Enabled In Firmware" >!VIRT_CHECK_TEMP! 2>nul
-if exist !VIRT_CHECK_TEMP! (
-    findstr /C:"Yes" !VIRT_CHECK_TEMP! >nul 2>nul
-    if !ERRORLEVEL! equ 0 (
-        set VIRT_ENABLED=1
-    ) else (
-        findstr /C:"No" !VIRT_CHECK_TEMP! >nul 2>nul
-        if !ERRORLEVEL! equ 0 (
-            REM Explicitly disabled
-            set VIRT_DISABLED=1
-        )
-    )
-)
-del !VIRT_CHECK_TEMP! >nul 2>&1
-
-REM If not found, check for Virtualization-based security (indicates virtualization is working)
-if !VIRT_ENABLED! equ 0 (
-    if !VIRT_DISABLED! equ 0 (
-        systeminfo 2>nul | findstr /C:"Virtualization-based security" >!VIRT_CHECK_TEMP! 2>nul
-        if exist !VIRT_CHECK_TEMP! (
-            findstr /I /C:"Running" !VIRT_CHECK_TEMP! >nul 2>nul
-            if !ERRORLEVEL! equ 0 (
-                set VIRT_ENABLED=1
-            )
-        )
-        del !VIRT_CHECK_TEMP! >nul 2>&1
-    )
-)
-
-REM Report result and exit if disabled
-if !VIRT_DISABLED! equ 1 (
-    echo [!] Hardware Virtualization - DISABLED IN BIOS
-    echo.
-    echo ========================================
-    echo   Hardware Virtualization Required
-    echo ========================================
-    echo.
-    echo WSL2 and Docker Desktop require hardware virtualization to be enabled.
-    echo.
-    echo Please enable virtualization in your BIOS/UEFI settings:
-    echo   - For AMD processors: Enable AMD-V or SVM
-    echo   - For Intel processors: Enable Intel VT-x or VT-d
-    echo.
-    echo After enabling, restart your computer and run this script again.
-    echo.
-    echo For help accessing BIOS/UEFI settings, consult your motherboard manual.
-    echo.
-    pause
-    exit /b 1
-) else if !VIRT_ENABLED! equ 1 (
-    echo [X] Hardware Virtualization - ENABLED
-) else (
-    echo [~] Hardware Virtualization - STATUS UNKNOWN
-)
 
 REM Check if wsl.exe is available
 where wsl >nul 2>nul
@@ -266,7 +266,6 @@ if exist !WSL_STATUS_FILE! (
 del !WSL_TEMP_FILE! >nul 2>&1
 del !WSL_VMP_TEMP_FILE! >nul 2>&1
 del !WSL_STATUS_TEMP! >nul 2>&1
-del !VIRT_CHECK_TEMP! >nul 2>&1
 exit /b
 
 :check_git
