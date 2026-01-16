@@ -140,6 +140,49 @@ set WSL_NEEDS_UPGRADE=0
 set WSL_TEMP_FILE=temp_wsl_check_%RANDOM%.txt
 set WSL_VMP_TEMP_FILE=temp_wsl_vmp_%RANDOM%.txt
 set WSL_STATUS_TEMP=temp_wsl_status_%RANDOM%.txt
+set VIRT_CHECK_TEMP=temp_virt_check_%RANDOM%.txt
+
+REM Check if hardware virtualization is enabled
+REM Look for either "Virtualization Enabled In Firmware: Yes" OR "Virtualization-based security" running
+set VIRT_ENABLED=0
+systeminfo 2>nul | findstr /C:"Virtualization Enabled In Firmware" >!VIRT_CHECK_TEMP! 2>nul
+if exist !VIRT_CHECK_TEMP! (
+    findstr /C:"Yes" !VIRT_CHECK_TEMP! >nul 2>nul
+    if !ERRORLEVEL! equ 0 (
+        set VIRT_ENABLED=1
+    ) else (
+        findstr /C:"No" !VIRT_CHECK_TEMP! >nul 2>nul
+        if !ERRORLEVEL! equ 0 (
+            REM Explicitly disabled
+            echo [!] Hardware Virtualization - DISABLED IN BIOS
+            echo     WSL2 and Docker Desktop require hardware virtualization
+            echo     Please enable AMD-V or Intel VT-x in your BIOS/UEFI settings
+            set WSL_NEEDS_UPGRADE=1
+            del !VIRT_CHECK_TEMP! >nul 2>&1
+            goto :wsl_check_done
+        )
+    )
+)
+del !VIRT_CHECK_TEMP! >nul 2>&1
+
+REM If not found, check for Virtualization-based security (indicates virtualization is working)
+if !VIRT_ENABLED! equ 0 (
+    systeminfo 2>nul | findstr /C:"Virtualization-based security" >!VIRT_CHECK_TEMP! 2>nul
+    if exist !VIRT_CHECK_TEMP! (
+        findstr /I /C:"Running" !VIRT_CHECK_TEMP! >nul 2>nul
+        if !ERRORLEVEL! equ 0 (
+            set VIRT_ENABLED=1
+        )
+    )
+    del !VIRT_CHECK_TEMP! >nul 2>&1
+)
+
+REM Report result
+if !VIRT_ENABLED! equ 1 (
+    echo [X] Hardware Virtualization - ENABLED
+) else (
+    echo [~] Hardware Virtualization - STATUS UNKNOWN
+)
 
 REM Check if wsl.exe is available
 where wsl >nul 2>nul
@@ -169,53 +212,44 @@ if !ERRORLEVEL! neq 0 (
     set WSL_NEEDS_UPGRADE=1
     goto :wsl_check_done
 )
-REM Check if Hypervisor Platform is enabled (required for VBS)
-set WSL_HYP_TEMP_FILE=temp_wsl_hyp_%RANDOM%.txt
-dism /online /get-featureinfo /featurename:HypervisorPlatform >!WSL_HYP_TEMP_FILE! 2>&1
-findstr /I "Enabled" !WSL_HYP_TEMP_FILE! >nul
-if !ERRORLEVEL! neq 0 (
-    echo [~] WSL - PARTIALLY INSTALLED
-    echo     Hypervisor Platform feature needs to be enabled for VBS
-    set WSL_NEEDS_UPGRADE=1
-    goto :wsl_check_done
-)
 
 REM Both features are enabled, now verify WSL is actually functional
-REM Try a quick non-interactive command to see if WSL is ready
-REM Use --status which doesn't require a distro and won't prompt
-start /B /MIN cmd /c "wsl --status >!WSL_STATUS_TEMP! 2>&1" >nul 2>&1
-timeout /t 2 /nobreak >nul 2>&1
-if exist !WSL_STATUS_TEMP! (
-    REM Check if it shows an update prompt (means WSL isn't ready)
-    findstr /I "update\|Update\|must be updated\|Press any key" !WSL_STATUS_TEMP! >nul
+REM Try wsl --status but capture output completely to prevent console leakage
+set WSL_STATUS_FILE=temp_wsl_status_%RANDOM%.txt
+wsl --status >!WSL_STATUS_FILE! 2>&1
+timeout /t 1 /nobreak >nul 2>&1
+
+REM Check the captured output
+if exist !WSL_STATUS_FILE! (
+    REM Check if it shows an update prompt (means WSL needs updating)
+    findstr /I "update\|Update\|must be updated" !WSL_STATUS_FILE! >nul 2>&1
     if !ERRORLEVEL! equ 0 (
-        echo [~] WSL - FEATURES ENABLED (needs update)
-        echo     WSL needs to be updated: wsl --update
+        REM WSL needs update - features enabled but not fully ready
+        echo [~] WSL2 - NEEDS UPDATE
         set WSL_NEEDS_UPGRADE=1
     ) else (
-        REM Check if it shows WSL version 2
-        findstr /I "WSL version: 2\|Default Version: 2" !WSL_STATUS_TEMP! >nul
+        REM Check if it shows WSL version 2 or appears functional
+        findstr /I "WSL version: 2\|Default Version: 2" !WSL_STATUS_FILE! >nul 2>&1
         if !ERRORLEVEL! equ 0 (
             echo [X] WSL2 - INSTALLED
         ) else (
-            REM WSL is functional but version unclear
-            echo [~] WSL - INSTALLED (version unclear)
-            echo     May need: wsl --update and wsl --set-default-version 2
+            REM Features enabled, status unclear - assume needs configuration
+            echo [~] WSL2 - FEATURES ENABLED
             set WSL_NEEDS_UPGRADE=1
         )
     )
+    del !WSL_STATUS_FILE! >nul 2>&1
 ) else (
-    REM Couldn't check status, assume features enabled but WSL not ready
-    echo [~] WSL - FEATURES ENABLED (needs configuration)
-    echo     May need: wsl --update and wsl --set-default-version 2
+    REM Couldn't check status, assume features enabled but needs configuration
+    echo [~] WSL2 - FEATURES ENABLED
     set WSL_NEEDS_UPGRADE=1
 )
 
 :wsl_check_done
 del !WSL_TEMP_FILE! >nul 2>&1
 del !WSL_VMP_TEMP_FILE! >nul 2>&1
-del !WSL_HYP_TEMP_FILE! >nul 2>&1
 del !WSL_STATUS_TEMP! >nul 2>&1
+del !VIRT_CHECK_TEMP! >nul 2>&1
 exit /b
 
 :check_git
@@ -553,22 +587,8 @@ if !ERRORLEVEL! equ 0 (
 ) else (
     echo [!] Virtual Machine Platform may already be enabled
 )
-REM Enable Hypervisor Platform (required for VBS and WSL2)
-dism /online /enable-feature /featurename:HypervisorPlatform /all /norestart >nul 2>&1
-if !ERRORLEVEL! equ 0 (
-    echo [X] Hypervisor Platform enabled
-) else (
-    echo [!] Hypervisor Platform may already be enabled
-)
-REM Configure hypervisor launch type for VBS
-bcdedit /set hypervisorlaunchtype auto >nul 2>&1
-if !ERRORLEVEL! equ 0 (
-    echo [X] Hypervisor launch type configured
-) else (
-    echo [!] Hypervisor launch type may already be configured
-)
 echo.
-echo WSL features and virtualization enabled. A system restart may be required.
+echo WSL features enabled. A system restart may be required.
 echo.
 
 REM Update WSL to latest version (required for WSL2)
