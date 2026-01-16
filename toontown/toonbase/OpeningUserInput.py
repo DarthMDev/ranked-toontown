@@ -17,8 +17,7 @@ from otp.otpbase.OTPLocalizer import (
     CRLoadingGameServices,
     CRSpecifyServerSelection,
     CRLocalMultiplayer,
-    CRPublicServer,
-    CRSingleplayer
+    CRPublicServer
 )
 
 class OpeningUserInput(DirectObject):
@@ -205,11 +204,9 @@ class OpeningUserInput(DirectObject):
         base.taskMgr.doMethodLater(0.1, lambda task: startDockerAndConnect(), 'startDockerContainers')
 
     def decision(self, buttonValue = None):
-        if buttonValue == 1: # buttonValue returning 1 = Singleplayer
-            self.singlePlayerScreen()
-        elif buttonValue == 0: # buttonValue returning 0 = Public Server
+        if buttonValue == 1: # buttonValue returning 1 = Public Server
             self.publicServerScreen()
-        elif buttonValue == -1: # buttonValue returning -1 = Local Multiplayer/Other Server
+        elif buttonValue == -1: # buttonValue returning 0 = Local Multiplayer/Other Server
             self.localMultiplayerScreen()
 
     def askServerPreference(self):
@@ -221,9 +218,9 @@ class OpeningUserInput(DirectObject):
             return
 
         if not config.ConfigVariableBool('local-multiplayer', False).getValue():
-            self.askServerSpecification = self.dialogClass(message=CRSpecifyServerSelection, style=OTPDialog.ThreeChoiceCustom,
-                                                           yesButtonText=CRSingleplayer, noButtonText=CRPublicServer, cancelButtonText=CRLocalMultiplayer,
-                                                           command=self.decision, doneEvent='cleanup', text_wordwrap=20, buttonPadSF=4.0)
+            self.askServerSpecification = self.dialogClass(message=CRSpecifyServerSelection, style=OTPDialog.TwoChoiceCustom,
+                                                           okButtonText=CRPublicServer, cancelButtonText=CRLocalMultiplayer,
+                                                           command=self.decision, doneEvent='cleanup', text_wordwrap=20, buttonPadSF=8.0)
             self.askServerSpecification.show()
             self.accept('cleanup', self.cleanup, extraArgs=[self.askServerSpecification])
             return
