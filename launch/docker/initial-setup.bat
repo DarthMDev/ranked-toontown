@@ -169,6 +169,16 @@ if !ERRORLEVEL! neq 0 (
     set WSL_NEEDS_UPGRADE=1
     goto :wsl_check_done
 )
+REM Check if Hypervisor Platform is enabled (required for VBS)
+set WSL_HYP_TEMP_FILE=temp_wsl_hyp_%RANDOM%.txt
+dism /online /get-featureinfo /featurename:HypervisorPlatform >!WSL_HYP_TEMP_FILE! 2>&1
+findstr /I "Enabled" !WSL_HYP_TEMP_FILE! >nul
+if !ERRORLEVEL! neq 0 (
+    echo [~] WSL - PARTIALLY INSTALLED
+    echo     Hypervisor Platform feature needs to be enabled for VBS
+    set WSL_NEEDS_UPGRADE=1
+    goto :wsl_check_done
+)
 
 REM Both features are enabled, now verify WSL is actually functional
 REM Try a quick non-interactive command to see if WSL is ready
@@ -204,6 +214,7 @@ if exist !WSL_STATUS_TEMP! (
 :wsl_check_done
 del !WSL_TEMP_FILE! >nul 2>&1
 del !WSL_VMP_TEMP_FILE! >nul 2>&1
+del !WSL_HYP_TEMP_FILE! >nul 2>&1
 del !WSL_STATUS_TEMP! >nul 2>&1
 exit /b
 
@@ -542,8 +553,22 @@ if !ERRORLEVEL! equ 0 (
 ) else (
     echo [!] Virtual Machine Platform may already be enabled
 )
+REM Enable Hypervisor Platform (required for VBS and WSL2)
+dism /online /enable-feature /featurename:HypervisorPlatform /all /norestart >nul 2>&1
+if !ERRORLEVEL! equ 0 (
+    echo [X] Hypervisor Platform enabled
+) else (
+    echo [!] Hypervisor Platform may already be enabled
+)
+REM Configure hypervisor launch type for VBS
+bcdedit /set hypervisorlaunchtype auto >nul 2>&1
+if !ERRORLEVEL! equ 0 (
+    echo [X] Hypervisor launch type configured
+) else (
+    echo [!] Hypervisor launch type may already be configured
+)
 echo.
-echo WSL features enabled. A system restart may be required.
+echo WSL features and virtualization enabled. A system restart may be required.
 echo.
 
 REM Update WSL to latest version (required for WSL2)
