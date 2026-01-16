@@ -13,7 +13,6 @@ from otp.otpbase.OTPLocalizer import (
     CREmptyGameserver,
     CRLoadingGameServices,
     CRSpecifyServerSelection,
-    CRSingleplayer,
     CRLocalMultiplayer,
     CRPublicServer
 )
@@ -71,12 +70,10 @@ class OpeningUserInput(DirectObject):
         self.accept('localServerReady', localServerReady)
 
     def decision(self, buttonValue = None):
-        if buttonValue == -1: # buttonValue returning -1 will connect us to the Local Multiplayer server.
-            self.localMultiplayerScreen()
-        elif buttonValue == 0: # buttonValue returning 0 will connect us to the public server.
+        if buttonValue == 0: # buttonValue returning 0 will connect us to the public server.
             self.publicServerScreen()
-        elif buttonValue == 1: # buttonValue returning 1 will startup the Singleplayer server.
-            self.singlePlayerScreen()
+        elif buttonValue == 1: # buttonValue returning 1 will connect us to another server.
+            self.localMultiplayerScreen()
 
     def askServerPreference(self):
 
@@ -87,8 +84,8 @@ class OpeningUserInput(DirectObject):
             return
 
         if not config.ConfigVariableBool('local-multiplayer', False).getValue():
-            self.askServerSpecification = self.dialogClass(message=CRSpecifyServerSelection, style=OTPDialog.ThreeChoiceCustom,
-                                                           yesButtonText=CRSingleplayer, noButtonText=CRPublicServer, cancelButtonText=CRLocalMultiplayer,
+            self.askServerSpecification = self.dialogClass(message=CRSpecifyServerSelection, style=OTPDialog.TwoChoice,
+                                                           yesButtonText=CRPublicServer, noButtonText=CRLocalMultiplayer,
                                                            command=self.decision, doneEvent='cleanup', text_wordwrap=20, buttonPadSF=5)
             self.askServerSpecification.show()
             self.accept('cleanup', self.cleanup, extraArgs=[self.askServerSpecification])

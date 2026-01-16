@@ -31,44 +31,123 @@ Credits:
 * Reverse-engineered Toontown Online client/server source code is property of The Walt Disney Company.
 
 # Getting Started
-At this time, Windows is the only supported platform. For other platforms, please see [Running From Source.](#running-from-source)
 
-### Windows
-1. **Download the source:**
-   - Download the `Source Code (ZIP)` from [here](https://github.com/ranked-toontown/ranked-toontown/releases/latest) or clone this repository
-   - Extract the ZIP to a folder of your choice
+Toontown Ranked uses Docker to run all server components (MongoDB, Astron, Uberdog, AI), making setup much simpler. The game client runs locally on your machine.
 
-2. **Install Python (Automatic):**
-   - Navigate to `launch/windows/` and run the launcher scripts
-   - If Python is not installed, the launcher will automatically offer to install the latest Python version for you
-   - Simply follow the on-screen prompts to install Python via Windows Package Manager (winget)
-   - After installation, restart the launcher
+## Quick Start
 
-3. **Start the game:**
-   - Run the server launchers in order from `launch/windows/server/`:
-     - `start-server-astron.bat`
-     - `start-server-uberdog.bat`
-     - `start-server-ai.bat`
-   - Then run `start-game.bat` from `launch/windows/`
+### Step 1: Run the Installation Wizard
 
-**Important Notes:**
-- **Python and MongoDB are required** to run Toontown Ranked.
-- Python 3.11+ must be installed and accessible via the `PPYTHON_PATH` file (see `launch/windows/PPYTHON_PATH`)
-- For MongoDB installation, visit [mongodb.com](https://www.mongodb.com/try/download/community)
+Before starting, run the setup wizard to check and install all required dependencies:
 
-### Docker (Linux Server)
-Before starting, please ensure you have Docker and Docker Compose installed.
-You can find out how to install them [here.](https://docs.docker.com/engine/install/)
+**Windows:**
+```batch
+cd launch\docker
+initial-setup.bat
+```
 
-1. Download the `Source Code (ZIP)` from [here](https://github.com/ranked-toontown/ranked-toontown/releases/latest) or clone this repository.
-2. Extract the ZIP to a folder of your choice. (If you downloaded the ZIP!)
-3. Using `cd`, navigate to the `launch/docker` directory.
-4. Start the server using `docker compose up`. This may take a while.
-5. Press `Control+C` to stop the server.
-6. (Optional) If you want to utilize features such as MongoDB, you need to edit `astron/config/astrond.yml` and `launch/docker/.env`.
+**Linux/macOS:**
+```bash
+cd launch/docker
+chmod +x initial-setup.sh
+./initial-setup.sh
+```
 
-# Running from source
+**Note:** These scripts work even if Python isn't installed yet! They will:
+- Check if Python 3.11 is installed
+- If not, help you install it automatically (Windows) or provide instructions (Linux/macOS)
+- Once Python is installed, run the full setup wizard
+
+The wizard will check for and help install:
+- Python 3.11
+- Git
+- Docker
+- WSL2 (Windows only - required for Docker Desktop)
+
+**Note:** Docker Desktop will automatically install WSL2 and the "Virtual Machine Platform" feature if needed. Hyper-V is NOT required when using the WSL2 backend (which is the default).
+
+### Step 2: Start the Servers
+
+Navigate to `launch/docker/scripts/` and run the server launcher:
+
+**Windows:**
+```batch
+cd launch\docker\scripts
+start-servers.bat
+```
+
+**Linux/macOS:**
+```bash
+cd launch/docker/scripts
+chmod +x *.sh *.command  # First time only
+./start-servers.sh
+```
+
+This will start all server components in Docker containers. The first time may take a few minutes to download and build the containers.
+
+### Step 3: Start the Game Client
+
+Once the servers are running, launch the game client:
+
+**Windows:**
+```batch
+start-game.bat
+```
+
+**Linux:**
+```bash
+./start-game.sh
+```
+
+**macOS:**
+```bash
+./start-game.command
+```
+
+### Step 4: Choose Your Server
+
+When the game launches, you'll be prompted to choose:
+- **Public Server**: Connect to the official Toontown Ranked server
+- **Other Server**: Connect to a custom server (localhost or remote)
+
+## Stopping the Servers
+
+To stop the Docker servers:
+
+**Windows:**
+```batch
+cd launch\docker\scripts
+stop-servers.bat
+```
+
+**Linux/macOS:**
+```bash
+cd launch/docker/scripts
+./stop-servers.sh
+```
+
+## Important Notes
+
+- **Docker is required** to run the game servers. The setup wizard will help you install it.
+- **Python 3.11** is required for the game client.
+- All server components (MongoDB, Astron, Uberdog, AI) run inside Docker containers.
+- The game client runs locally on your machine.
+- **No MongoDB installation needed** - it's included in the Docker setup!
+
+## Configuration
+
+If you need to customize server settings, edit `launch/docker/.env` (created automatically from `env.example`).
+
+### Legacy Installation (Advanced Users)
+
+For advanced users who want to run servers without Docker, see [Running From Source.](#running-from-source)
+
+# Running from source (Advanced)
+
+**Note:** For most users, we recommend using the [Docker-based setup](#getting-started) above. This section is for advanced users who want to run servers without Docker.
+
 ## Requirements
+
 ### Python 3.11
 This source requires Python 3.11. **Ensure that you add Python to your PATH during installation.**
 
@@ -76,10 +155,11 @@ This source requires Python 3.11. **Ensure that you add Python to your PATH duri
 This source can be run using any modern version of Panda3D. It is highly recommended that you don't install Panda3D as it is installed automatically as a pip dependency. If you have issues launching the source, it is **more than likely** that you have a Python PATH conflict. If this occurs, the simplest solution is to **uninstall all instances of Panda3D and Python** on your computer, reinstall Python 3.11, and try again.
 
 ### MongoDB
-**MongoDB is required** to run Toontown Ranked. You can install it manually from [mongodb.com](https://www.mongodb.com/try/download/community). Make sure MongoDB is added to your system PATH.
+**MongoDB is required** to run Toontown Ranked without Docker. You can install it manually from [mongodb.com](https://www.mongodb.com/try/download/community). Make sure MongoDB is added to your system PATH.
 
 ## Starting the game
-### Option 1: Using Batch Files (Recommended for End Users)
+
+### Option 1: Using Batch Files
 Please navigate to the `/launch` directory, then your platform:
 - Windows: `/windows`
 - Mac: `/darwin`
