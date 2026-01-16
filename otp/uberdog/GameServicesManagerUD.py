@@ -886,13 +886,11 @@ class GameServicesManagerUD(DistributedObjectGlobalUD):
         if credentials is None:
             credentials = 'mongodb://127.0.0.1:27017/'
         
-        # Verify MongoDB is available if desired
-        if not environ.get("SKIP_DEPENDENCY_CHECK", "").lower() in ("1", "true", "yes"):
-            if not self._check_mongodb_available():
-                self.notify.error('MongoDB is required but not available.')
-                self.notify.error('Please install and start MongoDB before launching the server.')
-                self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
-                exit(1)
+        if not self._check_mongodb_available():
+            self.notify.error('MongoDB is required but not available.')
+            self.notify.error('Please install and start MongoDB before launching the server.')
+            self.notify.error('MongoDB must be running on mongodb://127.0.0.1:27017/')
+            exit(1)
         
         # Use MongoDB for account storage
         self.accountDb = MongoAccountDb(self, credentials)

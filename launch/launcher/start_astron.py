@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Astron launcher script that automatically detects MongoDB and uses it if available.
-This allows launching Astron individually while still using MongoDB backend when possible.
+Astron launcher script.
 """
 
 import os

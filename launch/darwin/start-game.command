@@ -12,7 +12,6 @@ else
 fi
 
 export SERVICE_TO_RUN=CLIENT
-export CALLED_FROM_LAUNCH_SCRIPT=1
 
 $PPYTHON_PATH -m pip install -r requirements.txt
 echo Checking for valid Panda3D Windows installation...
