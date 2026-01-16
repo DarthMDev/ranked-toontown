@@ -4,8 +4,6 @@ import os
 
 import argparse
 
-from toontown.toonbase.ErrorTrackingService import BasicErrorTrackingService, ServiceType
-
 parser = argparse.ArgumentParser(description="Toontown Ranked - UberDOG Server")
 parser.add_argument(
     '--base-channel',
