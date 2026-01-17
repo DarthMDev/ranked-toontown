@@ -4,8 +4,8 @@ set SERVICE_TO_RUN=CLIENT
 cd game
 
 :launch
-start /B "%~dp0" "launch.exe"
-pause
-goto :launcher
-
-pause
+start /B /WAIT "%~dp0" "launch.exe"
+echo.
+echo Game closed. Press Enter to relaunch, or Ctrl+C to exit...
+pause >nul
+goto :launch
