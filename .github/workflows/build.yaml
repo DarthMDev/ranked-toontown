@@ -89,7 +89,9 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          python -m pip install nuitka
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade nuitka
+          python -m pip install pydantic pydantic_core
           python -m pip install -r requirements.txt
           python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-macosx_10_9_universal2.whl"
           brew install wget
@@ -100,14 +102,21 @@ jobs:
           arch -x86_64 $PYTHON_EXEC -m venv venv_x86_64
           arch -x86_64 venv_x86_64/bin/python -m pip install --upgrade pip
           arch -x86_64 venv_x86_64/bin/python -m pip install nuitka
+          arch -x86_64 venv_x86_64/bin/python -m pip install pydantic pydantic_core
           arch -x86_64 venv_x86_64/bin/python -m pip install -r requirements.txt
           arch -x86_64 venv_x86_64/bin/python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-macosx_10_9_universal2.whl"
           
       - name: Build Client
         run: |
-          python -m nuitka ./launch/launcher/launch.py --standalone --output-dir=output_arm64 --include-package=direct.distributed --include-package=otp --include-package=toontown --include-package=openskill --include-package=pytz --assume-yes-for-downloads
-          arch -x86_64 venv_x86_64/bin/python -m nuitka ./launch/launcher/launch.py --standalone --output-dir=output_x86_64 --include-package=direct.distributed --include-package=otp --include-package=toontown --include-package=openskill --include-package=pytz --assume-yes-for-downloads
-
+          arch -arm64 python3.11 -m nuitka ./launch/launcher/launch.py \
+          --standalone --output-dir=output_arm64 --include-package=direct.distributed \
+          --include-package=otp --include-package=toontown --include-package=openskill \
+          --include-package=pytz --include-package=pydantic --assume-yes-for-downloads --prefer-source-code
+          
+          arch -x86_64 venv_x86_64/bin/python -m nuitka ./launch/launcher/launch.py \
+          --standalone --output-dir=output_x86_64 --include-package=direct.distributed \
+          --include-package=otp --include-package=toontown --include-package=openskill \
+          --include-package=pytz --include-package=pydantic --assume-yes-for-downloads --prefer-source-code
       - name: Copy Built Files
         run: |
           # combine the binaries from both folders into a universal2 folder
