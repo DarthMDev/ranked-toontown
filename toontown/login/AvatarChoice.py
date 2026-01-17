@@ -9,20 +9,20 @@ from toontown.toonbase import TTLocalizer
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toontowngui import TeaserPanel
 #from toontown.toonbase import UserFunnel
-NAME_ROTATIONS = (-11,
- 7,
+NAME_ROTATIONS = (7,
+ -11,
  1,
  -5,
  3.5,
  -5)
-NAME_POSITIONS = ((-0.03, 0, 0.25),
- (0, 0, 0.26),
+NAME_POSITIONS = ((0, 0, 0.26),
+ (-0.03, 0, 0.25),
  (0, 0, 0.27),
  (-0.03, 0, 0.25),
  (0.03, 0, 0.26),
  (0, 0, 0.26))
-DELETE_POSITIONS = ((0.31, 0, -0.167),
- (0.187, 0, -0.26),
+DELETE_POSITIONS = ((0.187, 0, -0.26),
+ (0.31, 0, -0.167),
  (0.231, 0, -0.241),
  (0.314, 0, -0.186),
  (0.243, 0, -0.233),
