@@ -37,16 +37,7 @@ class DistributedFloatingPlatform(DistributedObject):
         # Create a parent node for positioning first
         # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
         # This must be created before setupCopyModel so we can pass it as the parentingNode
-        # IMPORTANT: This node MUST be under render to ensure remote toons remain visible when reparented
         self.model = render.attachNewNode('FloatingPlatform-%s' % self.index)
-        
-        # Verify that self.model is under render (not hidden) to ensure toons remain visible
-        # This is critical for remote toons - if they get reparented to a node under hidden, they vanish
-        if not self.model.isEmpty():
-            topNode = self.model.getTop()
-            if topNode.compareTo(hidden) == 0:
-                self.notify.warning('Platform %s: model node is under hidden! Reparenting to render.' % self.index)
-                self.model.reparentTo(render)
         
         # Use MovingPlatform to properly set up the platform with its built-in collision
         # This is the same approach used by DistributedSinkingPlatform
@@ -65,12 +56,6 @@ class DistributedFloatingPlatform(DistributedObject):
         
         self.platform.reparentTo(self.model)
         self.platform.setPos(0, 0, 0)
-        
-        # Ensure the parenting node is correctly registered after reparenting
-        # This is critical to prevent remote toons from becoming invisible
-        # The model node is under render, so toons should remain visible when reparented
-        if hasattr(self.platform, 'updateParentingNode'):
-            self.platform.updateParentingNode(self.model)
         
         # If basePos was set (via setPosition called before model loaded), set position now
         if self.basePos is not None:

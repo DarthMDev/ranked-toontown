@@ -37,24 +37,13 @@ class MovingPlatform(DirectObject.DirectObject, NodePath):
         # Note: Using render breaks relative positioning, but at least toons remain visible
         if not parentingNode.isEmpty():
             topNode = parentingNode.getTop()
-            # Check if the node is under hidden - if so, use render to ensure toons remain visible
             if topNode.compareTo(hidden) == 0:
                 # The parenting node is under hidden, use render instead
                 # This ensures toons remain visible even if the platform entity is under hidden
                 # The trade-off is that toons won't move with the platform, but visibility is more important
-                MovingPlatform.notify.debug('MovingPlatform %s: parentingNode is under hidden, using render instead' % self._name)
                 parentingNode = render
-            else:
-                # Verify the node is actually visible by checking it's not under hidden
-                # Double-check by ensuring the top node is render or a child of render
-                if topNode.compareTo(render) != 0 and not topNode.isUnder(render):
-                    MovingPlatform.notify.warning('MovingPlatform %s: parentingNode top node is %s, not render or hidden - may cause visibility issues' % (self._name, topNode))
-        else:
-            MovingPlatform.notify.warning('MovingPlatform %s: parentingNode is empty, using render' % self._name)
-            parentingNode = render
         base.cr.parentMgr.registerParent(self.parentToken, parentingNode)
         self.parentingNode = parentingNode
-        MovingPlatform.notify.debug('MovingPlatform %s: Registered parenting node %s (top: %s)' % (self._name, parentingNode, parentingNode.getTop() if not parentingNode.isEmpty() else 'empty'))
         self.accept('enter%s' % self._name, self.__handleEnter)
         self.accept('exit%s' % self._name, self.__handleExit)
         return
