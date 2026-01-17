@@ -636,8 +636,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         return Task.cont
 
     def __createTrajectoryLine(self, power):
-        """Create a trajectory line showing where the pie will land"""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, CollisionRay, CollisionNode, BitMask32
+        """Create a trajectory line showing where the pie will land - OPTIMIZED VERSION"""
+        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, CollisionRay, CollisionNode, BitMask32, Vec3
         from direct.interval.ProjectileInterval import ProjectileInterval
         from otp.otpbase import OTPGlobals
         
@@ -663,7 +663,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         from toontown.minigame import Trajectory
         startTime = globalClock.getFrameTime()
         # Use the same hand position offset as in getTossPieInterval (relative to toon)
-        # The pie starts at position (0.52, 0.97, 2.24) relative to the toon
         handOffset = render.getRelativePoint(self, Point3(0.52, 0.97, 2.24))
         startPos = handOffset
         
@@ -673,146 +672,130 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         # Find ground impact time
         groundTime = trajectory.calcTimeOfImpactOnPlane(0.0)
         if groundTime < 0:
-            # No ground impact, use max flight time
             maxTime = 3.0
         else:
             maxTime = groundTime - startTime
-            maxTime = min(maxTime, 3.0)  # Cap at 3 seconds
+            maxTime = min(maxTime, 3.0)
         
-        # Calculate points along the trajectory with collision detection
-        numPoints = 100  # More points for smoother line
+        # OPTIMIZATION: Use fewer sample points for collision detection (20 instead of 100)
+        # We'll interpolate visual points between them for smooth line
+        numCollisionSamples = 10  # Reduced from 100
+        numVisualPoints = 50  # For smooth line rendering
+        
         points = []
         hitPoint = None
         surfaceNormal = None
         
-        # Set up collision detection
+        # Set up collision detection - SINGLE traverser and collider, reused
         collisionTrav = CollisionTraverser()
         collisionQueue = CollisionHandlerQueue()
         from panda3d.core import CollisionSegment
         collisionSegment = CollisionSegment()
         collisionNode = CollisionNode('trajectorySegment')
         collisionNode.addSolid(collisionSegment)
-        # Include PieBitmask and TNTBitmask to detect CFO shield, but exclude NearBoss
         from toontown.toonbase import ToontownGlobals
         collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
         collisionNode.setIntoCollideMask(BitMask32.allOff())
         segmentNodePath = render.attachNewNode(collisionNode)
         collisionTrav.addCollider(segmentNodePath, collisionQueue)
         
-        # Start with the first point
         points.append(startPos)
         prevPoint = startPos
+        hitTimeRatio = 1.0  # Ratio of time where we hit something
         
-        # Check for collisions along the trajectory, segment by segment
-        for i in range(1, numPoints + 1):
-            t = (i / float(numPoints)) * maxTime
+        # OPTIMIZED: Check collisions only at sample points
+        for i in range(1, numCollisionSamples + 1):
+            t = (i / float(numCollisionSamples)) * maxTime
             point = trajectory.getPos(startTime + t)
             
-            # Check for collision between previous point and current point
             if hitPoint is None:
-                dist = (point - prevPoint).length()
-                if dist > 0.01:
-                    # Use CollisionSegment to check only this specific segment
+                segDist = (point - prevPoint).length()
+                if segDist > 0.01:
                     collisionSegment.setPointA(prevPoint)
                     collisionSegment.setPointB(point)
                     collisionQueue.clearEntries()
-                    collisionTrav.traverse(render)
+                    collisionTrav.traverse(render)  # ONLY ONE TRAVERSAL PER SAMPLE
                     
                     if collisionQueue.getNumEntries() > 0:
                         collisionQueue.sortEntries()
                         
-                        # Find first valid collision entry (not NearBoss)
-                        validEntry = None
+                        # Find first valid collision (ignore NearBoss and self)
                         for j in range(collisionQueue.getNumEntries()):
                             entry = collisionQueue.getEntry(j)
                             intoNode = entry.getIntoNodePath()
-                            nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
+                            nodeName = intoNode.getName() if not intoNode.isEmpty() else ''
                             
-                            # Ignore NearBoss collisions completely
                             if nodeName == 'NearBoss':
                                 continue
                             
-                            # Check if it's toon geometry
+                            # Check if it's toon geometry (skip self-collisions)
                             checkNode = intoNode
-                            isToonGeometry = False
-                            while not checkNode.isEmpty():
+                            isSelf = False
+                            for _ in range(10):  # Limit parent traversal
+                                if checkNode.isEmpty() or checkNode == render:
+                                    break
                                 if checkNode == self:
-                                    isToonGeometry = True
+                                    isSelf = True
                                     break
-                                parent = checkNode.getParent()
-                                if parent == self:
-                                    isToonGeometry = True
-                                    break
-                                checkNode = parent
+                                checkNode = checkNode.getParent()
                             
-                            # Use this entry if it's not NearBoss
-                            if validEntry is None:
-                                validEntry = entry
+                            if isSelf:
+                                continue
+                            
+                            # Valid collision found
+                            hitPoint = entry.getSurfacePoint(render)
+                            distanceFromStart = (hitPoint - startPos).length()
+                            
+                            if distanceFromStart >= 2.0:  # Min distance to avoid hand collisions
+                                if entry.hasSurfaceNormal():
+                                    surfaceNormal = entry.getSurfaceNormal(render)
+                                    surfaceNormal.normalize()
+                                hitTimeRatio = i / float(numCollisionSamples)
+                                break
+                            else:
+                                hitPoint = None
                         
-                        if validEntry is None:
-                            # Continue to next segment
-                            points.append(point)
-                            prevPoint = point
-                            continue
-                        
-                        entry = validEntry
-                        intoNode = entry.getIntoNodePath()
-                        nodeName = intoNode.getName() if not intoNode.isEmpty() else 'Unknown'
-                        
-                        # Get the collision point in render space
-                        hitPoint = entry.getSurfacePoint(render)
-                        
-                        # Calculate distance from start position
-                        distanceFromStart = (hitPoint - startPos).length()
-                        
-                        # Get the surface normal for orienting the target
-                        if entry.hasSurfaceNormal():
-                            surfaceNormal = entry.getSurfaceNormal(render)
-                            surfaceNormal.normalize()
-                        
-                        # Verify the hit point is actually between prevPoint and point
-                        hitDist = (hitPoint - prevPoint).length()
-                        # Minimum distance from start to avoid false positives near hand (especially in crane game)
-                        minDistanceFromStart = 2.0  # Ignore collisions within 2 units of hand
-                        if hitDist <= dist + 0.1 and distanceFromStart >= minDistanceFromStart:  # Allow small tolerance and minimum distance
-                            points.append(hitPoint)
+                        if hitPoint is not None:
                             break
-                        # If hit point is too far or too close, ignore it and continue
-                        hitPoint = None
-                        surfaceNormal = None
             
-            # If no collision found yet, add this point
-            if hitPoint is None:
-                points.append(point)
-                prevPoint = point
-            else:
-                break
+            prevPoint = point
         
         segmentNodePath.removeNode()
         
-        # Create line
-        if len(points) < 2:
+        # Now create visual line with more points for smoothness
+        visualPoints = []
+        maxVisualTime = maxTime * hitTimeRatio
+        
+        for i in range(numVisualPoints + 1):
+            t = (i / float(numVisualPoints)) * maxVisualTime
+            point = trajectory.getPos(startTime + t)
+            visualPoints.append(point)
+        
+        # Add hit point at the end if we found one
+        if hitPoint is not None:
+            visualPoints.append(hitPoint)
+        
+        if len(visualPoints) < 2:
             return
         
+        # Create line geometry
         lines = LineSegs('trajectoryLine')
-        lines.setColor(1, 1, 0, 0.6)  # Yellow, semi-transparent
+        lines.setColor(1, 1, 0, 0.6)
         lines.setThickness(3.5)
         
-        # Draw the line
-        for i, point in enumerate(points):
+        for i, point in enumerate(visualPoints):
             if i == 0:
                 lines.moveTo(point.getX(), point.getY(), point.getZ())
             else:
                 lines.drawTo(point.getX(), point.getY(), point.getZ())
         
-        # Create node path for the line
         self.__trajectoryLine = render.attachNewNode(lines.create())
         self.__trajectoryLine.setTransparency(TransparencyAttrib.MAlpha)
         self.__trajectoryLine.setDepthWrite(False)
         self.__trajectoryLine.setBin('fixed', 0)
         
-        # Create target indicator at landing point
-        landingPoint = points[-1]
+        # Create target indicator
+        landingPoint = hitPoint if hitPoint else visualPoints[-1]
         self.__createTrajectoryTarget(landingPoint, surfaceNormal)
     
     def __updateTrajectoryLine(self, power):
