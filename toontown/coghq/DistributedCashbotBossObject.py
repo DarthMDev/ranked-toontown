@@ -48,6 +48,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         # Reference to the platform this object is on (if any)
         # This allows the object to move with the platform when in Free state
         self.platformNode = None
+        self.platformIndex = -1  # Platform index from server (-1 means not on platform)
             
         # A CollisionNode to keep me out of walls and floors, and to
         # keep others from bumping into me.  We use PieBitmask instead
@@ -277,7 +278,8 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
     
     def __hitPlatform(self, entry):
         """Called when object hits a platform. Behaves the same as hitting the floor."""
-        # Find the platform's model node so we can parent to it later
+        # Find the platform's model node and index so we can parent to it later
+        platformIndex = -1
         if entry:
             intoNodePath = entry.getIntoNodePath()
             if intoNodePath and not intoNodePath.isEmpty():
@@ -289,8 +291,17 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                     nodeName = current.getName()
                     if nodeName and nodeName.startswith('FloatingPlatform-'):
                         self.platformNode = current
+                        # Extract platform index from node name: "FloatingPlatform-{index}"
+                        try:
+                            platformIndex = int(nodeName.split('-')[1])
+                        except (ValueError, IndexError):
+                            platformIndex = -1
                         break
                     current = current.getParent()
+        
+        # Send platform index to server so it can broadcast to all clients
+        if platformIndex >= 0 and self.state in ('Dropped', 'LocalDropped', 'SlidingFloor'):
+            self.d_hitPlatform(platformIndex)
         
         if self.state == 'Falling':
             self.doHitFloor()
@@ -534,6 +545,9 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
 
     def d_hitFloor(self):
         self.sendUpdate('hitFloor')
+    
+    def d_hitPlatform(self, platformIndex):
+        self.sendUpdate('hitPlatform', [platformIndex])
 
     def d_requestFree(self):
         self.sendUpdate('requestFree', [self.getX(),
@@ -553,6 +567,47 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             
         return FSM.FSM.defaultFilter(self, request, args)
         
+    def setPlatformIndex(self, platformIndex):
+        """Called by server to tell us which platform this object is on.
+        platformIndex of -1 means not on a platform."""
+        self.platformIndex = platformIndex
+        # Find the platform node using the index
+        self.platformNode = None
+        if platformIndex >= 0:
+            # Find the FloatingPlatform object with this index
+            if hasattr(base, 'cr') and base.cr:
+                for doId, obj in list(base.cr.doId2do.items()):
+                    if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
+                        if hasattr(obj, 'index') and obj.index == platformIndex:
+                            if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
+                                self.platformNode = obj.model
+                                break
+        
+        # If we're in Free state, parent to the platform now
+        # This handles the case where setPlatformIndex is called after enterFree
+        if self.state == 'Free':
+            self._parentToPlatformIfNeeded()
+    
+    def _parentToPlatformIfNeeded(self):
+        """Helper method to parent the object to its platform if needed."""
+        if self.platformNode and not self.platformNode.isEmpty():
+            # Get our current position relative to render
+            currentPos = self.getPos(render)
+            currentHpr = self.getHpr(render)
+            # Only reparent if we're not already parented to this platform
+            if self.getParent() != self.platformNode:
+                # Parent to the platform
+                self.reparentTo(self.platformNode)
+                # Calculate relative position
+                platformPos = self.platformNode.getPos(render)
+                relativePos = currentPos - platformPos
+                self.setPos(relativePos)
+                self.setHpr(currentHpr)
+        else:
+            # Not on a platform, unparent if we were parented
+            if not self.getParent().isEmpty() and self.getParent().getName().startswith('FloatingPlatform-'):
+                self.reparentTo(render)
+
     def updateClientPositions(self, x, y, z, h, p, r):
         if self.state in ['LocalGrabbed', 'LocalDropped', 'Grabbed', 'Dropped']:
             return
@@ -599,6 +654,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.setPos(currentPos)
             self.setHpr(currentHpr)
             self.platformNode = None
+            self.platformIndex = -1
         
         self.avId = avId
         self.craneId = craneId
@@ -652,6 +708,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             self.setPos(currentPos)
             self.setHpr(currentHpr)
             self.platformNode = None
+            self.platformIndex = -1
         
         self.avId = avId
         self.craneId = craneId
@@ -784,26 +841,21 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.avId = 0
         self.craneId = 0
         
-        # If we're on a platform, parent to it so we move with the platform
-        # Otherwise, the AI will set our position via updateClientPositions
-        if self.platformNode and not self.platformNode.isEmpty():
-            # Get our current position relative to render
-            currentPos = self.getPos(render)
-            currentHpr = self.getHpr(render)
-            # Parent to the platform
-            self.reparentTo(self.platformNode)
-            # Set position relative to platform (maintain relative position)
-            # The platform's model is at (0,0,0) relative to itself, so we need to
-            # calculate our position relative to the platform
-            platformPos = self.platformNode.getPos(render)
-            relativePos = currentPos - platformPos
-            self.setPos(relativePos)
-            self.setHpr(currentHpr)
-        else:
-            # Not on a platform, clear any previous platform parenting
-            if not self.getParent().isEmpty() and self.getParent().getName().startswith('FloatingPlatform-'):
-                self.reparentTo(render)
-            self.platformNode = None
+        # If we have a platform index from the server, find the platform node
+        # The server will send setPlatformIndex when we enter Free state
+        if self.platformIndex >= 0 and (not self.platformNode or self.platformNode.isEmpty()):
+            # Find the FloatingPlatform object with this index
+            if hasattr(base, 'cr') and base.cr:
+                for doId, obj in list(base.cr.doId2do.items()):
+                    if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
+                        if hasattr(obj, 'index') and obj.index == self.platformIndex:
+                            if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
+                                self.platformNode = obj.model
+                                break
+        
+        # Parent to platform if we have one (setPlatformIndex will be called by server)
+        # Use the helper method to handle parenting
+        self._parentToPlatformIfNeeded()
 
     def exitFree(self):
         pass

@@ -1497,8 +1497,10 @@ dclass DistributedCashbotBossObject : DistributedSmoothNode {
   rejectGrab();
   requestDrop() airecv clsend;
   hitFloor() airecv clsend;
+  hitPlatform(int8) airecv clsend;
   requestFree(int16/10, int16/10, int16/10, uint16%360/100) airecv clsend;
   hitBoss(uint16/255, uint32) airecv clsend;
+  setPlatformIndex(int8) broadcast ram;
   setX(int16/10) broadcast ram clsend airecv;
   setY(int16/10) broadcast ram clsend airecv;
   setZ(int16/10) broadcast ram clsend airecv;

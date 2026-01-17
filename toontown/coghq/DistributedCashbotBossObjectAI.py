@@ -34,6 +34,10 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         self.craneId = 0
         self.isHelmet = False
         
+        # Track which platform this object is on (if any)
+        # -1 means not on a platform, otherwise it's the platform index
+        self.platformIndex = -1
+        
         self.setBroadcastStateChanges(True)
 
     def delete(self):
@@ -115,6 +119,18 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         
         if avId == self.avId and self.state == 'Dropped':
             self.demand('SlidingFloor', avId)
+    
+    def hitPlatform(self, platformIndex):
+        # The client managing the dropping object tells us that it has
+        # just struck a platform. Store the platform index so we can broadcast it
+        # to all clients when entering Free state.
+        avId = self.air.getAvatarIdFromSender()
+        
+        if avId == self.avId and self.state in ('Dropped', 'SlidingFloor'):
+            self.platformIndex = platformIndex
+            # Also transition to SlidingFloor if we're in Dropped state
+            if self.state == 'Dropped':
+                self.demand('SlidingFloor', avId)
 
     def requestFree(self, x, y, z, h):
         # The client controlling the object's free-fall has
@@ -168,6 +184,8 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         self.craneId = craneId
         self.__setCraneObject(self.craneId, self.doId)
         self.d_setObjectState('G', avId, craneId)
+        # Clear platform index when grabbed (object is being moved)
+        self.platformIndex = -1
 
     def exitGrabbed(self):
         self.__setCraneObject(self.craneId, 0)
@@ -185,6 +203,9 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
     def enterSlidingFloor(self, avId):
         self.avId = avId
         self.d_setObjectState('s', avId, 0)
+        # Clear platform index when starting to slide (might slide off platform)
+        # It will be set again if it hits a platform
+        self.platformIndex = -1
         if self.wantsWatchDrift:
             self.startWaitFree(3)
 
@@ -209,6 +230,12 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         self.avId = 0
         self.craneId = 0
         self.d_setObjectState('F', 0, 0)
+        # Broadcast the platform index to all clients so they can parent the object to the platform
+        if self.platformIndex >= 0:
+            self.sendUpdate('setPlatformIndex', [self.platformIndex])
+        else:
+            # Clear platform index if not on a platform
+            self.sendUpdate('setPlatformIndex', [-1])
 
     def exitFree(self):
         pass
