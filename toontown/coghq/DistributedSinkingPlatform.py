@@ -54,9 +54,14 @@ class DistributedSinkingPlatform(BasicEntities.DistributedNodePathEntity):
         self.notify.debug('loadModel')
         model = loader.loadModel('phase_9/models/cogHQ/platform1')
         self.platform = MovingPlatform.MovingPlatform()
-        self.platform.setupCopyModel(self.getParentToken(), model, 'platformcollision')
+        # Setup the platform - it will use the model node as parentingNode if self is under hidden
+        self.platform.setupCopyModel(self.getParentToken(), model, 'platformcollision', parentingNode=self)
         self.platform.reparentTo(self)
         self.platform.setPos(0, 0, 0)
+        # After reparenting, check if we need to update the parenting node to ensure visibility
+        # If self is still under hidden, the model node should be used (which was set in setupCopyModel)
+        # But if self becomes visible later, we should update to use self
+        # For now, we'll rely on the model node fallback in setupCopyModel
 
     def localToonEntered(self):
         ts = globalClockDelta.localToNetworkTime(globalClock.getFrameTime(), bits=32)

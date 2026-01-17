@@ -45,9 +45,17 @@ echo.
 
 %PPYTHON_PATH% -m launch.launcher.launch
 
-if %ERRORLEVEL% neq 0 (
+set GAME_EXIT_CODE=%ERRORLEVEL%
+
+if %GAME_EXIT_CODE% neq 0 (
     echo.
-    echo ERROR: Failed to start game client
-    pause
-    exit /b 1
+    echo ERROR: Game client exited with error code %GAME_EXIT_CODE%
+) else (
+    echo.
+    echo Game client closed normally
 )
+
+echo.
+echo Press any key to close this window...
+pause >nul
+exit /b %GAME_EXIT_CODE%

@@ -14,6 +14,7 @@ class DistributedCashbotBossBoomBarrow(DistributedObject):
         self.collisionNode = None
         self.collisionNodePath = None
         self.tnts = []
+        self.tntMaster = None  # Master TNT model for instancing
         self.touchCooldown = False
         self.TOUCH_COOLDOWN_TIME = 2.0  # 2 second cooldown between touches (client-side debounce)
         self.onCooldown = False  # Server-controlled cooldown state
@@ -65,49 +66,64 @@ class DistributedCashbotBossBoomBarrow(DistributedObject):
         self.loadTNTs()
 
     def loadTNTs(self):
-        """Load TNT models into the wheelbarrow."""
-        # Load TNT props and place them in the wheelbarrow
-        # Arrange them in a spread-out pattern, stacked in layers
+        """Load TNT models into the wheelbarrow using instancing for performance."""
+        # Use Panda3D instancing to avoid creating 22 separate TNT models
+        # This significantly improves FPS by sharing geometry and animations
         from toontown.battle import BattleProps
+        
+        # Create a single TNT model that will be instanced
+        # Keep master at origin - all positioning will be done via placeholders
+        self.tntMaster = BattleProps.globalPropPool.getProp('tnt')
+        self.tntMaster.setScale(0.4)  # Make TNT smaller to fit in wheelbarrow
+        self.tntMaster.reparentTo(self.model)
+        self.tntMaster.setPos(0, 0, 1.2)  # Keep at origin relative to model
+        self.tntMaster.setH(0)  # No rotation relative to model - follows boombarrow heading
         
         tnt_positions = [
             # Layer 1 (bottom)
-            (-0.3, -0.4, 1.2),
-            (0.0, -0.1, 1.2),
-            (-0.3, 0.1, 1.2),
-            (0.0, 0.1, 1.1),
-            (0.0, 0.7, 1.1),
-            (0.3, -0.3, 1.1),
-            (-0.25, 0.4, 1.1),
+            (-0.3, -0.4, 0.0),
+            (0.0, -0.1, 0.0),
+            (-0.3, 0.1, 0.0),
+            (0.0, 0.1, -0.1),
+            (0.0, 0.7, -0.1),
+            (0.3, -0.3, -0.1),
+            (-0.25, 0.4, -0.1),
             # Layer 2 (middle)
-            (-0.2, -0.4, 1.3),
-            (0.0, -0.4, 1.2),
-            (-0.2, 0.4, 1.3),
-            (-0.3, 0.4, 1.3),
-            (0.2, -0.2, 1.3),
-            (0.25, 0.3, 1.3),
-            (-0.35, 0.2, 1.3),
+            (-0.2, -0.4, 0.1),
+            (0.0, -0.4, 0.0),
+            (-0.2, 0.4, 0.1),
+            (-0.3, 0.4, 0.1),
+            (0.2, -0.2, 0.1),
+            (0.25, 0.3, 0.1),
+            (-0.35, 0.2, 0.1),
             # Layer 3 (top)
-            (-0.25, -0.2, 1.5),
-            (0.0, 0.65, 1.4),
-            (0.2, 0.1, 1.4),
-            (-0.2, 0.5, 1.4),
-            (0.3, 0.4, 1.4),
+            (-0.25, -0.2, 0.3),
+            (0.0, 0.65, 0.2),
+            (0.2, 0.1, 0.2),
+            (-0.2, 0.5, 0.2),
+            (0.3, 0.4, 0.2),
             # Layer 4 (topmost)
-            (0.0, 0.3, 1.6),
-            (-0.2, 0.2, 1.6),
-            (0.2, 0.5, 1.6),
+            (0.0, 0.3, 0.4),
+            (-0.2, 0.2, 0.4),
+            (0.2, 0.5, 0.4),
         ]
         
+        # Create placeholder nodes and instance the TNT to ALL positions
+        # This allows the renderer to render the same TNT model multiple times
+        # without duplicating geometry or animation calculations
+        # All instances will be positioned relative to the boombarrow model
         for i, (x_offset, y_offset, z_offset) in enumerate(tnt_positions):
-            tnt = BattleProps.globalPropPool.getProp('tnt')
-            tnt.reparentTo(self.model)
+            # Create a placeholder node for this TNT instance
+            placeholder = self.model.attachNewNode('TNT-Placeholder-%d' % i)
+            placeholder.setPos(x_offset, y_offset, z_offset)
+            placeholder.setH(i * 30)  # Rotate each TNT differently
             
-            tnt.setPos(x_offset, y_offset, z_offset)
-            tnt.setScale(0.4)  # Make TNT smaller to fit in wheelbarrow
-            tnt.setH(i * 30)  # Rotate each TNT differently
+            # Instance the master TNT to this placeholder
+            # The instance will inherit the placeholder's transform relative to the boombarrow
+            self.tntMaster.instanceTo(placeholder)
             
-            self.tnts.append(tnt)
+            # Store the placeholder for cleanup
+            self.tnts.append(placeholder)
 
     def setupCollision(self):
         """Setup collision sphere for detecting when toons touch the pie stand."""
@@ -205,6 +221,11 @@ class DistributedCashbotBossBoomBarrow(DistributedObject):
         if self.collisionNodePath:
             self.collisionNodePath.removeNode()
             self.collisionNodePath = None
+        # Clean up TNT placeholders (instances are automatically cleaned up)
         self.tnts = []
+        # Clean up master TNT if it exists
+        if hasattr(self, 'tntMaster') and self.tntMaster:
+            self.tntMaster.removeNode()
+            self.tntMaster = None
         DistributedObject.delete(self)
 

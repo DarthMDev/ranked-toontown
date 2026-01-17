@@ -97,6 +97,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.__finalPiePower = None  # Store final power after charging stops
             self.__presentingPie = 0
             self.__pieSequence = 0
+            self.__pieFlyNodes = {}  # Track flyPie and pieBubble by sequence for cleanup
             self.wantBattles = base.config.GetBool('want-battles', 1)
             self.seeGhosts = base.config.GetBool('see-ghosts', 0)
             wantNameTagAvIds = base.config.GetBool('want-nametag-avids', 0)
@@ -224,6 +225,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         DistributedToon.DistributedToon.announceGenerate(self)
 
     def disable(self):
+        # Clean up all pie fly nodes before disabling
+        for sequence in list(self.__pieFlyNodes.keys()):
+            self.__cleanupPieFlyNodes(sequence)
         self.laffMeter.destroy()
         del self.laffMeter
         self.questMap.destroy()
@@ -945,6 +949,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         if pie and pie.getT() < 14.0 / 24.0:
             del self.pieTracks[self.__pieSequence]
             pie.pause()
+            # Clean up flyPie and pieBubble if they exist
+            self.__cleanupPieFlyNodes(self.__pieSequence)
 
     def __pieInHand(self):
         pie = self.pieTracks.get(self.__pieSequence)
@@ -1014,10 +1020,12 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         toss, pie, flyPie = self.getTossPieInterval(pos[0], pos[1], pos[2], hpr[0], hpr[1], hpr[2], power, beginFlyIval=Func(pieFlies))
         pieBubble.reparentTo(flyPie)
         flyPie.setTag('pieSequence', str(sequence))
+        # Store flyPie and pieBubble for cleanup
+        self.__pieFlyNodes[sequence] = {'flyPie': flyPie, 'pieBubble': pieBubble}
         toss = Sequence(toss)
         self.tossTrack = toss
         toss.start()
-        pie = Sequence(pie, Func(base.cTrav.removeCollider, pieBubble), Func(self.pieFinishedFlying, sequence))
+        pie = Sequence(pie, Func(base.cTrav.removeCollider, pieBubble), Func(self.pieFinishedFlying, sequence), Func(self.__cleanupPieFlyNodes, sequence))
         self.pieTracks[sequence] = pie
         pie.start()
         return
@@ -1027,11 +1035,37 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         if self.__piePowerMeterSequence == sequence:
             self.__piePowerMeter.hide()
 
+    def __cleanupPieFlyNodes(self, sequence):
+        """Clean up flyPie and pieBubble for a given sequence."""
+        if sequence in self.__pieFlyNodes:
+            flyData = self.__pieFlyNodes[sequence]
+            flyPie = flyData.get('flyPie')
+            pieBubble = flyData.get('pieBubble')
+            
+            # Remove collider if it's still in the traverser
+            if pieBubble and not pieBubble.isEmpty():
+                try:
+                    base.cTrav.removeCollider(pieBubble)
+                except:
+                    pass  # Collider may have already been removed
+            
+            # Detach flyPie if it still exists
+            if flyPie and not flyPie.isEmpty():
+                flyPie.detachNode()
+            
+            # Clean up pieBubble
+            if pieBubble and not pieBubble.isEmpty():
+                pieBubble.removeNode()
+            
+            del self.__pieFlyNodes[sequence]
+
     def __finishPieTrack(self, sequence):
         if sequence in self.pieTracks:
             pieTrack = self.pieTracks[sequence]
             del self.pieTracks[sequence]
             pieTrack.finish()
+        # Clean up flyPie and pieBubble if they exist
+        self.__cleanupPieFlyNodes(sequence)
 
     def __pieHit(self, entry):
         if not entry.hasSurfacePoint() or not entry.hasInto():

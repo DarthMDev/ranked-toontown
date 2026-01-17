@@ -32,11 +32,30 @@ class MovingPlatform(DirectObject.DirectObject, NodePath):
 
         if parentingNode == None:
             parentingNode = self
+        # Ensure the parenting node is visible - if it's under hidden, use render as fallback
+        # This prevents remote toons from becoming invisible when they get reparented
+        # Note: Using render breaks relative positioning, but at least toons remain visible
+        if not parentingNode.isEmpty():
+            topNode = parentingNode.getTop()
+            if topNode.compareTo(hidden) == 0:
+                # The parenting node is under hidden, use render instead
+                # This ensures toons remain visible even if the platform entity is under hidden
+                # The trade-off is that toons won't move with the platform, but visibility is more important
+                parentingNode = render
         base.cr.parentMgr.registerParent(self.parentToken, parentingNode)
         self.parentingNode = parentingNode
         self.accept('enter%s' % self._name, self.__handleEnter)
         self.accept('exit%s' % self._name, self.__handleExit)
         return
+
+    def updateParentingNode(self, newParentingNode):
+        """Update the registered parenting node to a new visible node.
+        This should be called after reparenting the platform to a visible node
+        to ensure remote toons remain visible when they get reparented."""
+        if newParentingNode != self.parentingNode:
+            base.cr.parentMgr.unregisterParent(self.parentToken)
+            base.cr.parentMgr.registerParent(self.parentToken, newParentingNode)
+            self.parentingNode = newParentingNode
 
     def destroy(self):
         base.cr.parentMgr.unregisterParent(self.parentToken)

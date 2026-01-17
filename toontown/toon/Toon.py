@@ -3241,10 +3241,17 @@ class Toon(Avatar.Avatar, ToonHead):
                 explosion.reparentTo(deathNode)
                 explosion.setBillboardPointEye()
                 explosion.setPos(0, 0, 2)
+                def cleanupExplosion(deathNode=deathNode, explosion=explosion):
+                    """Clean up explosion NodePath and model."""
+                    if deathNode and not deathNode.isEmpty():
+                        deathNode.detachNode()
+                    if explosion and not explosion.isEmpty():
+                        explosion.removeNode()
+                
                 explosionTrack = Sequence(
                     Func(deathNode.reparentTo, render),
                     Wait(0.6),
-                    Func(deathNode.detachNode)
+                    Func(cleanupExplosion)
                 )
                 
                 smallGearExplosion = BattleParticles.createParticleEffect('GearExplosion', numParticles=10)
@@ -3277,10 +3284,17 @@ class Toon(Avatar.Avatar, ToonHead):
             explosion.reparentTo(deathNode)
             explosion.setBillboardPointEye()
             explosion.setPos(0, 0, 2)
+            def cleanupExplosion(deathNode=deathNode, explosion=explosion):
+                """Clean up explosion NodePath and model."""
+                if deathNode and not deathNode.isEmpty():
+                    deathNode.detachNode()
+                if explosion and not explosion.isEmpty():
+                    explosion.removeNode()
+            
             explosionTrack = Sequence(
                 Func(deathNode.reparentTo, render),
                 Wait(0.6),
-                Func(deathNode.detachNode)
+                Func(cleanupExplosion)
             )
             
             # Create bigger particle effects
