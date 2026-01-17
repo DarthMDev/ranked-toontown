@@ -160,6 +160,11 @@ class DistributedStomper(DistributedCrusherEntity.DistributedCrusherEntity):
         if self.motion == MotionSwitched:
             self.model.setPos(0, -self.range, 0)
         self.model.reparentTo(self.rotateNode)
+        
+        # Update the parenting node if this is a MovingPlatform (horizontal stompers)
+        # This ensures remote toons remain visible when they get reparented to this stomper
+        if isinstance(self.model, MovingPlatform.MovingPlatform):
+            self.model.updateParentingNode(self.model)
         if self.wantSmoke:
             self.smoke = loader.loadModel('phase_4/models/props/test_clouds')
             self.smoke.setColor(0.8, 0.7, 0.5, 1)

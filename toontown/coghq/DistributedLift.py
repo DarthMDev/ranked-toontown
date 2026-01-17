@@ -106,6 +106,10 @@ class DistributedLift(BasicEntities.DistributedNodePathEntity):
                 self.endBoardColl.addPath(np)
 
         self.platformModel.reparentTo(self.platform)
+        
+        # Update the parenting node now that we've reparented the platform to a visible node
+        # This ensures remote toons remain visible when they get reparented to this platform
+        self.platformModel.updateParentingNode(self.platformModel)
         return
 
     def destroyPlatform(self):

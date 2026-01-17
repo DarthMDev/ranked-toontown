@@ -106,6 +106,11 @@ class DistributedCrate(DistributedCrushableEntity.DistributedCrushableEntity):
         self.setScale(1.0)
         self.crate.setScale(self.scale)
         self.crate.reparentTo(self)
+        
+        # Update the parenting node now that we've reparented the crate to a visible node
+        # This ensures remote toons remain visible when they get reparented to this crate
+        self.crate.updateParentingNode(self.crate)
+        
         self.crate.flattenLight()
 
     def setScale(self, scale):

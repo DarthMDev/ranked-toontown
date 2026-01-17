@@ -57,6 +57,10 @@ class DistributedFloatingPlatform(DistributedObject):
         self.platform.reparentTo(self.model)
         self.platform.setPos(0, 0, 0)
         
+        # Update the parenting node now that we've reparented the platform to a visible node
+        # This ensures remote toons remain visible when they get reparented to this platform
+        self.platform.updateParentingNode(self.model)
+        
         # If basePos was set (via setPosition called before model loaded), set position now
         if self.basePos is not None:
             self.model.setPos(self.basePos[0], self.basePos[1], self.basePos[2])

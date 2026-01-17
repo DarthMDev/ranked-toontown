@@ -49,6 +49,12 @@ class GearEntity(BasicEntities.NodePathEntity):
             self.gearParent.setP(-90)
         self.model = model
         self.model.reparentTo(self.gearParent)
+        
+        # Update the parenting node if this is a MovingPlatform (horizontal gears)
+        # This ensures remote toons remain visible when they get reparented to this gear
+        if isinstance(self.model, MovingPlatform.MovingPlatform):
+            self.model.updateParentingNode(self.model)
+        
         self.startRotate()
         del self.in_initGear
 

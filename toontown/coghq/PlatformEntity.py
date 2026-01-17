@@ -24,6 +24,11 @@ class PlatformEntity(BasicEntities.NodePathEntity):
         self.platform = MovingPlatform.MovingPlatform()
         self.platform.setupCopyModel(self.getParentToken(), model, self.floorName)
         self.platform.reparentTo(self)
+        
+        # Update the parenting node now that we've reparented the platform to a visible node
+        # This ensures remote toons remain visible when they get reparented to this platform
+        self.platform.updateParentingNode(self.platform)
+        
         startPos = Point3(0, 0, 0)
         endPos = self.offset
         distance = Vec3(self.offset).length()
