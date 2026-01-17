@@ -94,10 +94,19 @@ jobs:
           python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-macosx_10_9_universal2.whl"
           brew install wget
           
+      - name: Setup x86_64 Environment
+        run: |
+          PYTHON_EXEC=$(python -c "import sys; print(sys.executable)")
+          arch -x86_64 $PYTHON_EXEC -m venv venv_x86_64
+          arch -x86_64 venv_x86_64/bin/python -m pip install --upgrade pip
+          arch -x86_64 venv_x86_64/bin/python -m pip install nuitka
+          arch -x86_64 venv_x86_64/bin/python -m pip install -r requirements.txt
+          arch -x86_64 venv_x86_64/bin/python -m pip install "https://github.com/toontown-archipelago/panda3d/releases/latest/download/panda3d-1.11.0-cp311-cp311-macosx_10_9_universal2.whl"
+          
       - name: Build Client
         run: |
           python -m nuitka ./launch/launcher/launch.py --standalone --output-dir=output_arm64 --include-package=direct.distributed --include-package=otp --include-package=toontown --include-package=openskill --include-package=pytz --assume-yes-for-downloads
-          python -m nuitka ./launch/launcher/launch.py --standalone --output-dir=output_x86_64 --include-package=direct.distributed --include-package=otp --include-package=toontown --include-package=openskill --include-package=pytz --assume-yes-for-downloads --macos-target-arch=x86_64
+          arch -x86_64 venv_x86_64/bin/python -m nuitka ./launch/launcher/launch.py --standalone --output-dir=output_x86_64 --include-package=direct.distributed --include-package=otp --include-package=toontown --include-package=openskill --include-package=pytz --assume-yes-for-downloads
 
       - name: Copy Built Files
         run: |
