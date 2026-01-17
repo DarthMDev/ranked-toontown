@@ -117,8 +117,16 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         # just struck the floor.
         avId = self.air.getAvatarIdFromSender()
         
-        if avId == self.avId and self.state == 'Dropped':
-            self.demand('SlidingFloor', avId)
+        if avId == self.avId:
+            if self.state == 'Dropped':
+                self.demand('SlidingFloor', avId)
+            elif self.state == 'SlidingPlatform':
+                # We were sliding on a platform but now hit the floor
+                # Clear platform index and transition to SlidingFloor
+                self.platformIndex = -1
+                # Broadcast the cleared platform index to all clients so they unparent
+                self.sendUpdate('setPlatformIndex', [-1])
+                self.demand('SlidingFloor', avId)
     
     def hitPlatform(self, platformIndex):
         # The client managing the dropping object tells us that it has
@@ -126,11 +134,14 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         # to all clients when entering Free state.
         avId = self.air.getAvatarIdFromSender()
         
-        if avId == self.avId and self.state in ('Dropped', 'SlidingFloor'):
+        if avId == self.avId and self.state in ('Dropped', 'SlidingFloor', 'SlidingPlatform'):
             self.platformIndex = platformIndex
-            # Also transition to SlidingFloor if we're in Dropped state
+            # Transition to SlidingPlatform if we're in Dropped or SlidingFloor state
             if self.state == 'Dropped':
-                self.demand('SlidingFloor', avId)
+                self.demand('SlidingPlatform', avId)
+            elif self.state == 'SlidingFloor':
+                # Transition from SlidingFloor to SlidingPlatform (slid onto platform)
+                self.demand('SlidingPlatform', avId)
 
     def requestFree(self, x, y, z, h):
         # The client controlling the object's free-fall has
@@ -197,19 +208,31 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         self.startWaitFree(6)
 
     def exitDropped(self):
-        if self.newState != 'SlidingFloor':
+        if self.newState not in ('SlidingFloor', 'SlidingPlatform'):
             self.stopWaitFree()
 
     def enterSlidingFloor(self, avId):
         self.avId = avId
         self.d_setObjectState('s', avId, 0)
-        # Clear platform index when starting to slide (might slide off platform)
-        # It will be set again if it hits a platform
+        # Clear platform index when sliding on floor (not on platform)
         self.platformIndex = -1
         if self.wantsWatchDrift:
             self.startWaitFree(3)
 
     def exitSlidingFloor(self):
+        self.stopWaitFree()
+
+    def enterSlidingPlatform(self, avId):
+        self.avId = avId
+        self.d_setObjectState('P', avId, 0)
+        # Platform index should already be set by hitPlatform
+        # Broadcast it to all clients so they can parent the object to the platform immediately
+        if self.platformIndex >= 0:
+            self.sendUpdate('setPlatformIndex', [self.platformIndex])
+        if self.wantsWatchDrift:
+            self.startWaitFree(3)
+
+    def exitSlidingPlatform(self):
         self.stopWaitFree()
 
     def enterWaitFree(self):

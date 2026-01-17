@@ -275,6 +275,11 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         if self.state in ('Dropped', 'LocalDropped'):
             self.d_hitFloor()
             self.demand('SlidingFloor', localAvatar.doId)
+        elif self.state == 'SlidingPlatform':
+            # We were sliding on a platform but now hit the floor
+            # Clear platform index and transition to SlidingFloor
+            self.d_hitFloor()
+            self.demand('SlidingFloor', localAvatar.doId)
     
     def __hitPlatform(self, entry):
         """Called when object hits a platform. Behaves the same as hitting the floor."""
@@ -300,15 +305,20 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                     current = current.getParent()
         
         # Send platform index to server so it can broadcast to all clients
-        if platformIndex >= 0 and self.state in ('Dropped', 'LocalDropped', 'SlidingFloor'):
+        if platformIndex >= 0 and self.state in ('Dropped', 'LocalDropped', 'SlidingFloor', 'SlidingPlatform'):
             self.d_hitPlatform(platformIndex)
         
         if self.state == 'Falling':
             self.doHitFloor()
 
         if self.state in ('Dropped', 'LocalDropped'):
-            self.d_hitFloor()
-            self.demand('SlidingFloor', localAvatar.doId)
+            # Transition to SlidingPlatform if we hit a platform, otherwise SlidingFloor
+            if platformIndex >= 0:
+                self.d_hitPlatform(platformIndex)
+                self.demand('SlidingPlatform', localAvatar.doId)
+            else:
+                self.d_hitFloor()
+                self.demand('SlidingFloor', localAvatar.doId)
 
     def __hitGoon(self, entry):
         if self.state in ('Dropped', 'LocalDropped', 'Falling'):
@@ -512,19 +522,22 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             return
 
         if state == 'G':
-            if self.state in ['SlidingFloor']:
+            if self.state in ['SlidingFloor', 'SlidingPlatform']:
                 if avId == localAvatar.doId:
                     return
             if self.state != 'LocalDropped':
                 self.demand('Grabbed', avId, craneId)
         elif state == 'D':
-            if self.state in ['SlidingFloor']:
+            if self.state in ['SlidingFloor', 'SlidingPlatform']:
                 if avId == localAvatar.doId:
                     return
             self.demand('Dropped', avId, craneId)
         elif state == 's':
             if self.state != 'SlidingFloor':
                 self.demand('SlidingFloor', avId)
+        elif state == 'P':
+            if self.state != 'SlidingPlatform':
+                self.demand('SlidingPlatform', avId)
         elif state == 'F':
             if self.state in ['LocalGrabbed', 'LocalDropped']:
                 return
@@ -582,27 +595,49 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                             if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
                                 self.platformNode = obj.model
                                 break
-        
-        # If we're in Free state, parent to the platform now
-        # This handles the case where setPlatformIndex is called after enterFree
-        if self.state == 'Free':
-            self._parentToPlatformIfNeeded()
+            
+            # If we're in Free or SlidingPlatform state, parent to the platform now
+            # This handles the case where setPlatformIndex is called after enterFree or enterSlidingPlatform
+            if self.state in ('Free', 'SlidingPlatform'):
+                self._parentToPlatformIfNeeded()
+        else:
+            # Platform index is -1, meaning we're not on a platform
+            # Unparent from platform if we were parented to it
+            if self.platformNode and not self.platformNode.isEmpty() and self.getParent() == self.platformNode:
+                currentPos = self.getPos(render)
+                currentHpr = self.getHpr(render)
+                self.reparentTo(render)
+                self.setPos(currentPos)
+                self.setHpr(currentHpr)
+            self.platformNode = None
     
     def _parentToPlatformIfNeeded(self):
         """Helper method to parent the object to its platform if needed."""
         if self.platformNode and not self.platformNode.isEmpty():
-            # Get our current position relative to render
+            # Get our current position relative to render (world position)
             currentPos = self.getPos(render)
             currentHpr = self.getHpr(render)
             # Only reparent if we're not already parented to this platform
             if self.getParent() != self.platformNode:
                 # Parent to the platform
                 self.reparentTo(self.platformNode)
-                # Calculate relative position
+                # Calculate relative position (world position - platform world position = relative position)
                 platformPos = self.platformNode.getPos(render)
                 relativePos = currentPos - platformPos
                 self.setPos(relativePos)
                 self.setHpr(currentHpr)
+            else:
+                # Already parented - ensure the relative position is correct
+                # Get current world position and platform world position to calculate correct relative position
+                currentWorldPos = self.getPos(render)
+                platformWorldPos = self.platformNode.getPos(render)
+                # Calculate what the relative position should be
+                correctRelativePos = currentWorldPos - platformWorldPos
+                # Get current relative position
+                currentRelativePos = self.getPos()
+                # Only update if there's a significant difference (avoid floating point errors)
+                if (correctRelativePos - currentRelativePos).length() > 0.01:
+                    self.setPos(correctRelativePos)
         else:
             # Not on a platform, unparent if we were parented
             if not self.getParent().isEmpty() and self.getParent().getName().startswith('FloatingPlatform-'):
@@ -750,7 +785,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.handler.setDynamicFrictionCoef(0)
 
     def exitLocalDropped(self):
-        if self.newState != 'SlidingFloor' and self.newState != 'Dropped':
+        if self.newState not in ('SlidingFloor', 'SlidingPlatform', 'Dropped'):
             self.deactivatePhysics()
             self.stopPosHprBroadcast()
         del self.crane
@@ -785,7 +820,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         # Then I should stop broadcasting
         # the position updates
         if self.avId == base.localAvatar.doId:
-            if self.newState != 'SlidingFloor':
+            if self.newState not in ('SlidingFloor', 'SlidingPlatform'):
                 self.deactivatePhysics()
                 self.stopPosHprBroadcast()
         # Otherwise, I'm the one receiving the
@@ -803,6 +838,32 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         # quickly.
         
         self.avId = avId
+        
+        # Unparent from platform if we're parented
+        # Check if we're parented to any FloatingPlatform node
+        parent = self.getParent()
+        if not parent.isEmpty():
+            parentName = parent.getName() if hasattr(parent, 'getName') else ''
+            if parentName.startswith('FloatingPlatform-') or (self.platformNode and not self.platformNode.isEmpty() and parent == self.platformNode):
+                # Unparent - but handle position differently for local vs other clients
+                
+                if self.avId == base.localAvatar.doId:
+                    # Local client: use physics position (it's authoritative)
+                    currentPos = self.getPos(render)
+                    currentHpr = self.getHpr(render)
+                    self.reparentTo(render)
+                    self.setPos(currentPos)
+                    self.setHpr(currentHpr)
+                else:
+                    # Other clients: just unparent and let smooth following handle the position
+                    # Don't set position here because we're using the platform's Z which is wrong
+                    # The server will send the correct floor position via updateClientPositions
+                    self.reparentTo(render)
+                    # Don't call setPos - let the server position updates handle it
+        
+        # Always clear platform references when entering SlidingFloor (we're on the floor now)
+        self.platformNode = None
+        self.platformIndex = -1
         
         if self.lerpInterval:
             self.lerpInterval.finish()
@@ -823,11 +884,86 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             if self.broadcasting:
                 self.deactivatePhysics()
                 self.stopPosHprBroadcast()
+            # Start smooth following - this will interpolate from the current position
             self.startSmooth()
             
         self.hitFloorSoundInterval.start()
 
     def exitSlidingFloor(self):
+        if self.avId == base.localAvatar.doId:
+            taskMgr.remove(self.watchDriftName)
+            self.deactivatePhysics()
+            self.stopPosHprBroadcast()
+        else:
+            self.stopSmooth()
+
+    def enterSlidingPlatform(self, avId):
+        # The object is now sliding across a platform under local
+        # control. Similar to SlidingFloor but we're on a platform.
+        
+        self.avId = avId
+        
+        if self.lerpInterval:
+            self.lerpInterval.finish()
+            self.lerpInterval = None
+        
+        # If we have a platform node (from collision detection) or platform index (from server),
+        # parent to the platform immediately so all clients see it move with the platform
+        if self.platformNode and not self.platformNode.isEmpty():
+            # Local client: we already have the platform node from collision detection
+            currentPos = self.getPos(render)
+            currentHpr = self.getHpr(render)
+            self.reparentTo(self.platformNode)
+            platformPos = self.platformNode.getPos(render)
+            relativePos = currentPos - platformPos
+            self.setPos(relativePos)
+            self.setHpr(currentHpr)
+        elif self.platformIndex >= 0:
+            # Other clients: find platform using index (setPlatformIndex will be called by server)
+            # Try to find it now
+            if hasattr(base, 'cr') and base.cr:
+                for doId, obj in list(base.cr.doId2do.items()):
+                    if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
+                        if hasattr(obj, 'index') and obj.index == self.platformIndex:
+                            if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
+                                self.platformNode = obj.model
+                                currentPos = self.getPos(render)
+                                currentHpr = self.getHpr(render)
+                                self.reparentTo(self.platformNode)
+                                platformPos = self.platformNode.getPos(render)
+                                relativePos = currentPos - platformPos
+                                self.setPos(relativePos)
+                                self.setHpr(currentHpr)
+                                break
+            
+        if self.avId == base.localAvatar.doId:
+            self.activatePhysics()
+            self.startPosHprBroadcast(avId=self.avId, period=.05)
+            
+            # Use similar friction to floor sliding
+            self.handler.setStaticFrictionCoef(0.9)
+            self.handler.setDynamicFrictionCoef(0.5)
+
+            # Start up a task to watch for it to actually stop drifting.
+            # When it does, we notify the AI.
+            if self.wantsWatchDrift:
+                taskMgr.add(self.__watchDrift, self.watchDriftName)
+        else:
+            if self.broadcasting:
+                self.deactivatePhysics()
+                self.stopPosHprBroadcast()
+            self.startSmooth()
+            
+        self.hitFloorSoundInterval.start()
+
+    def exitSlidingPlatform(self):
+        # Only unparent from platform if we're transitioning to Free state
+        # For SlidingFloor transition, we'll unparent in enterSlidingFloor instead
+        # This matches the pattern of Dropped -> SlidingFloor where the safe is already unparented
+        if self.newState == 'Free':
+            # Keep parented to platform for Free state
+            pass
+        
         if self.avId == base.localAvatar.doId:
             taskMgr.remove(self.watchDriftName)
             self.deactivatePhysics()
@@ -841,21 +977,44 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
         self.avId = 0
         self.craneId = 0
         
-        # If we have a platform index from the server, find the platform node
-        # The server will send setPlatformIndex when we enter Free state
-        if self.platformIndex >= 0 and (not self.platformNode or self.platformNode.isEmpty()):
-            # Find the FloatingPlatform object with this index
-            if hasattr(base, 'cr') and base.cr:
-                for doId, obj in list(base.cr.doId2do.items()):
-                    if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
-                        if hasattr(obj, 'index') and obj.index == self.platformIndex:
-                            if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
-                                self.platformNode = obj.model
-                                break
-        
-        # Parent to platform if we have one (setPlatformIndex will be called by server)
-        # Use the helper method to handle parenting
-        self._parentToPlatformIfNeeded()
+        # First, ensure we're not incorrectly parented to a platform if platformIndex is -1
+        # This handles the case where we slid off a platform onto the floor
+        if self.platformIndex < 0:
+            # Not on a platform - make sure we're unparented
+            parent = self.getParent()
+            if not parent.isEmpty():
+                parentName = parent.getName() if hasattr(parent, 'getName') else ''
+                if parentName.startswith('FloatingPlatform-') or (self.platformNode and not self.platformNode.isEmpty() and parent == self.platformNode):
+                    # Still parented to platform - unparent now
+                    # Get position before unparenting (while still in platform's coordinate space)
+                    # This ensures we get the correct world position
+                    currentPos = self.getPos(render)
+                    currentHpr = self.getHpr(render)
+                    self.reparentTo(render)
+                    # Set the world position we captured
+                    self.setPos(currentPos)
+                    self.setHpr(currentHpr)
+                    # Ensure the safe is visible (not at origin or invalid position)
+                    if currentPos.length() < 0.01:
+                        # Position seems invalid, try to get it from AI update
+                        # This will be set by updateClientPositions
+                        pass
+            self.platformNode = None
+        else:
+            # We might be on a platform - find the platform node if we don't have it
+            if self.platformIndex >= 0 and (not self.platformNode or self.platformNode.isEmpty()):
+                # Find the FloatingPlatform object with this index
+                if hasattr(base, 'cr') and base.cr:
+                    for doId, obj in list(base.cr.doId2do.items()):
+                        if hasattr(obj, '__class__') and 'FloatingPlatform' in obj.__class__.__name__:
+                            if hasattr(obj, 'index') and obj.index == self.platformIndex:
+                                if hasattr(obj, 'model') and obj.model and not obj.model.isEmpty():
+                                    self.platformNode = obj.model
+                                    break
+            
+            # Parent to platform if we have one (setPlatformIndex will be called by server)
+            # Use the helper method to handle parenting
+            self._parentToPlatformIfNeeded()
 
     def exitFree(self):
         pass
