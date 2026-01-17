@@ -13,3 +13,5 @@ set TTOFF_GAME_SERVER=127.0.0.1
 start /B "%~dp0" "launch.exe"
 pause
 goto :launcher
+
+pause
