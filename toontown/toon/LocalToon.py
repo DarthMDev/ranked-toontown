@@ -687,6 +687,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         surfaceNormal = None
         
         # Set up collision detection - SINGLE traverser and collider, reused
+        # NOTE: Uses local traverser (not base.cTrav) to avoid triggering pie events
         collisionTrav = CollisionTraverser()
         collisionQueue = CollisionHandlerQueue()
         from panda3d.core import CollisionSegment
@@ -694,7 +695,9 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         collisionNode = CollisionNode('trajectorySegment')
         collisionNode.addSolid(collisionSegment)
         from toontown.toonbase import ToontownGlobals
-        collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.PieBitmask | ToontownGlobals.TNTBitmask)
+        # Only check walls/floors/pie-hittable surfaces, not actual pie collisions
+        # Don't include PieBitmask here to avoid conflicts with actual pie collision system
+        collisionNode.setFromCollideMask(OTPGlobals.WallBitmask | OTPGlobals.FloorBitmask | ToontownGlobals.CameraBitmask)
         collisionNode.setIntoCollideMask(BitMask32.allOff())
         segmentNodePath = render.attachNewNode(collisionNode)
         collisionTrav.addCollider(segmentNodePath, collisionQueue)
@@ -1055,7 +1058,11 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             return
         if not entry.getInto().isTangible():
             return
-        sequence = int(entry.getFromNodePath().getNetTag('pieSequence'))
+        # Get pieSequence tag - if not present or invalid, this isn't a real pie collision
+        pieSequenceTag = entry.getFromNodePath().getNetTag('pieSequence')
+        if not pieSequenceTag or not pieSequenceTag.isdigit():
+            return  # Not a valid pie collision (might be trajectory line or other collision)
+        sequence = int(pieSequenceTag)
         self.__finishPieTrack(sequence)
         if sequence in self.splatTracks:
             splatTrack = self.splatTracks[sequence]
