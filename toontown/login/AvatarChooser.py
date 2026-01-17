@@ -11,8 +11,21 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.interval.IntervalGlobal import *
 import random
 MAX_AVATARS = 1
-POSITIONS = (Vec3(0.00933349, 0, 0.306533),)
-COLORS = (Vec4(0.152, 0.75, 0.258, 1),)
+# All 6 positions from original design
+POSITIONS = (Vec3(-0.840167, 0, 0.359333),
+ Vec3(0.00933349, 0, 0.306533),
+ Vec3(0.862, 0, 0.3293),
+ Vec3(-0.863554, 0, -0.445659),
+ Vec3(0.00999999, 0, -0.5181),
+ Vec3(0.864907, 0, -0.445659))
+COLORS = (Vec4(0.917, 0.164, 0.164, 1),
+ Vec4(0.152, 0.75, 0.258, 1),
+ Vec4(0.598, 0.402, 0.875, 1),
+ Vec4(0.133, 0.59, 0.977, 1),
+ Vec4(0.895, 0.348, 0.602, 1),
+ Vec4(0.977, 0.816, 0.133, 1))
+# Position 1 (green) is the only enabled slot
+ENABLED_POSITIONS = [1]
 chooser_notify = DirectNotifyGlobal.directNotify.newCategory('AvatarChooser')
 
 class AvatarChooser(StateData.StateData):
@@ -95,6 +108,8 @@ class AvatarChooser(StateData.StateData):
         newGui.removeNode()
         self.panelList = []
         used_position_indexs = []
+        
+        # First, create panels for existing avatars (only if they're in enabled positions)
         for av in self.avatarList:
             if base.cr.isPaid():
                 okToLockout = 0
@@ -102,19 +117,22 @@ class AvatarChooser(StateData.StateData):
                 okToLockout = 1
                 if av.position in AvatarChoice.AvatarChoice.OLD_TRIALER_OPEN_POS:
                     okToLockout = 0
-            # Only create panels for valid positions (0 to MAX_AVATARS-1)
-            if av.position < MAX_AVATARS:
-                panel = AvatarChoice.AvatarChoice(av, position=av.position, paid=isPaid, okToLockout=okToLockout)
-                panel.setPos(POSITIONS[av.position])
-                used_position_indexs.append(av.position)
+            # Map old position to new position (if avatar was saved in position 0, it's now in position 1)
+            # This ensures database compatibility
+            actual_position = av.position if av.position in ENABLED_POSITIONS else (ENABLED_POSITIONS[0] if av.position == 0 else av.position)
+            if actual_position in ENABLED_POSITIONS:
+                panel = AvatarChoice.AvatarChoice(av, position=actual_position, paid=isPaid, okToLockout=okToLockout)
+                panel.setPos(POSITIONS[actual_position])
+                used_position_indexs.append(actual_position)
                 self.panelList.append(panel)
 
-        # Only create empty panels for positions 0 to MAX_AVATARS-1 that aren't already used
-        for panelNum in range(0, MAX_AVATARS):
+        # Create all 6 panels
+        for panelNum in range(6):
             if panelNum not in used_position_indexs:
-                panel = AvatarChoice.AvatarChoice(position=panelNum, paid=isPaid)
-                if panelNum < len(POSITIONS):
-                    panel.setPos(POSITIONS[panelNum])
+                # Mark non-enabled positions as disabled
+                is_enabled = panelNum in ENABLED_POSITIONS
+                panel = AvatarChoice.AvatarChoice(position=panelNum, paid=isPaid, enabled=is_enabled)
+                panel.setPos(POSITIONS[panelNum])
                 self.panelList.append(panel)
 
         if len(self.avatarList) > 0:

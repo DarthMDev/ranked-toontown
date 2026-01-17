@@ -9,9 +9,24 @@ from toontown.toonbase import TTLocalizer
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toontowngui import TeaserPanel
 #from toontown.toonbase import UserFunnel
-NAME_ROTATIONS = (1,)
-NAME_POSITIONS = ((0, 0, 0.26),)
-DELETE_POSITIONS = ((0.31, 0, -0.167),)
+NAME_ROTATIONS = (7,
+ -11,
+ 1,
+ -5,
+ 3.5,
+ -5)
+NAME_POSITIONS = ((0, 0, 0.26),
+ (-0.03, 0, 0.25),
+ (0, 0, 0.27),
+ (-0.03, 0, 0.25),
+ (0.03, 0, 0.26),
+ (0, 0, 0.26))
+DELETE_POSITIONS = ((0.187, 0, -0.26),
+ (0.31, 0, -0.167),
+ (0.231, 0, -0.241),
+ (0.314, 0, -0.186),
+ (0.243, 0, -0.233),
+ (0.28, 0, -0.207))
 
 class AvatarChoice(DirectButton):
     notify = DirectNotifyGlobal.directNotify.newCategory('AvatarChoice')
@@ -20,19 +35,27 @@ class AvatarChoice(DirectButton):
     MODE_CREATE = 0
     MODE_CHOOSE = 1
     MODE_LOCKED = 2
+    MODE_DISABLED = 3
 
-    def __init__(self, av = None, position = 0, paid = 0, okToLockout = 1):
+    def __init__(self, av = None, position = 0, paid = 0, okToLockout = 1, enabled = True):
         DirectButton.__init__(self, relief=None, text='', text_font=ToontownGlobals.getSignFont())
         self.initialiseoptions(AvatarChoice)
         self.hasPaid = paid
         self.mode = None
-        if base.restrictTrialers and okToLockout:
+        
+        # Check if this slot is disabled
+        if not enabled:
+            self.mode = AvatarChoice.MODE_DISABLED
+            self.name = ''
+            self.dna = None
+        elif base.restrictTrialers and okToLockout:
             if position not in AvatarChoice.NEW_TRIALER_OPEN_POS:
                 if not self.hasPaid:
                     self.mode = AvatarChoice.MODE_LOCKED
                     self.name = ''
                     self.dna = None
-        if self.mode is not AvatarChoice.MODE_LOCKED:
+        
+        if self.mode is not AvatarChoice.MODE_LOCKED and self.mode is not AvatarChoice.MODE_DISABLED:
             if not av:
                 self.mode = AvatarChoice.MODE_CREATE
                 self.name = ''
@@ -56,12 +79,26 @@ class AvatarChoice(DirectButton):
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squareBlue'))
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squarePink'))
         self.buttonBgs.append(self.pickAToonGui.find('**/tt_t_gui_pat_squareYellow'))
-        # Use green (index 1) for the single toon slot at position 0
-        # This matches the original design where position 1 was green
-        bgIndex = 1 if position == 0 else min(position, len(self.buttonBgs) - 1)
+        
+        # Use the button color corresponding to the position
+        bgIndex = min(position, len(self.buttonBgs) - 1)
         self['image'] = self.buttonBgs[bgIndex]
+        
+        # For disabled mode, colorize to grey
+        if self.mode == AvatarChoice.MODE_DISABLED:
+            self['image_color'] = Vec4(0.35, 0.35, 0.35, 1)  # Grey color
         self.setScale(1.01)
-        if self.mode is AvatarChoice.MODE_LOCKED:
+        if self.mode is AvatarChoice.MODE_DISABLED:
+            # Make button non-interactive - no hover or click
+            self['state'] = DGG.DISABLED
+            self['text'] = 'DISABLED'
+            self['text_pos'] = (0, 0)
+            self['text_scale'] = 0.1
+            self['text_fg'] = (0.55, 0.55, 0.55, 0.9)  # Bright grey text
+            # Load and use Minnie font
+            minnieFont = loader.loadFont('phase_3/models/fonts/MinnieFont.bam')
+            self['text_font'] = minnieFont
+        elif self.mode is AvatarChoice.MODE_LOCKED:
             self['command'] = self.__handleTrialer
             self['text'] = TTLocalizer.AvatarChoiceSubscribersOnly
             self['text0_scale'] = 0.1
@@ -146,7 +183,7 @@ class AvatarChoice(DirectButton):
         self.pickAToonGui.removeNode()
         del self.pickAToonGui
         del self.dna
-        if self.mode in (AvatarChoice.MODE_CREATE, AvatarChoice.MODE_LOCKED):
+        if self.mode in (AvatarChoice.MODE_CREATE, AvatarChoice.MODE_LOCKED, AvatarChoice.MODE_DISABLED):
             pass
         else:
             self.headModel.stopBlink()
@@ -274,3 +311,7 @@ class AvatarChoice(DirectButton):
 
     def __handleTrialer(self):
         TeaserPanel.TeaserPanel(pageName='sixToons')
+
+    def __handleDisabled(self):
+        # Do nothing when clicking disabled slots
+        pass

@@ -232,8 +232,10 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
             self.loginFSM.request('shutdown')
             return
         index = self.avChoice.getChoice()
+        avatarChoice = None
+        # Handle position mapping: if index is 1 (enabled slot), also check for position 0 (old database position)
         for av in avList:
-            if av.position == index:
+            if av.position == index or (index == 1 and av.position == 0):
                 avatarChoice = av
                 self.notify.info('================')
                 self.notify.info('Chose avatar id: %s' % av.id)
@@ -247,9 +249,13 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
                     self.notify.info('freeTimeLeft: %s' % self.freeTimeLeft())
                     self.notify.info('allowSecretChat: %s' % self.allowSecretChat())
                 self.notify.info('================')
+                break  # Found the avatar, no need to continue searching
 
         if done == 'chose':
             self.avChoice.exit()
+            if avatarChoice is None:
+                self.notify.error('Avatar not found for position: %s' % index)
+                return
             if avatarChoice.approvedName != '':
                 self.congratulations(avatarChoice)
                 avatarChoice.approvedName = ''
@@ -265,6 +271,9 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         elif done == 'create':
             self.loginFSM.request('createAvatar', [avList, index])
         elif done == 'delete':
+            if avatarChoice is None:
+                self.notify.error('Avatar not found for deletion at position: %s' % index)
+                return
             self.loginFSM.request('waitForDeleteAvatarResponse', [avatarChoice])
 
     def __handleDownloadAck(self, avList, index, doneStatus):
