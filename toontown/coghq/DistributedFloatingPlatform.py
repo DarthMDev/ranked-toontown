@@ -84,11 +84,6 @@ class DistributedFloatingPlatform(DistributedObject):
         print('[DistributedFloatingPlatform] Re-registered parentToken=%s with parentingNode=%s, getTop()=%s' % (
             self.platform.parentToken, self.platform.parentingNode, self.platform.parentingNode.getTop()))
         
-        # Verify the registration
-        registeredNode = base.cr.parentMgr.getParent(self.platform.parentToken)
-        print('[DistributedFloatingPlatform] ParentMgr.getParent(%s) = %s, getTop()=%s' % (
-            self.platform.parentToken, registeredNode, registeredNode.getTop() if registeredNode and not registeredNode.isEmpty() else 'EMPTY'))
-        
         # If basePos was set (via setPosition called before model loaded), set position now
         if self.basePos is not None:
             self.model.setPos(self.basePos[0], self.basePos[1], self.basePos[2])

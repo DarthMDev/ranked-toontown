@@ -99,12 +99,12 @@ class MovingPlatform(DirectObject.DirectObject, NodePath):
     def __grabLt(self):
         print('[MovingPlatform] __grabLt: parentToken=%s, parentingNode=%s, parentingNode.getTop()=%s' % (
             self.parentToken, self.parentingNode, self.parentingNode.getTop() if self.parentingNode and not self.parentingNode.isEmpty() else 'EMPTY'))
-        registeredNode = base.cr.parentMgr.getParent(self.parentToken)
-        print('[MovingPlatform] ParentMgr.getParent(%s) = %s, getTop()=%s' % (
-            self.parentToken, registeredNode, registeredNode.getTop() if registeredNode and not registeredNode.isEmpty() else 'EMPTY'))
+        print('[MovingPlatform] parentingNode.getParent()=%s, isEmpty=%s' % (
+            self.parentingNode.getParent() if self.parentingNode and not self.parentingNode.isEmpty() else 'EMPTY',
+            self.parentingNode.isEmpty() if self.parentingNode else 'NO_NODE'))
         base.localAvatar.b_setParent(self.parentToken)
-        print('[MovingPlatform] Called b_setParent(%s), localAvatar.getParent()=%s' % (
-            self.parentToken, base.localAvatar.getParent()))
+        print('[MovingPlatform] Called b_setParent(%s), localAvatar.getParent()=%s, localAvatar.getPos()=%s' % (
+            self.parentToken, base.localAvatar.getParent(), base.localAvatar.getPos()))
         self.hasLt = 1
 
     def __releaseLt(self):
