@@ -134,7 +134,7 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
         # to all clients when entering Free state.
         avId = self.air.getAvatarIdFromSender()
         
-        if avId == self.avId and self.state in ('Dropped', 'SlidingFloor', 'SlidingPlatform'):
+        if avId == self.avId and self.state in ('Dropped', 'SlidingFloor', 'SlidingPlatform', 'Falling'):
             self.platformIndex = platformIndex
             # Transition to SlidingPlatform if we're in Dropped or SlidingFloor state
             if self.state == 'Dropped':
@@ -142,6 +142,8 @@ class DistributedCashbotBossObjectAI(DistributedSmoothNodeAI.DistributedSmoothNo
             elif self.state == 'SlidingFloor':
                 # Transition from SlidingFloor to SlidingPlatform (slid onto platform)
                 self.demand('SlidingPlatform', avId)
+            # For Falling state, we don't transition - the goon will transition to Stunned via doHitFloor
+            # but we've now recorded that it's on a platform
 
     def requestFree(self, x, y, z, h):
         # The client controlling the object's free-fall has

@@ -305,7 +305,7 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                     current = current.getParent()
         
         # Send platform index to server so it can broadcast to all clients
-        if platformIndex >= 0 and self.state in ('Dropped', 'LocalDropped', 'SlidingFloor', 'SlidingPlatform'):
+        if platformIndex >= 0 and self.state in ('Dropped', 'LocalDropped', 'SlidingFloor', 'SlidingPlatform', 'Falling'):
             self.d_hitPlatform(platformIndex)
         
         if self.state == 'Falling':
@@ -596,9 +596,10 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                                 self.platformNode = obj.model
                                 break
             
-            # If we're in Free or SlidingPlatform state, parent to the platform now
-            # This handles the case where setPlatformIndex is called after enterFree or enterSlidingPlatform
-            if self.state in ('Free', 'SlidingPlatform'):
+            # If we're in Free, SlidingPlatform, or Stunned state, parent to the platform now
+            # This handles the case where setPlatformIndex is called after enterFree, enterSlidingPlatform, or enterStunned
+            # (Goons get stunned immediately when they hit platforms)
+            if self.state in ('Free', 'SlidingPlatform', 'Stunned'):
                 self._parentToPlatformIfNeeded()
         else:
             # Platform index is -1, meaning we're not on a platform
@@ -617,6 +618,8 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
             # Get our current position relative to render (world position)
             currentPos = self.getPos(render)
             currentHpr = self.getHpr(render)
+            # Get platform Z position for shadow adjustment
+            platformZ = self.platformNode.getPos(render)[2]
             # Only reparent if we're not already parented to this platform
             if self.getParent() != self.platformNode:
                 # Parent to the platform
@@ -638,10 +641,41 @@ class DistributedCashbotBossObject(DistributedSmoothNode.DistributedSmoothNode, 
                 # Only update if there's a significant difference (avoid floating point errors)
                 if (correctRelativePos - currentRelativePos).length() > 0.01:
                     self.setPos(correctRelativePos)
+            
+            # Update shadow for goons and toons on platforms
+            # Shadow should be at platform surface, not ground
+            # Since the object is parented to the platform, the shadow (parented to object) will move with it
+            # But we need to disable ShadowPlacer ray casting and set shadow at platform surface
+            if hasattr(self, 'dropShadow') and self.dropShadow:
+                # Get object's Z position relative to platform
+                objectZ = self.getPos()[2]  # Z relative to platform
+                # Shadow should be at platform surface (Z=0 relative to platform, or slightly below object)
+                # Use setShadowHeight if available, otherwise manually position shadow
+                if hasattr(self, 'setShadowHeight'):
+                    # setShadowHeight sets shadow Z to -shadowHeight relative to shadow joint
+                    # We want shadow at platform surface, so height = objectZ
+                    self.setShadowHeight(objectZ)
+                elif hasattr(self, 'shadowPlacer') and self.shadowPlacer:
+                    # Disable shadow placer ray casting (it would cast to ground)
+                    # Manually position shadow at platform surface
+                    if hasattr(self.shadowPlacer, 'off'):
+                        self.shadowPlacer.off()
+                    # Position shadow at platform surface (Z=0 relative to object's shadow joint)
+                    # The shadow joint is part of the object, so when object moves with platform, shadow moves too
+                    self.dropShadow.setZ(-objectZ)
         else:
             # Not on a platform, unparent if we were parented
             if not self.getParent().isEmpty() and self.getParent().getName().startswith('FloatingPlatform-'):
                 self.reparentTo(render)
+                # Reset shadow to use ray casting again (for ground shadows)
+                if hasattr(self, 'dropShadow') and self.dropShadow:
+                    if hasattr(self, 'setShadowHeight'):
+                        self.setShadowHeight(0)  # Reset to default (will use ray casting)
+                    elif hasattr(self, 'shadowPlacer') and self.shadowPlacer:
+                        # Re-enable shadow placer for ground ray casting
+                        if hasattr(self.shadowPlacer, 'on'):
+                            self.shadowPlacer.on()
+                        self.dropShadow.setZ(0)  # Reset shadow position
 
     def updateClientPositions(self, x, y, z, h, p, r):
         if self.state in ['LocalGrabbed', 'LocalDropped', 'Grabbed', 'Dropped']:

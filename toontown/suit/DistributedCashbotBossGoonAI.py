@@ -147,12 +147,21 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
     def sendMovie(self, type, avId = 0, pauseTime = 0):
         # Overridden from DistributedGoonAI.
         if type == GoonGlobals.GOON_MOVIE_WALK:
-            self.demand('Walk')
+            # Check if the goon is on a platform - if so, don't allow walking
+            if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+                # On a platform - stay in Stunned, don't walk
+                return
+            else:
+                self.demand('Walk')
         elif type == GoonGlobals.GOON_MOVIE_BATTLE:
             self.demand('Battle')
         elif type == GoonGlobals.GOON_MOVIE_STUNNED:
             self.demand('Stunned')
         elif type == GoonGlobals.GOON_MOVIE_RECOVERY:
+            # Check if the goon is on a platform - if so, don't allow recovery (stay stunned)
+            if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+                # On a platform - stay in Stunned, don't recover
+                return
             self.demand('Recovery')
         else:
             self.notify.warning('Ignoring movie type %s' % type)
@@ -328,13 +337,27 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         self.__chooseTarget()
 
     def __recoverWalk(self, task):
+        # Check if the goon is on a platform - if so, stay stunned (can't walk on moving platforms)
+        if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+            # On a platform - transition back to Stunned (don't walk, don't recover)
+            self.demand('Stunned')
+            return Task.done
+        
         self.demand('Walk')
         return Task.done
 
     def doFree(self, task):
         # This method is fired as a do-later when we enter WaitFree.
         DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.doFree(self, task)
-        if self.isStunned:
+        
+        # Check if the goon is on a platform
+        onPlatform = hasattr(self, 'platformIndex') and self.platformIndex >= 0
+        
+        if onPlatform:
+            # On a platform - stay in Stunned (never wake up)
+            self.demand('Stunned')
+        elif self.isStunned:
+            # Stunned but not on platform - go to Recovery (will wake up)
             self.demand('Recovery')
         else:
             self.demand('Walk')
@@ -370,10 +393,34 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         self.boss.addScore(avId, self.boss.ruleset.POINTS_GOON_STOMP, reason=CraneGameGlobals.ScoreReason.GOON_STOMP)
         comboTracker = self.boss.comboTrackers[avId]
         comboTracker.incrementCombo(math.ceil((comboTracker.combo + 1.0) / 4.0))
-        DistributedGoonAI.DistributedGoonAI.requestStunned(self, pauseTime)
+        # Check if the goon is on a platform - if so, don't schedule recovery (stay stunned forever)
+        if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+            # On a platform - just transition to Stunned but don't schedule recovery
+            # Call sendMovie directly instead of parent's requestStunned (which schedules recovery)
+            self.sendMovie(GoonGlobals.GOON_MOVIE_STUNNED, avId, pauseTime)
+            # Don't call parent's requestStunned - it would schedule recovery task that wakes the goon
+        else:
+            # Not on platform - normal behavior (will recover after STUN_TIME)
+            DistributedGoonAI.DistributedGoonAI.requestStunned(self, pauseTime)
 
 
     ### Messages ###
+
+    def hitPlatform(self, platformIndex):
+        # Override parent's hitPlatform to immediately stun goons when they hit a platform
+        avId = self.air.getAvatarIdFromSender()
+        
+        if avId == self.avId and self.state in ('Dropped', 'Falling', 'SlidingFloor'):
+            # Goon hit a platform - immediately stun it
+            self.platformIndex = platformIndex
+            # Transition to Stunned immediately (goons on platforms stay stunned forever)
+            # Don't schedule recovery task - goons on platforms never wake up
+            self.demand('Stunned')
+            # Broadcast platform index to all clients
+            self.sendUpdate('setPlatformIndex', [platformIndex])
+        else:
+            # For other states, use parent's behavior
+            DistributedCashbotBossObjectAI.DistributedCashbotBossObjectAI.hitPlatform(self, platformIndex)
 
     def requestStunned(self, pauseTime):
         avId = self.air.getAvatarIdFromSender()
@@ -503,8 +550,15 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         self.__updatePosition()
         taskMgr.remove(self.taskName('recovery'))
         taskMgr.remove(self.taskName('resumeWalk'))
+        taskMgr.remove(self.uniqueName('recoverWalk'))
 
     def enterWalk(self):
+        # Check if the goon is on a platform - if so, don't enter Walk (can't walk on moving platforms)
+        if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+            # On a platform - transition back to Stunned instead (stay stunned forever)
+            self.demand('Stunned')
+            return
+        
         self.avId = 0
         self.craneId = 0
         self.isStunned = 0
@@ -619,6 +673,9 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
     def requestWalk(self):
         avId = self.air.getAvatarIdFromSender()
         if avId == self.avId and self.state == 'Stunned' and self.state != 'Off':
+            # Check if the goon is on a platform - if so, don't allow walking
+            if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+                return
             craneId, objectId = self.getCraneAndObject(avId)
             if craneId != 0 and objectId == self.doId:
                 self.demand('Walk', avId, craneId)
@@ -643,11 +700,24 @@ class DistributedCashbotBossGoonAI(DistributedGoonAI.DistributedGoonAI, Distribu
         taskMgr.remove(self.uniqueName('recoverFromFall'))
 
     def __recoverFromFall(self, task):
-        # Make sure we're at ground level
-        pos = self.getPos()
-        self.setPos(pos[0], pos[1], 0)
-        self.d_setXY(pos[0], pos[1])
-        self.demand('Recovery')
+        # Check if the goon is on a platform - if so, preserve Z position and stay in Stunned
+        if hasattr(self, 'platformIndex') and self.platformIndex >= 0:
+            # On a platform - don't reset Z to 0, preserve current Z
+            pos = self.getPos()
+            # Don't change Z position (it's at the platform's height)
+            self.d_setXY(pos[0], pos[1])
+            # Transition to Stunned (will stay stunned forever on platform)
+            self.demand('Stunned')
+        else:
+            # On the floor - make sure we're at ground level
+            pos = self.getPos()
+            self.setPos(pos[0], pos[1], 0)
+            self.d_setXY(pos[0], pos[1])
+            # Only transition to Recovery if stunned, otherwise go to Walk
+            if self.isStunned:
+                self.demand('Recovery')
+            else:
+                self.demand('Walk')
         return Task.done
     
     def cleanup(self):
