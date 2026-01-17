@@ -22,12 +22,12 @@ class PlatformEntity(BasicEntities.NodePathEntity):
         model.setScale(self.modelScale)
         model.flattenMedium()
         self.platform = MovingPlatform.MovingPlatform()
-        self.platform.setupCopyModel(self.getParentToken(), model, self.floorName)
+        # Create a separate parenting node under render (visible) to avoid the fallback to render
+        self.platform.parentingNode = render.attachNewNode('platformParentTarget-%s' % self.entId)
+        self.platform.setupCopyModel(self.getParentToken(), model, self.floorName, parentingNode=self.platform.parentingNode)
+        # Reparent the parenting node to the platform so avatars move with it
+        self.platform.parentingNode.reparentTo(self.platform)
         self.platform.reparentTo(self)
-        
-        # Update the parenting node now that we've reparented the platform to a visible node
-        # This ensures remote toons remain visible when they get reparented to this platform
-        self.platform.updateParentingNode(self.platform)
         
         startPos = Point3(0, 0, 0)
         endPos = self.offset

@@ -31,7 +31,11 @@ class GearEntity(BasicEntities.NodePathEntity):
                 node.stash()
 
             mPlat = MovingPlatform.MovingPlatform()
-            mPlat.setupCopyModel(self.getParentToken(), model, 'HorizontalFloor')
+            # Create a separate parenting node under render (visible) to avoid the fallback to render
+            mPlat.parentingNode = render.attachNewNode('gearParentTarget-%s' % self.entId)
+            mPlat.setupCopyModel(self.getParentToken(), model, 'HorizontalFloor', parentingNode=mPlat.parentingNode)
+            # Reparent the parenting node to the gear so avatars move with it
+            mPlat.parentingNode.reparentTo(mPlat)
             model = mPlat
         else:
             horizNodes = model.findAllMatches('**/HorizontalCollisions')
@@ -49,12 +53,6 @@ class GearEntity(BasicEntities.NodePathEntity):
             self.gearParent.setP(-90)
         self.model = model
         self.model.reparentTo(self.gearParent)
-        
-        # Update the parenting node if this is a MovingPlatform (horizontal gears)
-        # This ensures remote toons remain visible when they get reparented to this gear
-        if isinstance(self.model, MovingPlatform.MovingPlatform):
-            self.model.updateParentingNode(self.model)
-        
         self.startRotate()
         del self.in_initGear
 

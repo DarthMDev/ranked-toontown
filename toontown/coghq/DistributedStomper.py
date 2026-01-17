@@ -124,7 +124,11 @@ class DistributedStomper(DistributedCrusherEntity.DistributedCrusherEntity):
             self.accept(self.crushMsg, self.checkSquashedToon)
         elif self.style == 'horizontal':
             model = MovingPlatform.MovingPlatform()
-            model.setupCopyModel(self.getParentToken(), stomperModel, 'collSideFloor')
+            # Create a separate parenting node under render (visible) to avoid the fallback to render
+            model.parentingNode = render.attachNewNode('stomperParentTarget-%s' % self.entId)
+            model.setupCopyModel(self.getParentToken(), stomperModel, 'collSideFloor', parentingNode=model.parentingNode)
+            # Reparent the parenting node to the stomper so avatars move with it
+            model.parentingNode.reparentTo(model)
             head = model.find('**/head')
             head.node().setPreserveTransform(0)
             head.setZ(1.0)
@@ -160,11 +164,6 @@ class DistributedStomper(DistributedCrusherEntity.DistributedCrusherEntity):
         if self.motion == MotionSwitched:
             self.model.setPos(0, -self.range, 0)
         self.model.reparentTo(self.rotateNode)
-        
-        # Update the parenting node if this is a MovingPlatform (horizontal stompers)
-        # This ensures remote toons remain visible when they get reparented to this stomper
-        if isinstance(self.model, MovingPlatform.MovingPlatform):
-            self.model.updateParentingNode(self.model)
         if self.wantSmoke:
             self.smoke = loader.loadModel('phase_4/models/props/test_clouds')
             self.smoke.setColor(0.8, 0.7, 0.5, 1)

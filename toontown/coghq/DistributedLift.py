@@ -68,7 +68,12 @@ class DistributedLift(BasicEntities.DistributedNodePathEntity):
         if self.floorName is None:
             return
         self.platformModel = MovingPlatform.MovingPlatform()
-        self.platformModel.setupCopyModel(self.getParentToken(), model, self.floorName)
+        # Create a separate parenting node under render (visible) to avoid the fallback to render
+        self.platformModel.parentingNode = render.attachNewNode('liftParentTarget-%s' % self.entId)
+        self.platformModel.setupCopyModel(self.getParentToken(), model, self.floorName, parentingNode=self.platformModel.parentingNode)
+        # Reparent the parenting node to the platform so avatars move with it
+        self.platformModel.parentingNode.reparentTo(self.platformModel)
+        
         self.accept(self.platformModel.getEnterEvent(), self.localToonEntered)
         self.accept(self.platformModel.getExitEvent(), self.localToonLeft)
         self.startGuard = None
@@ -106,10 +111,6 @@ class DistributedLift(BasicEntities.DistributedNodePathEntity):
                 self.endBoardColl.addPath(np)
 
         self.platformModel.reparentTo(self.platform)
-        
-        # Update the parenting node now that we've reparented the platform to a visible node
-        # This ensures remote toons remain visible when they get reparented to this platform
-        self.platformModel.updateParentingNode(self.platformModel)
         return
 
     def destroyPlatform(self):

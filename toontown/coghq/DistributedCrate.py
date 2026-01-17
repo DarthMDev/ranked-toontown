@@ -102,15 +102,14 @@ class DistributedCrate(DistributedCrushableEntity.DistributedCrushableEntity):
     def loadModel(self):
         crateModel = loader.loadModel(DistributedCrate.ModelPaths[self.modelType])
         self.crate = MovingPlatform.MovingPlatform()
-        self.crate.setupCopyModel(self.getParentToken(), crateModel, 'floor')
+        # Create a separate parenting node under render (visible) to avoid the fallback to render
+        self.crate.parentingNode = render.attachNewNode('crateParentTarget-%s' % self.doId)
+        self.crate.setupCopyModel(self.getParentToken(), crateModel, 'floor', parentingNode=self.crate.parentingNode)
+        # Reparent the parenting node to the crate so avatars move with it
+        self.crate.parentingNode.reparentTo(self.crate)
         self.setScale(1.0)
         self.crate.setScale(self.scale)
         self.crate.reparentTo(self)
-        
-        # Update the parenting node now that we've reparented the crate to a visible node
-        # This ensures remote toons remain visible when they get reparented to this crate
-        self.crate.updateParentingNode(self.crate)
-        
         self.crate.flattenLight()
 
     def setScale(self, scale):

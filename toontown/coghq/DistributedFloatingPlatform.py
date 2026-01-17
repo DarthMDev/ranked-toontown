@@ -34,16 +34,33 @@ class DistributedFloatingPlatform(DistributedObject):
             self.notify.warning('Failed to load platform model!')
             return
         
+        print('[DistributedFloatingPlatform] loadModel: doId=%s, index=%s' % (self.doId, self.index))
+        
         # Create a parent node for positioning first
         # Note: The node name contains "FloatingPlatform" so CustomGravityWalker can detect it
-        # This must be created before setupCopyModel so we can pass it as the parentingNode
         self.model = render.attachNewNode('FloatingPlatform-%s' % self.index)
+        print('[DistributedFloatingPlatform] Created model node: %s, parent=%s' % (self.model, self.model.getParent()))
+        
+        # Create a separate parenting node for avatars under render (so it's visible during setup)
+        # This prevents MovingPlatform's fallback from using render directly, which breaks relative positioning
+        # We'll reparent this node to the platform after setup, similar to how ConveyorBelt works
+        self.platform = MovingPlatform.MovingPlatform()
+        self.platform.parentingNode = render.attachNewNode('parentTarget-%s' % self.index)
+        print('[DistributedFloatingPlatform] Created parentingNode: %s, parent=%s, getTop()=%s' % (
+            self.platform.parentingNode, self.platform.parentingNode.getParent(), self.platform.parentingNode.getTop()))
         
         # Use MovingPlatform to properly set up the platform with its built-in collision
-        # This is the same approach used by DistributedSinkingPlatform
-        # Pass self.model as parentingNode so avatars get parented to the model node (which has "FloatingPlatform" in its name)
-        self.platform = MovingPlatform.MovingPlatform()
-        self.platform.setupCopyModel(self.uniqueName('platform'), model, 'platformcollision', parentingNode=self.model)
+        # Use doId as parentToken (converted to SPDynamic) so it's consistent across all clients
+        # Pass the parentingNode so avatars get parented to it (it's visible, so no fallback to render)
+        self.platform.setupCopyModel(self.doId, model, 'platformcollision', parentingNode=self.platform.parentingNode)
+        print('[DistributedFloatingPlatform] After setupCopyModel: parentToken=%s, parentingNode=%s, parentingNode.getTop()=%s' % (
+            self.platform.parentToken, self.platform.parentingNode, self.platform.parentingNode.getTop()))
+        
+        # Now reparent the parenting node to the platform so avatars move with it
+        self.platform.parentingNode.reparentTo(self.platform)
+        print('[DistributedFloatingPlatform] After reparenting parentingNode to platform: parent=%s, getTop()=%s' % (
+            self.platform.parentingNode.getParent(), self.platform.parentingNode.getTop()))
+        
         # The MovingPlatform sets collision node names to self._name (e.g., 'MovingPlatform-...')
         # We need to keep this name for the collision events to work, but we can add a tag
         # for Cashbot Boss objects to detect it, and also add a Python tag for identification
@@ -56,10 +73,21 @@ class DistributedFloatingPlatform(DistributedObject):
         
         self.platform.reparentTo(self.model)
         self.platform.setPos(0, 0, 0)
+        print('[DistributedFloatingPlatform] After reparenting platform to model: platform.parent=%s, parentingNode.getTop()=%s' % (
+            self.platform.getParent(), self.platform.parentingNode.getTop()))
         
-        # Update the parenting node now that we've reparented the platform to a visible node
-        # This ensures remote toons remain visible when they get reparented to this platform
-        self.platform.updateParentingNode(self.model)
+        # Update the parenting node registration after all reparenting is complete
+        # This ensures ParentMgr has the final, correct node reference that moves with the platform
+        # Force re-registration to ensure the node is properly registered after all reparenting
+        base.cr.parentMgr.unregisterParent(self.platform.parentToken)
+        base.cr.parentMgr.registerParent(self.platform.parentToken, self.platform.parentingNode)
+        print('[DistributedFloatingPlatform] Re-registered parentToken=%s with parentingNode=%s, getTop()=%s' % (
+            self.platform.parentToken, self.platform.parentingNode, self.platform.parentingNode.getTop()))
+        
+        # Verify the registration
+        registeredNode = base.cr.parentMgr.getParent(self.platform.parentToken)
+        print('[DistributedFloatingPlatform] ParentMgr.getParent(%s) = %s, getTop()=%s' % (
+            self.platform.parentToken, registeredNode, registeredNode.getTop() if registeredNode and not registeredNode.isEmpty() else 'EMPTY'))
         
         # If basePos was set (via setPosition called before model loaded), set position now
         if self.basePos is not None:
