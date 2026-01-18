@@ -22,7 +22,7 @@ class DistributedGroup(DistributedObject, GroupBase):
     def announceGenerate(self):
         DistributedObject.announceGenerate(self)
         if self.__localToonInGroup():
-            base.localAvatar.getGroupManager().setCurrentGroup(self.getDoId())
+            base.cr.groupManager.setCurrentGroup(self.getDoId())
 
         self.render()
 
@@ -30,8 +30,8 @@ class DistributedGroup(DistributedObject, GroupBase):
 
         # If we are in the group and this group is deleting, send an update to mark us as not ready.
         # This probably means we are leaving the area and are unable to respond to the group sending us to game.
-        if self.__localToonInGroup() and base.localAvatar.getGroupManager() is not None:
-            base.localAvatar.getGroupManager().updateStatus(GroupGlobals.STATUS_UNREADY)
+        if self.__localToonInGroup() and base.cr.groupManager is not None:
+            base.cr.groupManager.updateStatus(GroupGlobals.STATUS_UNREADY)
 
         DistributedObject.delete(self)
         self.cleanup()

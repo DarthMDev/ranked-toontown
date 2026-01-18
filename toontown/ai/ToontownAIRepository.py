@@ -28,6 +28,7 @@ from toontown.distributed.ToontownDistrictAI import ToontownDistrictAI
 from toontown.distributed.ToontownDistrictStatsAI import ToontownDistrictStatsAI
 from toontown.distributed.ToontownInternalRepository import ToontownInternalRepository
 from toontown.fishing.FishManagerAI import FishManagerAI
+from toontown.groups.GroupManagerAI import GroupManagerAI
 from toontown.hood import ZoneUtil
 from toontown.hood.BRHoodDataAI import BRHoodDataAI
 from toontown.hood.BossbotHQDataAI import BossbotHQDataAI
@@ -118,6 +119,7 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.deliveryManager = None
         self.leaderboardManager: LeaderboardManagerAI | None = None
         self.apiManager: ApiManagerAI | None = None
+        self.groupManager: GroupManagerAI | None = None
         self.matchmaker: DistributedMatchmakerAI | None = None
         self.archipelagoManager = None
         self.defaultAccessLevel = OTPGlobals.accessLevelValues.get('TTOFF_DEVELOPER')
@@ -302,6 +304,8 @@ class ToontownAIRepository(ToontownInternalRepository):
         # Generate our API manager...
         self.apiManager = self.generateGlobalObject(OTP_DO_ID_API_MANAGER,
                                                          'ApiManager')
+        self.groupManager = self.generateGlobalObject(OTP_DO_ID_GROUP_MANAGER,
+                                                         'GroupManager')
         self.matchmaker = self.generateGlobalObject(OTP_DO_ID_MATCHMAKER, 'DistributedMatchmaker')
 
 

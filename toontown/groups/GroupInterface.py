@@ -122,20 +122,20 @@ class GroupInterface(DirectFrame):
         _index += 1
         if _index >= len(ToontownGlobals.ValidMinigameIds):
             _index = 0
-        base.localAvatar.getGroupManager().requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
+        base.cr.groupManager.requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
 
     def __onLeaveClicked(self):
         """
         Called via a button press when the leave group button is pressed.
         When this button is clicked, we are essentially trying to kick ourselves from the group.
         """
-        base.localAvatar.getGroupManager().attemptKick(base.localAvatar.getDoId())
+        base.cr.groupManager.attemptKick(base.localAvatar.getDoId())
 
     def __onPlayClicked(self):
         """
         Called via a button press when the start game button is pressed.
         """
-        base.localAvatar.getGroupManager().attemptStart()
+        base.cr.groupManager.attemptStart()
 
     def __onHoverRow(self, row, event=None):
         # Hide every single row.
@@ -325,15 +325,15 @@ class GroupInterfaceMemberButton(DirectButton):
 
     def __onPromoteClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptPromote(self.avatarID)
+            base.cr.groupManager.attemptPromote(self.avatarID)
 
     def __onSwitchClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptSwitch(self.avatarID)
+            base.cr.groupManager.attemptSwitch(self.avatarID)
 
     def __onKickClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptKick(self.avatarID)
+            base.cr.groupManager.attemptKick(self.avatarID)
 
     def __addTooltip(self, button, tooltip):
         def __show(_):

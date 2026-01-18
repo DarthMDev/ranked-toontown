@@ -47,6 +47,7 @@ from toontown.hood import StreetSign
 from ..archipelago.distributed.DistributedArchipelagoManager import DistributedArchipelagoManager
 from ..friends.OnlinePlayerManager import OnlinePlayerManager
 from ..friends.OnlineToon import OnlineToon
+from ..groups.GroupManager import GroupManager
 from ..matchmaking.DistributedMatchmaker import DistributedMatchmaker
 from ..matchmaking.LeaderboardManager import LeaderboardManager
 
@@ -65,6 +66,7 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
 
     onlinePlayerManager: OnlinePlayerManager
     leaderboardManager: LeaderboardManager
+    groupManager: GroupManager
     matchmaker: DistributedMatchmaker
     archipelagoManager: DistributedArchipelagoManager
 
@@ -103,6 +105,7 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         self.playerFriendsManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_PLAYER_FRIENDS_MANAGER, 'TTPlayerFriendsManager')
         self.onlinePlayerManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_ONLINE_PLAYER_MANAGER, 'OnlinePlayerManager')
         self.leaderboardManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_LEADERBOARD_MANAGER, 'LeaderboardManager')
+        self.groupManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_GROUP_MANAGER, 'GroupManager')
         self.matchmaker = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_MATCHMAKER, 'DistributedMatchmaker')
         self.speedchatRelay = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_TOONTOWN_SPEEDCHAT_RELAY, 'TTSpeedchatRelay')
         self.deliveryManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_TOONTOWN_DELIVERY_MANAGER, 'DistributedDeliveryManager')
@@ -575,7 +578,7 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
             else:
                 self.notify.info('dumpAllSubShardObjects: defaultShard is %s' % localAvatar.defaultShard)
 
-            ignoredClasses = ('MagicWordManager', 'TimeManager', 'DistributedDistrict', 'FriendManager', 'NewsManager', 'ToontownMagicWordManager', 'WelcomeValleyManager', 'DistributedTrophyMgr', 'CatalogManager', 'DistributedBankMgr', 'EstateManager', 'RaceManager', 'SafeZoneManager', 'DeleteManager', 'TutorialManager', 'ToontownDistrict', 'DistributedDeliveryManager', 'LeaderboardManager', 'DistributedMatchmaker', 'DistributedPartyManager', 'AvatarFriendsManager', 'InGameNewsMgr', 'WhitelistMgr', 'TTCodeRedemptionMgr', 'DistributedArchipelagoManager')
+            ignoredClasses = ('MagicWordManager', 'TimeManager', 'DistributedDistrict', 'FriendManager', 'NewsManager', 'ToontownMagicWordManager', 'WelcomeValleyManager', 'DistributedTrophyMgr', 'CatalogManager', 'DistributedBankMgr', 'EstateManager', 'RaceManager', 'SafeZoneManager', 'DeleteManager', 'TutorialManager', 'ToontownDistrict', 'DistributedDeliveryManager', 'LeaderboardManager', 'GroupManager', 'DistributedMatchmaker', 'DistributedPartyManager', 'AvatarFriendsManager', 'InGameNewsMgr', 'WhitelistMgr', 'TTCodeRedemptionMgr', 'DistributedArchipelagoManager')
         messenger.send('clientCleanup')
         for avId, pad in list(self.__queryAvatarMap.items()):
             pad.delayDelete.destroy()

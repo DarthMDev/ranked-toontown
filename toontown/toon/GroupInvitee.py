@@ -50,7 +50,7 @@ class GroupInvitee(ToonHeadDialog.ToonHeadDialog):
 
     def __handleButton(self, value):
 
-        groups = base.localAvatar.getGroupManager()
+        groups = base.cr.groupManager
         if groups is None:
             return
 

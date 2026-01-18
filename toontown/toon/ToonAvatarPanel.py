@@ -15,7 +15,7 @@ from . import ToonAvatarDetailPanel
 from . import AvatarPanelBase
 from toontown.toontowngui import TTDialog
 from otp.otpbase import OTPGlobals
-from ..groups.DistributedGroupManager import DistributedGroupManager
+from ..groups.GroupManager import GroupManager
 
 
 class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
@@ -485,19 +485,19 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         """
         Called when we attempt to invite a toon to our current group.
         """
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        base.localAvatar.getGroupManager().attemptInvite(self.avId)
+        base.cr.groupManager.attemptInvite(self.avId)
 
     def handleKick(self):
         """
         Called when we attempt to kick a toon from our current group.
         """
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        base.localAvatar.getGroupManager().attemptKick(self.avId)
+        base.cr.groupManager.attemptKick(self.avId)
 
     def __confirmKickOutCallback(self, value):
         if self.confirmKickOutDialog:
@@ -521,16 +521,13 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
             return
 
         # Is there a group manager currently present?
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        # We have a group manager! :D
-        groupManager: DistributedGroupManager = base.localAvatar.getGroupManager()
-
         # Decide how we want to render the state of this button depending on our status.
-        localToonIsInGroup = groupManager.getCurrentGroup() is not None
-        localToonLeadsGroup = localToonIsInGroup and groupManager.getCurrentGroup().getLeader() == base.localAvatar.doId
-        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in groupManager.getCurrentGroup().getMemberIds()
+        localToonIsInGroup = base.cr.groupManager.getCurrentGroup() is not None
+        localToonLeadsGroup = localToonIsInGroup and base.cr.groupManager.getCurrentGroup().getLeader() == base.localAvatar.doId
+        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in base.cr.groupManager.getCurrentGroup().getMemberIds()
 
         print(f"[ToonAvatarPanel] Group state: Local toon in group: {localToonIsInGroup} Local toon is leader: {localToonLeadsGroup} In same group: {viewingToonIsInSameGroup}")
 

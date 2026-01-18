@@ -9,7 +9,6 @@ from direct.task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame import TrolleyHolidayMgrAI
 from toontown.minigame import TrolleyWeekendMgrAI
-from toontown.groups.DistributedGroupManagerAI import DistributedGroupManagerAI
 from ..groups.DistributedGroupAI import DistributedGroupAI
 from ..toonbase import ToontownGlobals
 
@@ -136,12 +135,6 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
     def getState(self):
         return self.fsm.getCurrentState().getName()
 
-    def findGroupManagers(self) -> list[DistributedGroupManagerAI]:
-        """
-        Finds all the group managers that are present on the server.
-        """
-        return self.air.doFindAllInstances(DistributedGroupManagerAI)
-
     def requestBoard(self, *args):
         self.notify.debug('requestBoard')
         avId = self.air.getAvatarIdFromSender()
@@ -154,16 +147,15 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
             newArgs = (avId,) + args
 
             # If the toon is in a group, we can't let them board unless they are the host.
-            for groupManager in self.findGroupManagers():
-                group = groupManager.getGroup(av)
-                if group is not None:
-                    if group.getLeader() != avId:
-                        self.rejectingBoardersHandler(avId)
-                        av.d_setSystemMessage(0, "Only the leader can decide when to board!")
-                        return
-                    elif group.getLeader() == avId:
-                        self.acceptingAllGroupBoardersHandler(group)
-                        return
+            group = self.air.groupManager.getGroup(av)
+            if group is not None:
+                if group.getLeader() != avId:
+                    self.rejectingBoardersHandler(avId)
+                    av.d_setSystemMessage(0, "Only the leader can decide when to board!")
+                    return
+                elif group.getLeader() == avId:
+                    self.acceptingAllGroupBoardersHandler(group)
+                    return
 
             if self.air.matchmaker.isPlayerInQueue(av):
                 av.d_setSystemMessage(0, "You can't enter the trolley while in queue!")
@@ -200,16 +192,15 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
             newArgs = (avId,) + args
 
             # If the toon is in a group, we can't let them board unless they are the host.
-            for groupManager in self.findGroupManagers():
-                group = groupManager.getGroup(av)
-                if group is not None:
-                    if group.getLeader() != avId:
-                        self.rejectingExitersHandler(avId)
-                        av.d_setSystemMessage(0, "Only the leader can decide to hop off!")
-                        return
-                    elif group.getLeader() == avId:
-                        self.acceptingAllGroupExitersHandler(group)
-                        return
+            group = self.air.groupManager.getGroup(av)
+            if group is not None:
+                if group.getLeader() != avId:
+                    self.rejectingExitersHandler(avId)
+                    av.d_setSystemMessage(0, "Only the leader can decide to hop off!")
+                    return
+                elif group.getLeader() == avId:
+                    self.acceptingAllGroupExitersHandler(group)
+                    return
 
             if self.accepting:
                 self.acceptingExitersHandler(*newArgs)

@@ -1,4 +1,6 @@
+from direct.directnotify import DirectNotifyGlobal
 from direct.distributed.DistributedObjectAI import DistributedObjectAI
+from direct.distributed.DistributedObjectGlobalAI import DistributedObjectGlobalAI
 
 from toontown.groups import GroupGlobals
 from toontown.groups.DistributedGroupAI import DistributedGroupAI
@@ -7,7 +9,7 @@ from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 
 
-class DistributedGroupManagerAI(DistributedObjectAI):
+class GroupManagerAI(DistributedObjectGlobalAI):
     """
     An instance on the district that is responsible for managing separate groups.
     A "group" can be thought of as a "party" on other games, or even a "lobby".
@@ -19,16 +21,20 @@ class DistributedGroupManagerAI(DistributedObjectAI):
     Only one of these instances should exist per zone, or this could even be a singleton global object.
     """
 
+    Notify = DirectNotifyGlobal.directNotify.newCategory('GroupManagerAI')
+
     def __init__(self, air):
         super().__init__(air)
         self.groups: list[DistributedGroupAI] = []
 
-    def announceGenerate(self):
-        super().announceGenerate()
+    def generate(self):
+        super().generate()
+        self.Notify.info("Starting up...")
         self.accept('avatarExited', self.__handleUnexpectedExit)
 
     def delete(self):
         DistributedObjectAI.delete(self)
+        self.Notify.info("Shutting down...")
         self.ignore('avatarExited')
 
         for group in self.groups:

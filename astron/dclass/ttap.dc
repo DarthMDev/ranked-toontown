@@ -33,7 +33,7 @@ from toontown.ai import WelcomeValleyManager/AI
 from toontown.building import DistributedAnimatedProp/AI
 from toontown.toon import DistributedToon/AI/UD
 from toontown.safezone import DistributedTrolley/AI
-from toontown.groups import DistributedGroupManager/AI
+from toontown.groups import GroupManager/AI/UD
 from toontown.groups import DistributedGroup/AI
 from toontown.suit import DistributedSuitPlanner/AI
 from toontown.suit import DistributedSuitBase/AI
@@ -1165,7 +1165,7 @@ struct GroupMember {
   bool leader;
 }
 
-dclass DistributedGroupManager : DistributedObject {
+dclass GroupManager : DistributedObject {
 
   // The client requesting to invite some avId
   invitePlayer(uint32 avId) airecv clsend;

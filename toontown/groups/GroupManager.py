@@ -1,4 +1,6 @@
+from direct.directnotify import DirectNotifyGlobal
 from direct.distributed.DistributedObject import DistributedObject
+from direct.distributed.DistributedObjectGlobal import DistributedObjectGlobal
 
 from toontown.groups import GroupGlobals
 from toontown.groups.DistributedGroup import DistributedGroup
@@ -6,7 +8,7 @@ from toontown.groups.GroupBase import GroupBase
 from toontown.toon.GroupInvitee import GroupInvitee
 
 
-class DistributedGroupManager(DistributedObject):
+class GroupManager(DistributedObjectGlobal):
     """
     An instance on the client that is responsible for managing separate groups.
     A "group" can be thought of as a "party" on other games, or even a "lobby".
@@ -18,6 +20,8 @@ class DistributedGroupManager(DistributedObject):
     and will tell our local client which group we are in.
     """
 
+    Notify = DirectNotifyGlobal.directNotify.newCategory('GroupManager')
+
     def __init__(self, cr):
         super().__init__(cr)
 
@@ -27,6 +31,8 @@ class DistributedGroupManager(DistributedObject):
         self.currentInvite: GroupInvitee | None = None
         self.ready_task = None  # A task that checks the state of our toon every so often. Helps with making sure we are properly ready.
 
+        self.Notify.setDebug(True)
+
     def generate(self):
         """
         When a group manager comes into existence, we essentially just need to create a way to
@@ -34,7 +40,7 @@ class DistributedGroupManager(DistributedObject):
         an invite button.
         """
         super().generate()
-        base.localAvatar.setGroupManager(self)
+        self.Notify.info("Starting up...")
         self.ready_task = taskMgr.add(self.__readyCheck, self.uniqueName('readycheck'))
 
     def delete(self):
@@ -42,6 +48,7 @@ class DistributedGroupManager(DistributedObject):
         When this group manager deletes, we need to make sure that we leave our current group.
         """
         super().delete()
+        self.Notify.info("Shutting down...")
         base.localAvatar.setGroupManager(None)
         self.destroyCurrentInvitePanel()
         taskMgr.remove(self.uniqueName('readycheck'))
@@ -91,23 +98,30 @@ class DistributedGroupManager(DistributedObject):
         """
         Attempt to add this toon to the group we are currently in.
         """
+        self.Notify.debug(f"Attempting to invite {avId}")
         self.d_invitePlayer(avId)
 
     def attemptPromote(self, avId: int):
+        self.Notify.debug(f"Attempting to promote {avId}")
         self.d_promote(avId)
 
     def attemptSwitch(self, avId: int):
+        self.Notify.debug(f"Attempting to switch {avId}")
         self.d_requestTeamSwap(avId)
 
     def attemptStart(self):
+        self.Notify.debug(f"Attempting to start the group")
         if self.getCurrentGroup() is not None:
             self.d_requestStart()
 
     def requestGameSwitch(self, minigameId: int):
+        self.Notify.debug(f"Attempting to switch the game to {minigameId}")
         if self.getCurrentGroup() is not None and self.getCurrentGroup().getLeader() == base.localAvatar.getDoId():
             self.d_requestMinigameSwitch(minigameId)
 
     def updateStatus(self, code: int):
+
+        self.Notify.debug(f"Updating local av status to {code} for current group")
 
         # Don't send codes unless they are ready/unready codes.
         if code not in (GroupGlobals.STATUS_UNREADY, GroupGlobals.STATUS_READY):
