@@ -70,16 +70,10 @@ class DistributedToonUD(DistributedObjectUD):
     def setHoodsVisited(self, todo0):
         pass
 
-    def setInterface(self, todo0):
-        pass
-
     def setLastHood(self, todo0):
         pass
 
     def setTutorialAck(self, todo0):
-        pass
-
-    def setMaxClothes(self, todo0):
         pass
 
     def setClothesTopsList(self, todo0):
@@ -239,9 +233,6 @@ class DistributedToonUD(DistributedObjectUD):
         pass
 
     def setSosPageFlag(self, todo0):
-        pass
-
-    def setHouseId(self, todo0):
         pass
 
     def setQuests(self, todo0):

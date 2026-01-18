@@ -72,8 +72,6 @@ from toontown.fishing import DistributedFishingPond/AI
 from toontown.fishing import DistributedFishingTarget/AI
 from toontown.fishing import DistributedPondBingoManager/AI
 from toontown.safezone import DistributedFishingSpot/AI
-from toontown.estate import DistributedCannon/AI
-from toontown.estate import DistributedTarget/AI
 from toontown.minigame.statuseffects import DistributedStatusEffectSystem/AI
 from toontown.minigame import DistributedMinigame/AI
 from toontown.minigame import DistributedMinigameTemplate/AI
@@ -89,11 +87,6 @@ from toontown.minigame import DistributedCatchGame/AI
 from toontown.minigame import DistributedDivingGame/AI
 from toontown.minigame import DistributedTargetGame/AI
 from toontown.archipelago.distributed.DistributedArchipelagoManager/AI import DistributedArchipelagoManager/AI
-from toontown.estate import EstateManager/AI
-from toontown.estate import DistributedEstate/AI
-from toontown.estate import DistributedHouse/AI
-from toontown.estate import DistributedHouseInterior/AI
-from toontown.estate import DistributedGarden/AI
 from toontown.shtiker import DeleteManager/AI
 from toontown.ai import ToontownMagicWordManager/AI
 from toontown.ai import NewsManager/AI
@@ -126,7 +119,6 @@ from toontown.building import DistributedPetshopInterior/AI
 from toontown.building import DistributedKartShopInterior/AI
 from toontown.building import DistributedDoor/AI
 from toontown.building import DistributedAnimDoor/AI
-from toontown.estate import DistributedHouseDoor/AI
 from toontown.coghq import DistributedCogHQDoor/AI
 from toontown.coghq import DistributedSellbotHQDoor/AI
 from toontown.toon import DistributedNPCToonBase/AI
@@ -159,16 +151,7 @@ from toontown.building import DistributedCJElevator/AI
 from toontown.building import DistributedBBElevator/AI
 from toontown.building import DistributedBoardingParty/AI
 from toontown.building import DistributedTutorialInterior/AI
-from toontown.estate import DistributedBankMgr/AI
-from toontown.estate import DistributedMailbox/AI
-from toontown.estate import DistributedFurnitureManager/AI
-from toontown.estate import DistributedFurnitureItem/AI
-from toontown.estate import DistributedBank/AI
-from toontown.estate import DistributedCloset/AI
-from toontown.estate import DistributedTrunk/AI
-from toontown.estate import DistributedPhone/AI
 from toontown.effects import DistributedFireworkShow/AI
-from toontown.estate import DistributedFireworksCannon/AI
 from toontown.coghq import LobbyManager/AI
 from otp.level import DistributedLevel/AI
 from otp.level import DistributedEntity/AI
@@ -245,17 +228,6 @@ from toontown.coghq import DistributedLawbotBossGavel/AI
 from toontown.suit import DistributedLawbotBossSuit/AI
 from toontown.coghq import DistributedLawbotCannon/AI
 from toontown.coghq import DistributedLawbotChair/AI
-from toontown.estate import DistributedLawnDecor/AI
-from toontown.estate import DistributedGardenPlot/AI
-from toontown.estate import DistributedGardenBox/AI
-from toontown.estate import DistributedFlower/AI
-from toontown.estate import DistributedGagTree/AI
-from toontown.estate import DistributedStatuary/AI
-from toontown.estate import DistributedToonStatuary/AI
-from toontown.estate import DistributedChangingStatuary/AI
-from toontown.estate import DistributedAnimatedStatuary/AI
-from toontown.estate import DistributedPlantBase/AI
-from toontown.estate import DistributedLawnDecor/AI
 from toontown.minigame import DistributedTravelGame/AI
 from toontown.minigame import DistributedPairingGame/AI
 from toontown.minigame import DistributedVineGame/AI
@@ -1023,8 +995,8 @@ dclass DistributedToon : DistributedPlayer {
   setBankMoney(int16 = 0) required broadcast ownrecv db;
   setMaxMoney(int16 = 1000) required broadcast ownrecv db;
   setMoney(int16 = 0) required broadcast ownrecv db;
-  setMaxHp(int32 = 100) required broadcast ownrecv db;
-  setHp(int32 = 100) required broadcast ownrecv db;
+  setMaxHp(int32 = 100) required broadcast ownrecv;
+  setHp(int32 = 100) required broadcast ownrecv;
   toonUp(uint32) broadcast ownrecv;
   takeDamage(uint32) broadcast ownrecv;
   setBattleId(uint32 = 0) required broadcast ram;
@@ -1035,14 +1007,12 @@ dclass DistributedToon : DistributedPlayer {
   setTrackBonusLevel(int8[] = [-1, -1, -1, -1, -1, -1, -1]) required broadcast ownrecv db;
   setInventory(blob = [0 * 7, 0 * 7, 0 * 7, 0 * 7, 1, 0 * 6, 1, 0 * 6, 0 * 7]) required ownrecv db;
   setDefaultShard(uint32 = 0) required ownrecv db;
-  setDefaultZone(uint32 = 0) required ownrecv db;
+  setDefaultZone(uint32 = 2000) required ownrecv db;
   setShtickerBook(blob = []) required ownrecv db;
-  setZonesVisited(uint32[] = [2000]) required ownrecv db;
-  setHoodsVisited(uint32[] = [2000]) required ownrecv db;
-  setInterface(blob = []) required ownrecv db;
-  setLastHood(uint32 = 0) required ownrecv db;
+  setZonesVisited(uint32[] = [2000]) required ownrecv;
+  setHoodsVisited(uint32[] = [2000]) required ownrecv;
+  setLastHood(uint32 = 2000) required ownrecv;
   setTutorialAck(uint8 = 1) required ownrecv db;
-  setMaxClothes(uint32 = 10) required ownrecv db;
   setClothesTopsList(uint8[] = []) required ownrecv db;
   setClothesBottomsList(uint8[] = []) required ownrecv db;
   setMaxAccessories(uint32 = 0) required ownrecv db;
@@ -1061,7 +1031,7 @@ dclass DistributedToon : DistributedPlayer {
   setEmoteState(int16, int16/1000, int16) broadcast ram ownsend;
   setEmoteAccess(uint8[] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1]) required ownrecv db;
   playEmote(int16, int16/1000, int16) broadcast ownrecv;
-  setCustomMessages(uint16[] = []) required ownrecv db;
+  setCustomMessages(uint16[] = []) required ownrecv;
   setDroneSetup(uint8[] = [0, 1, 2]) required ownrecv db clsend;
   setSleepAutoReply(uint32) broadcast clsend ownrecv;
   setResistanceMessages(pair16 [] = []) required ownrecv db;
@@ -1073,7 +1043,7 @@ dclass DistributedToon : DistributedPlayer {
   setSCResistance(uint16, uint32 []) broadcast ownrecv;
   setSpeedChatStyleIndex(uint8 = 1) required ownsend broadcast db;
   setTrophyScore(uint16) broadcast ownrecv ram;
-  setTeleportAccess(uint32[] = []) required ownrecv db;
+  setTeleportAccess(uint32[] = []) required ownrecv;
   checkTeleportAccess(uint16) airecv ownsend;
   battleSOS(uint32) ownrecv clsend;
   teleportQuery(uint32) ownrecv clsend;
@@ -1081,12 +1051,11 @@ dclass DistributedToon : DistributedPlayer {
   teleportResponseToAI(uint32, int8, uint32, uint32, uint32, uint32) ownsend airecv;
   teleportGiveup(uint32) ownrecv clsend;
   teleportGreeting(uint32) broadcast ownsend;
-  setCogCount(uint32[] = [0 * 32]) required ownrecv db;
-  setCogLevels(uint8[] = [0 * 4]) required broadcast ownrecv db;
-  setCogTypes(uint8[] = [0 * 4]) required broadcast ownrecv db;
+  setCogCount(uint32[] = [0 * 32]) required ownrecv;
+  setCogLevels(uint8[] = [0 * 4]) required broadcast ownrecv;
+  setCogTypes(uint8[] = [0 * 4]) required broadcast ownrecv;
   setCogIndex(int8) broadcast ram;
   setSosPageFlag(int8) ownrecv;
-  setHouseId(uint32 = 0) required ownrecv db;
   setQuests(uint32[] = []) required broadcast ownrecv db;
   setQuestHistory(uint16[] = []) required ownrecv db;
   setRewardHistory(uint8 = 0, uint16[] = []) required ownrecv db;
@@ -1095,7 +1064,6 @@ dclass DistributedToon : DistributedPlayer {
   setCheesyEffect(int16 = 0, uint32 = 0, uint32 = 0) required broadcast ownrecv db;
   setGhostMode(uint8) broadcast ownrecv ram;
   playSound(char [0-1024]) ownrecv;
-  setPosIndex(uint8 = 0) required ownrecv db;
   setFishCollection(uint8[] = [], uint8[] = [], uint16[] = []) required ownrecv db;
   setMaxFishTank(uint8 = 100) required ownrecv db;
   setFishTank(uint8[] = [], uint8[] = [], uint16[] = []) required ownrecv db;
@@ -1890,17 +1858,6 @@ dclass DistributedTargetGame : DistributedMinigame {
   setGameDone() broadcast;
 };
 
-dclass EstateManager : DistributedObject {
-  startAprilFools() broadcast;
-  stopAprilFools() broadcast;
-  getEstateZone(uint32, char [0-256]) airecv clsend;
-  setEstateZone(uint32, uint32);
-  setAvHouseId(uint32, uint32[]) broadcast;
-  sendAvToPlayground(uint32, uint8);
-  exitEstate() airecv clsend;
-  removeFriend(uint32, uint32) airecv clsend;
-};
-
 struct decorItem {
   uint8 decorType;
   uint8 dataByte[];
@@ -2561,9 +2518,6 @@ dclass DistributedDoor : DistributedObject {
 };
 
 dclass DistributedAnimDoor : DistributedDoor {
-};
-
-dclass DistributedHouseDoor : DistributedDoor {
 };
 
 dclass DistributedCogHQDoor : DistributedDoor {

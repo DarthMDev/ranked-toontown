@@ -5,20 +5,15 @@ from toontown.battle.BattleSounds import *
 from toontown.distributed.ToontownMsgTypes import *
 from direct.gui.DirectGui import cleanupDialog
 from direct.directnotify import DirectNotifyGlobal
-from toontown.hood import Place
 from toontown.battle import BattlePlace
-from direct.showbase import DirectObject
-from direct.fsm import StateData
+
 from direct.fsm import ClassicFSM, State
 from direct.task import Task
 from otp.distributed.TelemetryLimiter import RotationLimitToH, TLGatherAllAvs
-from toontown.battle import BattleParticles
 from toontown.building import Elevator
 from toontown.hood import ZoneUtil
 from toontown.toonbase import ToontownGlobals
 from toontown.toon.Toon import teleportDebug
-from toontown.estate import HouseGlobals
-from toontown.toonbase import TTLocalizer
 from direct.interval.IntervalGlobal import *
 visualizeZones = base.config.GetBool('visualize-zones', 0)
 

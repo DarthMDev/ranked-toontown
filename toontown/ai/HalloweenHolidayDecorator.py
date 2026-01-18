@@ -5,7 +5,6 @@ from . import HolidayDecorator
 from toontown.toonbase import ToontownGlobals
 from toontown.safezone import Playground
 from toontown.town import Street
-from toontown.estate import Estate
 from panda3d.core import Vec4
 
 class HalloweenHolidayDecorator(HolidayDecorator.HolidayDecorator):
@@ -26,9 +25,7 @@ class HalloweenHolidayDecorator(HolidayDecorator.HolidayDecorator):
 
     def __checkHoodValidity(self):
         if (hasattr(base.cr.playGame, 'getPlace') and
-            base.cr.playGame.getPlace() and
-                (isinstance(base.cr.playGame.getPlace(), Playground.Playground) or
-                 isinstance(base.cr.playGame.getPlace(), Estate.Estate)) and
+            base.cr.playGame.getPlace() and isinstance(base.cr.playGame.getPlace(), Playground.Playground) and
             hasattr(base.cr.playGame.getPlace(), 'loader') and
             base.cr.playGame.getPlace().loader and
             hasattr(base.cr.playGame.getPlace().loader, 'hood') and

@@ -22,7 +22,6 @@ from toontown.hood import TutorialHood
 from direct.task import TaskManagerGlobal
 from toontown.hood import QuietZoneState
 from toontown.hood import ZoneUtil
-from toontown.hood import EstateHood
 from toontown.hood import PartyHood
 from toontown.toonbase import TTLocalizer
 from toontown.parties.PartyGlobals import GoToPartyStatus
@@ -38,7 +37,6 @@ class PlayGame(StateData.StateData):
      ToontownGlobals.GoofySpeedway: GSHood.GSHood,
      ToontownGlobals.OutdoorZone: OZHood.OZHood,
      ToontownGlobals.Tutorial: TutorialHood.TutorialHood,
-     ToontownGlobals.MyEstate: EstateHood.EstateHood,
      ToontownGlobals.BossbotHQ: BossbotHQ.BossbotHQ,
      ToontownGlobals.SellbotHQ: SellbotHQ.SellbotHQ,
      ToontownGlobals.CashbotHQ: CashbotHQ.CashbotHQ,
@@ -54,7 +52,6 @@ class PlayGame(StateData.StateData):
      ToontownGlobals.GoofySpeedway: 'GSHood',
      ToontownGlobals.OutdoorZone: 'OZHood',
      ToontownGlobals.Tutorial: 'TutorialHood',
-     ToontownGlobals.MyEstate: 'EstateHood',
      ToontownGlobals.BossbotHQ: 'BossbotHQ',
      ToontownGlobals.SellbotHQ: 'SellbotHQ',
      ToontownGlobals.CashbotHQ: 'CashbotHQ',
@@ -80,7 +77,6 @@ class PlayGame(StateData.StateData):
           'LawbotHQ',
           'BossbotHQ',
           'TutorialHood',
-          'EstateHood',
           'PartyHood']),
          State.State('TTHood', self.enterTTHood, self.exitTTHood, ['quietZone']),
          State.State('DDHood', self.enterDDHood, self.exitDDHood, ['quietZone']),
@@ -96,7 +92,6 @@ class PlayGame(StateData.StateData):
          State.State('CashbotHQ', self.enterCashbotHQ, self.exitCashbotHQ, ['quietZone']),
          State.State('LawbotHQ', self.enterLawbotHQ, self.exitLawbotHQ, ['quietZone']),
          State.State('TutorialHood', self.enterTutorialHood, self.exitTutorialHood, ['quietZone']),
-         State.State('EstateHood', self.enterEstateHood, self.exitEstateHood, ['quietZone']),
          State.State('PartyHood', self.enterPartyHood, self.exitPartyHood, ['quietZone'])], 'start', 'start')
         self.fsm.enterInitialState()
         self.parentFSM = parentFSM
@@ -420,25 +415,7 @@ class PlayGame(StateData.StateData):
         base.localAvatar.chatMgr.obscure(0, 0)
         base.localAvatar.obscureFriendsListButton(-1)
 
-    def enterEstateHood(self, requestStatus):
-        self.accept(self.hoodDoneEvent, self.handleHoodDone)
-        self.hood.enter(requestStatus)
-
-    def exitEstateHood(self):
-        self._destroyHood()
-
     def getEstateZoneAndGoHome(self, avId, zoneId):
-        self.doneStatus = {'avId': avId,
-         'zoneId': zoneId,
-         'hoodId': ToontownGlobals.MyEstate,
-         'loader': 'safeZoneLoader',
-         'how': 'teleportIn',
-         'shardId': None}
-        self.acceptOnce('setLocalEstateZone', self.goHome)
-        if avId > 0:
-            base.cr.estateMgr.getLocalEstateZone(avId)
-        else:
-            base.cr.estateMgr.getLocalEstateZone(base.localAvatar.getDoId())
         return
 
     def goHome(self, ownerId, zoneId):

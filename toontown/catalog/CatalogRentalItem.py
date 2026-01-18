@@ -48,14 +48,6 @@ class CatalogRentalItem(CatalogItem.CatalogItem):
 
     def recordPurchase(self, avatar, optional):
         self.notify.debug('rental -- record purchase')
-        if avatar:
-            self.notify.debug('rental -- has avater')
-            estate = simbase.air.estateMgr.estate.get(avatar.doId)
-            if estate:
-                self.notify.debug('rental -- has estate')
-                estate.rentItem(self.typeIndex, self.duration)
-            else:
-                self.notify.debug('rental -- something not there')
         return ToontownGlobals.P_ItemAvailable
 
     def getPicture(self, avatar):

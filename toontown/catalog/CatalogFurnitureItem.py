@@ -978,8 +978,6 @@ class CatalogFurnitureItem(CatalogAtticItem.CatalogAtticItem):
             if self in avatar.onOrder or self in avatar.mailboxContents:
                 return 1
         if self.getFlags() & FLCloset:
-            if self.getMaxClothes() <= avatar.getMaxClothes():
-                return 1
             if self in avatar.onOrder or self in avatar.mailboxContents:
                 return 1
         if self.getFlags() & FLTrunk:
@@ -1023,10 +1021,6 @@ class CatalogFurnitureItem(CatalogAtticItem.CatalogAtticItem):
         house, retcode = self.getHouseInfo(avatar)
         self.giftTag = None
         if retcode >= 0:
-            if self.getFlags() & FLCloset:
-                if avatar.getMaxClothes() > self.getMaxClothes():
-                    return ToontownGlobals.P_AlreadyOwnBiggerCloset
-                avatar.b_setMaxClothes(self.getMaxClothes())
             if self.getFlags() & FLTrunk:
                 avatar.b_setMaxAccessories(self.getMaxAccessories())
             house.addAtticItem(self)
@@ -1116,27 +1110,7 @@ class CatalogFurnitureItem(CatalogAtticItem.CatalogAtticItem):
 
 
 def nextAvailableCloset(avatar, duplicateItems):
-    if avatar.getStyle().getGender() == 'm':
-        index = 0
-    else:
-        index = 1
-    if not hasattr(avatar, 'maxClothes'):
-        return None
-    closetIds = ClothesToCloset.get(avatar.getMaxClothes())
-    closetIds = list(closetIds)
-    closetIds.sort()
-    closetId = closetIds[index]
-    if closetId == None or closetId == MaxClosetIds[index]:
-        return
-    closetId += 2
-    item = CatalogFurnitureItem(closetId)
-    while item in avatar.onOrder or item in avatar.mailboxContents:
-        closetId += 2
-        if closetId > MaxClosetIds[index]:
-            return
-        item = CatalogFurnitureItem(closetId)
-
-    return item
+    return
 
 
 def get50ItemCloset(avatar, duplicateItems):

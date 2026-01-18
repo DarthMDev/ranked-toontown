@@ -128,8 +128,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                             0]
         self.maxBankMoney = ToontownGlobals.DefaultMaxBankMoney
         self.gardenSpecials = []
-        self.houseId = 0
-        self.posIndex = 0
         self.savedCheesyEffect = ToontownGlobals.CENormal
         self.savedCheesyHoodId = 0
         self.savedCheesyExpireTime = 0
@@ -872,22 +870,8 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         return 0
 
-    def d_setMaxClothes(self, max):
-        self.sendUpdate('setMaxClothes', [self.maxClothes])
-
-    def setMaxClothes(self, max):
-        self.maxClothes = max
-
-    def b_setMaxClothes(self, max):
-        self.setMaxClothes(max)
-        self.d_setMaxClothes(max)
-
-    def getMaxClothes(self):
-        return self.maxClothes
-
     def isClosetFull(self, extraClothes=0):
-        numClothes = len(self.clothesTopsList) / 4 + len(self.clothesBottomsList) / 2
-        return numClothes + extraClothes >= self.maxClothes
+        return False
 
     def d_setClothesTopsList(self, clothesList):
         self.sendUpdate('setClothesTopsList', [clothesList])
@@ -1042,12 +1026,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def d_setEarnedExperience(self, earnedExp):
         self.sendUpdate('setEarnedExperience', [earnedExp])
-
-    def setInterface(self, string):
-        self.notify.debug('setting interface to %s' % string)
-
-    def getInterface(self):
-        return ''
 
     def setZonesVisited(self, hoods):
         self.safeZonesVisited = hoods
@@ -1703,25 +1681,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         self.sendUpdate('playEmote', [emoteIndex, animMultiplier, timestamp])
 
-    def b_setHouseId(self, id):
-        self.setHouseId(id)
-        self.d_setHouseId(id)
-
-    def d_setHouseId(self, id):
-        self.sendUpdate('setHouseId', [id])
-
-    def setHouseId(self, id):
-        self.houseId = id
-
-    def getHouseId(self):
-        return self.houseId
-
-    def setPosIndex(self, index):
-        self.posIndex = index
-
-    def getPosIndex(self):
-        return self.posIndex
-
     def b_setCustomMessages(self, customMessages):
         self.d_setCustomMessages(customMessages)
         self.setCustomMessages(customMessages)
@@ -2248,35 +2207,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
     def checkGagBonus(self, track, level):
         trackBonus = self.getTrackBonusLevel(track)
         return trackBonus >= level
-
-    def reqUseSpecial(self, special):
-        response = self.tryToUseSpecial(special)
-        self.sendUpdate('useSpecialResponse', [response])
-
-    def tryToUseSpecial(self, special):
-        estateOwnerDoId = simbase.air.estateMgr.zone2owner.get(self.zoneId)
-        response = 'badlocation'
-        doIHaveThisSpecial = False
-        for curSpecial in self.gardenSpecials:
-            if curSpecial[0] == special and curSpecial[1] > 0:
-                doIHaveThisSpecial = True
-                break
-
-        if not doIHaveThisSpecial:
-            return response
-        if not self.doId == estateOwnerDoId:
-            self.notify.warning("how did this happen, planting an item you don't own")
-            return response
-        if estateOwnerDoId:
-            estate = simbase.air.estateMgr.estate.get(estateOwnerDoId)
-            if estate and hasattr(estate, 'avIdList'):
-                ownerIndex = estate.avIdList.index(estateOwnerDoId)
-                if ownerIndex >= 0:
-                    estate.doEpochNow(onlyForThisToonIndex=ownerIndex)
-                    self.removeGardenItem(special, 1)
-                    response = 'success'
-                    self.air.writeServerEvent('garden_fertilizer', self.doId, '')
-        return response
 
     def setGardenStarted(self, bStarted):
         self.gardenStarted = bStarted

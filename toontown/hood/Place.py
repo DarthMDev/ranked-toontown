@@ -11,7 +11,6 @@ from . import ZoneUtil
 from toontown.friends import FriendsListManager
 from toontown.toonbase import ToontownGlobals
 from toontown.toon.Toon import teleportDebug
-from toontown.estate import HouseGlobals
 from toontown.toonbase import TTLocalizer
 from otp.otpbase import OTPLocalizer
 from otp.avatar import Emote
@@ -673,15 +672,7 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         base.localAvatar.obscureMoveFurnitureButton(-1)
 
     def getEstateZoneAndGoHome(self, requestStatus):
-        self.doneStatus = requestStatus
-        avId = requestStatus['avId']
-        self.acceptOnce('setLocalEstateZone', self.goHome)
-        if avId > 0:
-            base.cr.estateMgr.getLocalEstateZone(avId)
-        else:
-            base.cr.estateMgr.getLocalEstateZone(base.localAvatar.getDoId())
-        if HouseGlobals.WANT_TELEPORT_TIMEOUT:
-            taskMgr.doMethodLater(HouseGlobals.TELEPORT_TIMEOUT, self.goHomeFailed, 'goHomeFailed')
+        pass
 
     def goHome(self, ownerId, zoneId):
         self.notify.debug('goHome ownerId = %s' % ownerId)

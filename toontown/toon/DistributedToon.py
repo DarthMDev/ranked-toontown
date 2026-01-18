@@ -32,8 +32,6 @@ from toontown.chat import ToonChatGarbler
 from toontown.chat import ResistanceChat
 from direct.distributed.MsgTypes import *
 from toontown.effects.ScavengerHuntEffects import *
-from toontown.estate import GardenGlobals
-from toontown.estate import DistributedGagTree
 from toontown.golf import GolfGlobals
 from toontown.friends import FriendHandle
 import time
@@ -120,8 +118,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.tunnelCenterOffset = 9.0
         self.tunnelCenterInfluence = 0.6
         self.pivotAngle = 90 + 45
-        self.posIndex = 0
-        self.houseId = 0
         self.money = 0
         self.bankMoney = 0
         self.maxMoney = 0
@@ -684,12 +680,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         numAccessories = (len(self.hatList) + len(self.glassesList) + len(self.backpackList) + len(self.shoesList)) / 3
         return numAccessories + extraAccessories >= self.maxAccessories
 
-    def setMaxClothes(self, max):
-        self.maxClothes = max
-
-    def getMaxClothes(self):
-        return self.maxClothes
-
     def getClothesTopsList(self):
         return self.clothesTopsList
 
@@ -703,8 +693,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.clothesBottomsList = clothesList
 
     def isClosetFull(self, extraClothes = 0):
-        numClothes = len(self.clothesTopsList) / 4 + len(self.clothesBottomsList) / 2
-        return numClothes + extraClothes >= self.maxClothes
+        return False
 
     def setMaxHp(self, hitPoints):
         DistributedPlayer.DistributedPlayer.setMaxHp(self, hitPoints)
@@ -725,9 +714,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             #       'avId': -1,
             #       'battle': 1}])
         return
-
-    def setInterface(self, string):
-        pass
 
     def setZonesVisited(self, hoods):
         self.safeZonesVisited = hoods
@@ -1217,25 +1203,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.emoteAccess = bits
         if self == base.localAvatar:
             messenger.send('emotesChanged')
-
-    def b_setHouseId(self, id):
-        self.setHouseId(id)
-        self.d_setHouseId(id)
-
-    def d_setHouseId(self, id):
-        self.sendUpdate('setHouseId', [id])
-
-    def setHouseId(self, id):
-        self.houseId = id
-
-    def getHouseId(self):
-        return self.houseId
-
-    def setPosIndex(self, index):
-        self.posIndex = index
-
-    def getPosIndex(self):
-        return self.posIndex
 
     def b_setSpeedChatStyleIndex(self, index):
         realIndexToSend = 0
@@ -2288,9 +2255,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
             friend = self.cr.doId2do.get(friendId)
             if not friend:
                 continue
-
-            if hasattr(base.localAvatar, 'inEstate') and base.localAvatar.inEstate:
-                base.cr.estateMgr.removeFriend(self.getDoId(), friendId)
 
     def doTeleport(self, hood):
         if hood == 'GUI':

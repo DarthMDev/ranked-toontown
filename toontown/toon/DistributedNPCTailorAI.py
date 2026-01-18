@@ -60,9 +60,6 @@ class DistributedNPCTailorAI(DistributedNPCToonBaseAI):
         DistributedNPCToonBaseAI.avatarEnter(self)
 
     def isClosetAlmostFull(self, av):
-        numClothes = len(av.clothesTopsList) / 4 + len(av.clothesBottomsList) / 2
-        if numClothes >= av.maxClothes - 1:
-            return 1
         return 0
 
     def sendShoppingMovie(self, avId, flag):

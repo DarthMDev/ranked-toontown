@@ -27,7 +27,6 @@ from toontown.coghq.PromotionManagerAI import PromotionManagerAI
 from toontown.distributed.ToontownDistrictAI import ToontownDistrictAI
 from toontown.distributed.ToontownDistrictStatsAI import ToontownDistrictStatsAI
 from toontown.distributed.ToontownInternalRepository import ToontownInternalRepository
-from toontown.estate.EstateManagerAI import EstateManagerAI
 from toontown.fishing.FishManagerAI import FishManagerAI
 from toontown.hood import ZoneUtil
 from toontown.hood.BRHoodDataAI import BRHoodDataAI
@@ -115,7 +114,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.tutorialManager = None
         self.friendManager = None
         self.toontownTimeManager = None
-        self.estateMgr = None
         self.magicWordManager = None
         self.deliveryManager = None
         self.leaderboardManager: LeaderboardManagerAI | None = None
@@ -284,10 +282,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         # Generate our friend manager...
         self.friendManager = FriendManagerAI(self)
         self.friendManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
-
-        # Generate our estate manager...
-        self.estateMgr = EstateManagerAI(self)
-        self.estateMgr.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
 
         # Generate our Magic Word manager...
         self.magicWordManager = TTOffMagicWordManagerAI(self)
