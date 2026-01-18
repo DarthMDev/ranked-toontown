@@ -115,13 +115,12 @@ class GameServicesManager(DistributedObjectGlobal):
 
     def acceptLogin(self):
         # Bring window to foreground
-        wp = WindowProperties()
-        self.__bringToFront(wp)
-        taskMgr.doMethodLater(0.5, self.__bringToNormal, 'bringToNormal', extraArgs=[wp])
-
         messenger.send(self.doneEvent, [{'mode': 'success'}])
 
         if self.discordAuthChoice is not None:
+            wp = WindowProperties()
+            self.__bringToFront(wp)
+            taskMgr.doMethodLater(0.5, self.__bringToNormal, 'bringToNormal', extraArgs=[wp])
             self.discordAuthChoice.cleanup()
             self.discordAuthChoice = None
 

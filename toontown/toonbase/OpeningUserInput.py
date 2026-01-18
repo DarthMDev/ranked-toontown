@@ -215,9 +215,6 @@ class OpeningUserInput(DirectObject):
         # Is an env var set?
         gameserver = os.getenv('GAMESERVER')
         if gameserver is not None:
-            # This is a development hack. This environment variable is only ever used in development and prevents the
-            # game from softlocking itself when booting up multiple clients at the same time.
-            time.sleep(random.random() * 3)
             base.startShow(self.cr, gameserver)
             return
 
