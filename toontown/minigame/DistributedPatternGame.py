@@ -1,20 +1,16 @@
-from panda3d.core import *
 from libotp import *
-from toontown.toonbase.ToonBaseGlobal import *
 from direct.interval.IntervalGlobal import *
 from .DistributedMinigame import *
 from direct.gui.DirectGui import *
-from direct.fsm import ClassicFSM, State
+from direct.fsm import ClassicFSM
 from direct.fsm import State
 from toontown.toonbase import ToontownTimer
 from . import PatternGameGlobals
-from toontown.toon import ToonHead
 from toontown.char import CharDNA
 from toontown.char import Char
-from . import ArrowKeys
+from .controls import ArrowKeys
 import random
 from toontown.toonbase import ToontownGlobals
-import string
 from toontown.toonbase import TTLocalizer
 
 class DistributedPatternGame(DistributedMinigame):

@@ -1,14 +1,5 @@
-from panda3d.core import *
-from direct.interval.IntervalGlobal import *
-from toontown.toonbase.ToonBaseGlobal import *
-from toontown.toonbase import TTLocalizer
-from direct.gui.DirectFrame import DirectFrame
-from direct.gui.DirectGui import DGG
-from direct.task.Task import Task
-from direct.fsm import ClassicFSM, State
-from direct.directnotify import DirectNotifyGlobal
 from .DistributedMinigame import *
-from . import MinigameAvatarScorePanel, ArrowKeys, ToonBlitzAssetMgr, TwoDCamera
+from . import MinigameAvatarScorePanel, ToonBlitzAssetMgr, TwoDCamera
 from . import TwoDSectionMgr, ToonBlitzGlobals, TwoDGameToonSD
 from toontown.toonbase import ToontownTimer
 from .TwoDWalk import *

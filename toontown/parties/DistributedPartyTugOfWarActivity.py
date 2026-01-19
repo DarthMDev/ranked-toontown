@@ -14,7 +14,7 @@ from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from toontown.effects import Splash
 from toontown.minigame.MinigamePowerMeter import MinigamePowerMeter
-from toontown.minigame.ArrowKeys import ArrowKeys
+from toontown.minigame.controls.ArrowKeys import ArrowKeys
 from . import PartyGlobals
 from . import PartyUtils
 from .DistributedPartyTeamActivity import DistributedPartyTeamActivity

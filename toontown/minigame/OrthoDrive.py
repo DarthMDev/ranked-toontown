@@ -1,8 +1,8 @@
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from otp.otpbase import OTPGlobals
-from toontown.toonbase.ToonBaseGlobal import *
-from . import ArrowKeys
+from .controls import ArrowKeys
+
 
 class OrthoDrive:
     notify = DirectNotifyGlobal.directNotify.newCategory('OrthoDrive')
