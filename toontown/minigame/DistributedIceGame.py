@@ -6,7 +6,7 @@ from direct.distributed.ClockDelta import globalClockDelta
 from direct.gui.DirectGui import DirectLabel
 from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, LerpFunctionInterval, Func, Parallel, LerpPosInterval, Wait, SoundInterval, LerpColorScaleInterval
 from toontown.toonbase import ToontownGlobals, TTLocalizer, ToontownTimer
-from toontown.minigame import ArrowKeys
+from toontown.minigame.controls import ArrowKeys
 from toontown.minigame import DistributedMinigame
 from toontown.minigame import DistributedIceWorld
 from toontown.minigame import IceGameGlobals

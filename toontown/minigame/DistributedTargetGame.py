@@ -1,18 +1,15 @@
-from panda3d.core import *
-from toontown.toonbase.ToonBaseGlobal import *
 from direct.interval.IntervalGlobal import *
 from .DistributedMinigame import *
 from direct.distributed.ClockDelta import *
-from direct.fsm import ClassicFSM, State
+from direct.fsm import ClassicFSM
 from direct.fsm import State
 from direct.task import Task
-from . import ArrowKeys
+from .controls import ArrowKeys
 from . import TargetGameGlobals
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
 import math
 from math import *
-import random
 import random
 from . import RubberBand
 from . import FogOverlay

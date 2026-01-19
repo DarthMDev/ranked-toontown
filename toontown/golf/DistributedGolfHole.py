@@ -1,23 +1,19 @@
 import math
-import random
-import time
 from panda3d.core import TextNode, BitMask32, Point3, Vec3, Vec4, deg2Rad, Mat3, NodePath, VBase4, CollisionTraverser, CollisionSegment, CollisionNode, CollisionHandlerQueue
-from panda3d.ode import OdeTriMeshData, OdeTriMeshGeom, OdeRayGeom
-from direct.distributed import DistributedObject
-from direct.directnotify import DirectNotifyGlobal
-from otp.otpbase import OTPGlobals
+from panda3d.ode import OdeRayGeom
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownTimer
 from direct.gui.DirectGui import DirectWaitBar, DGG, DirectLabel
 from direct.task import Task
 from direct.fsm.FSM import FSM
-from toontown.minigame import ArrowKeys
+from toontown.minigame.controls import ArrowKeys
 from direct.showbase import PythonUtil
 from toontown.golf import BuildGeometry
 from toontown.golf import DistributedPhysicsWorld
 from toontown.golf import GolfGlobals
-from direct.interval.IntervalGlobal import Sequence, Parallel, LerpScaleInterval, LerpFunctionInterval, Func, Wait, SoundInterval, ParallelEndTogether, LerpPosInterval, ActorInterval, LerpPosHprInterval, LerpColorScaleInterval, WaitInterval
+from direct.interval.IntervalGlobal import Sequence, Parallel, LerpScaleInterval, LerpFunctionInterval, Func, Wait, SoundInterval, \
+    ActorInterval, LerpPosHprInterval, LerpColorScaleInterval, WaitInterval
 from direct.actor import Actor
 from toontown.golf import GolfHoleBase
 from toontown.distributed import DelayDelete

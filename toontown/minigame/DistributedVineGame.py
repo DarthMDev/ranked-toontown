@@ -10,7 +10,7 @@ from direct.fsm import ClassicFSM, State
 from toontown.toonbase import TTLocalizer
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame import SwingVine
-from toontown.minigame import ArrowKeys
+from toontown.minigame.controls import ArrowKeys
 from toontown.minigame import VineGameGlobals
 from toontown.minigame import VineTreasure
 from toontown.minigame import MinigameAvatarScorePanel

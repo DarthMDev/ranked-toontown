@@ -1,5 +1,3 @@
-from direct.showbase.ShowBaseGlobal import *
-from toontown.toonbase.ToonBaseGlobal import *
 from direct.interval.IntervalGlobal import *
 from toontown.toonbase import ToontownTimer
 from .DistributedMinigame import *
@@ -10,13 +8,8 @@ from direct.task import Task
 from direct.actor import Actor
 from toontown.toon import LaffMeter
 from direct.distributed import DistributedSmoothNode
-from . import ArrowKeys
-from . import Ring
-from . import RingTrack
+from .controls import ArrowKeys
 from . import DivingGameGlobals
-from . import RingGroup
-from . import RingTrackGroups
-import random
 from . import DivingGameToonSD
 from . import DivingFishSpawn
 from . import DivingTreasure
