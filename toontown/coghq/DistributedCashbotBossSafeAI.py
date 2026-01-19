@@ -366,8 +366,6 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
         
     def enterDropped(self, avId, craneId):
         super().enterDropped(avId, craneId)
-        if self.index != 0:  # Only trigger for non-helmet safes during aim mode
-            self.boss.practiceCheatHandler.handleSafeDropped(self)
 
     def move(self, x, y, z, rotation):
         # Update the safe's position and heading

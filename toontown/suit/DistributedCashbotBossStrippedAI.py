@@ -181,8 +181,6 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
 
         if attackCode in (ToontownGlobals.BossCogDizzy, ToontownGlobals.BossCogDizzyNow):
             delayTime = self.game.progressValue(20, 5)
-            if self.game.practiceCheatHandler.wantAlwaysStunned:
-                delayTime = 3600
             self.hitCount = 0
         elif attackCode in (ToontownGlobals.BossCogSlowDirectedAttack,):
             delayTime = ToontownGlobals.BossCogAttackTimes.get(attackCode)
@@ -298,12 +296,6 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         damage_stuns = damage >= self.ruleset.CFO_STUN_THRESHOLD
         is_sidecrane = isinstance(crane, DistributedCashbotBossSideCraneAI.DistributedCashbotBossSideCraneAI)
         hard_hit = impact >= self.ruleset.SIDECRANE_IMPACT_STUN_THRESHOLD
-
-        if self.game.practiceCheatHandler.wantStunning:
-            return True
-
-        if self.game.practiceCheatHandler.wantNoStunning:
-            return False
 
         # Is the damage enough?
         if damage_stuns:

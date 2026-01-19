@@ -19,7 +19,6 @@ from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlat
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.CraneGamePracticeCheatAI import CraneGamePracticeCheatAI
 from toontown.suit.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
 from toontown.suit.DistributedCashbotBossStrippedAI import DistributedCashbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
@@ -112,9 +111,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.overtimeWillHappen = False  # Setting this to True will cause the CFO to enter "overtime" mode when time runs out.
         self.currentlyInOvertime = False  # Only true when the game is currently in overtime.
         self.currentWinners: list[int] = []  # Keeps track of who's in the lead so we know when to trigger overtime.
-
-        # Instances of "cheats" that can be interacted with to make the crane round behave a certain way.
-        self.practiceCheatHandler: CraneGamePracticeCheatAI = CraneGamePracticeCheatAI(self)
 
         self.statusEffectSystem: DistributedStatusEffectSystemAI | None = None
         self.droneCooldowns = {}  # Track drone deployment cooldowns per player per slot {avId: {slotIndex: nextAvailableTime}}
@@ -229,10 +225,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if self.scene is not None:
             self.scene.removeNode()
             self.scene = None
-        
-        # Break circular references
-        if hasattr(self, 'practiceCheatHandler'):
-            self.practiceCheatHandler = None
 
     def delete(self):
         self.notify.debug("delete")
@@ -753,16 +745,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         To limit the amount of RNG present, we prevent goons from spawning from the same side over and over in a row.
         """
 
-        if self.practiceCheatHandler.wantOpeningModifications:
-            # Controlled goon spawning logic, activated through commands.
-            # Evaluate the toon position and spawn a goon based on it.
-            avId = self.avIdList[self.practiceCheatHandler.openingModificationsToonIndex]
-            toon = self.air.doId2do.get(avId)
-            pos = toon.getPos()
-            if pos[1] < -315:
-                return 'EmergeB'
-            return 'EmergeA'
-
         # Default goon spawning logic.
         # Is it okay to pick a random side?
         if self.goonCache[1] < 2:
@@ -811,9 +793,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             #If we are in OT and we roll a falling goon and it's not a forced normal spawn
             if self.currentlyInOvertime and falling and not forceNormalSpawn:
                 pass
-            #Or if we are in live goon practice mode
-            elif self.practiceCheatHandler.wantGoonPractice:
-                pass
             else:
                 return
 
@@ -840,7 +819,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             goon_hfov = self.progressRandomValue(70, 80)
             goon_attack_radius = self.progressRandomValue(6, 15)
             goon_strength = int(self.progressRandomValue(self.ruleset.MIN_GOON_DAMAGE, self.ruleset.MAX_GOON_DAMAGE))
-            goon_scale = self.progressRandomValue(self.goonMinScale, self.goonMaxScale, noRandom=self.practiceCheatHandler.wantMaxSizeGoons)
+            goon_scale = self.progressRandomValue(self.goonMinScale, self.goonMaxScale)
 
         # Apply multipliers if necessary
         goon_velocity *= self.ruleset.GOON_SPEED_MULTIPLIER
@@ -901,8 +880,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.makeGoon()
         # How long to wait for the next goon?
         delayTime = self.progressValue(10, 2)
-        if self.practiceCheatHandler.wantFasterGoonSpawns:
-            delayTime = 4
         self.waitForNextGoon(delayTime)
 
     def progressValue(self, fromValue, toValue):
@@ -1482,14 +1459,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Laff drain?
         if self.ruleset.WANT_LAFF_DRAIN:
             self.startDrainingLaff(self.ruleset.LAFF_DRAIN_FREQUENCY)
-
-        # Check for special logic if we are restarting the round with cheats enabled previously.
-        self.practiceCheatHandler.checkCheatModifier()
-        if self.practiceCheatHandler.wantAimPractice or self.practiceCheatHandler.wantAimRightPractice or self.practiceCheatHandler.wantAimLeftPractice or self.practiceCheatHandler.wantAimAlternatePractice or self.practiceCheatHandler.wantGoonPractice:
-            self.practiceCheatHandler.setupAimMode()
-        if self.practiceCheatHandler.cheatIsEnabled():
-            taskMgr.remove(self.uniqueName('times-up-task'))
-            self.d_updateTimer()
 
         if self.ruleset.WANT_ELEMENTAL_MASTERY_MODE:
             self.startSafeEffectTask()
