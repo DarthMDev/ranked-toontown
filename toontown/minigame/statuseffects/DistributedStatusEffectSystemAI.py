@@ -1,7 +1,6 @@
 from __future__ import annotations
 from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect
 from direct.distributed.DistributedObjectAI import DistributedObjectAI
-from toontown.minigame.statuseffects.CraneGameEventContext import CraneGameBossHitContext
 
 class DistributedStatusEffectSystemAI(DistributedObjectAI):
     def __init__(self, game, air, *statusEffects: StatusEffect):
