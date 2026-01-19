@@ -3961,18 +3961,6 @@ dclass DistributedCraneGame: DistributedMinigame {
   handleSpotStatusChanged(uint8 spotIndex, bool isPlayer) airecv clsend;
   updateSpotStatus(uint8 spotIndex, bool isPlayer) broadcast ram;
   addModifier(uint32 modifierEnum, uint8 tier) airecv clsend;
-  
-  // Tournament system
-  startTournament(int8 tournamentType, int8 stageConfig, int8 stage2Type, uint32 participants[]) airecv clsend;
-  cancelTournament() airecv clsend;
-  setTournamentActive(int8 tournamentType) broadcast ram;
-  setTournamentProgress(uint8 currentStage, uint8 totalStages, uint8 currentMatch, uint8 totalMatches) broadcast ram;
-  setTournamentStandings(uint32[], uint8[], uint32[], uint32[]) broadcast ram;
-  requestMatchReady(uint32[], uint32, uint32) broadcast ram;
-  startMatchCountdown() broadcast ram;
-  setMatchReady() clsend airecv;
-  setPlayerReadyStatus(uint32, bool) broadcast ram;
-  declareTournamentWinner(uint32 winnerId) broadcast;
   removeModifier(uint32 modifierEnum) airecv clsend;
   requestForfeit() airecv clsend;
   confirmForfeit() airecv clsend;
