@@ -3,8 +3,10 @@ from direct.distributed.DistributedObjectAI import DistributedObjectAI
 from direct.distributed.DistributedObjectGlobalAI import DistributedObjectGlobalAI
 
 from toontown.groups import GroupGlobals
-from toontown.groups.DistributedGroupAI import DistributedGroupAI
+from toontown.groups.Group import Group
+from toontown.groups.GroupMemberStruct import GroupMemberStruct
 from toontown.groups.GroupOperationResult import GroupOperationResult
+from toontown.groups.GroupBase import GroupBase
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 
@@ -25,10 +27,11 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
     def __init__(self, air):
         super().__init__(air)
-        self.groups: list[DistributedGroupAI] = []
+        self.groups: list[Group] = []
 
     def generate(self):
         super().generate()
+        self.Notify.setDebug(True)
         self.Notify.info("Starting up...")
         self.accept('avatarExited', self.__handleUnexpectedExit)
 
@@ -42,7 +45,7 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         self.groups.clear()
 
-    def getGroup(self, toon: DistributedToonAI) -> DistributedGroupAI | None:
+    def getGroup(self, toon: DistributedToonAI) -> Group | None:
         """
         Gets the current group this toon is in. Returns None if this toon is not in the group.
         """
@@ -52,7 +55,7 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         return None
 
-    def createGroup(self, leader: DistributedToonAI) -> DistributedGroupAI:
+    def createGroup(self, leader: DistributedToonAI) -> Group:
         """
         Creates a new group on the toon. Returns the new group.
         If this toon is already in a group, the old one will be returned.
@@ -61,21 +64,36 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         group = self.getGroup(leader)
         if group is not None:
+            self.Notify.debug(f"createGroup: Leader {leader.getDoId()} already in group")
             return group
 
-        # Create a new group!
-        group = DistributedGroupAI(self.air, leader)
-        group.generateWithRequired(self.zoneId)
+        # Create a new group! (Not a distributed object, just a GroupBase instance)
+        self.Notify.debug(f"createGroup: Creating new group for leader {leader.getDoId()}")
+        group = Group(self.air, leader)
         self.groups.append(group)
+        
+        # Generate a unique group ID for reference (not a DO ID)
+        group.groupId = self.air.allocateChannel()
+        self.Notify.debug(f"createGroup: Created group with ID {group.groupId}")
 
         # Setup the required state.
+        members = group.getMembers()
+        self.Notify.debug(f"createGroup: Group {group.groupId} has {len(members)} members: {[m.avId for m in members]}")
         group.b_setCapacity(group.DefaultCapacity)
-        group.b_setMembers(group.getMembers())
-        self.d_setCurrentGroup(leader.getDoId(), group.getDoId())
+        
+        # Send group state to the leader through the global GroupManager
+        self.Notify.debug(f"createGroup: Sending group state to {leader.getDoId()} for group {group.groupId}")
+        self.d_setGroupState(leader.getDoId(), group.groupId, members, group.getCapacity(), group.desiredMinigame)
         return group
 
-    def deleteGroup(self, group: DistributedGroupAI):
-        group.requestDelete()
+    def deleteGroup(self, group: Group):
+        """
+        Deletes a group and notifies all members.
+        """
+        # Notify all members that they're leaving the group
+        for avId in group.getMemberIds():
+            self.d_setGroupState(avId, GroupBase.NoGroup, [], 0, 0)
+        
         if group in self.groups:
             self.groups.remove(group)
 
@@ -143,7 +161,26 @@ class GroupManagerAI(DistributedObjectGlobalAI):
     Astron Methods (Outgoing)
     """
 
+    def d_setGroupState(self, avId: int, groupId: int, members: list[GroupMemberStruct], capacity: int, minigameType: int):
+        """
+        Sends the complete group state to a client through the global GroupManager.
+        """
+        self.Notify.debug(f"d_setGroupState: Sending group state to avatar {avId} for group {groupId} with {len(members)} members")
+        memberStructs = [m.to_struct() for m in members]
+        self.sendUpdateToAvatarId(avId, "setGroupState", [groupId, memberStructs, capacity, minigameType])
+    
+    def d_setMinigameZone(self, avId: int, zoneId: int, gameId: int):
+        """
+        Sends minigame zone information to a client through the global GroupManager.
+        """
+        self.Notify.debug(f"d_setMinigameZone: Sending minigame zone to avatar {avId}: zone={zoneId}, gameId={gameId}")
+        self.sendUpdateToAvatarId(avId, "setMinigameZone", [zoneId, gameId])
+    
     def d_setCurrentGroup(self, avId: int, groupId: int):
+        """
+        DEPRECATED: Use d_setGroupState instead. Kept for backwards compatibility.
+        """
+        self.Notify.debug(f"d_setCurrentGroup: DEPRECATED - Sending setCurrentGroup to avatar {avId} for group {groupId}")
         self.sendUpdateToAvatarId(avId, "setCurrentGroup", [groupId])
 
     """
@@ -182,10 +219,15 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         # This is a valid operation.
         group.removeMember(toKickId)
-        group.b_setMembers(group.getMembers())
-
-        # Is this group empty? If so, delete it.
-        if len(group.getMembers()) == 0:
+        
+        # Notify the kicked member they're leaving the group
+        self.d_setGroupState(toKickId, GroupBase.NoGroup, [], 0, 0)
+        
+        # Update remaining members
+        if len(group.getMembers()) > 0:
+            group.b_setMembers(group.getMembers())
+        else:
+            # Group is empty, delete it
             self.deleteGroup(group)
 
     def invitePlayer(self, toInviteId: int):
@@ -202,7 +244,7 @@ class GroupManagerAI(DistributedObjectGlobalAI):
             # Is this invite allowed to go through?
             case GroupOperationResult.SUCCESS | GroupOperationResult.SUCCESS_BOTH_GROUPLESS:
                 group = self.getGroup(inviter)
-                self.sendUpdateToAvatarId(toInviteId, "sendInvite", [inviterId, group.getDoId() if group is not None else 0])
+                self.sendUpdateToAvatarId(toInviteId, "sendInvite", [inviterId, group.groupId if group is not None else 0])
                 if group is not None:
                     group.announce(f"{inviter.getName()} has invited {otherToon.getName()}.")
                 else:
@@ -210,15 +252,19 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
             # Is this toon inviting themselves?
             case GroupOperationResult.IS_SAME_PERSON:
+                self.Notify.debug(f"invitePlayer: Toon {inviterId} is inviting themselves (IS_SAME_PERSON)")
                 group = self.getGroup(inviter)
                 # If this toon is in a group it would not make sense to invite them.
                 if group is not None:
+                    self.Notify.debug(f"invitePlayer: Toon {inviterId} already in group {group.groupId}")
                     inviter.d_setSystemMessage(0, f"You are already in a group. Why are you inviting yourself?")
                     return
 
                 # This is valid! Start a group with ourselves...
+                self.Notify.debug(f"invitePlayer: Creating new group for toon {inviterId}")
                 group = self.createGroup(inviter)
-                self.d_setCurrentGroup(inviterId, group.getDoId())
+                self.Notify.debug(f"invitePlayer: Created group {group.groupId}, sending group state to {inviterId}")
+                self.d_setGroupState(inviterId, group.groupId, group.getMembers(), group.getCapacity(), group.desiredMinigame)
                 group.announce(f"Started a new group!")
 
             # Failed?
@@ -260,7 +306,8 @@ class GroupManagerAI(DistributedObjectGlobalAI):
                 group = self.createGroup(inviter)
                 group.addMember(invited.getDoId())
                 group.b_setMembers(group.getMembers())
-                self.d_setCurrentGroup(deciderId, group.getDoId())
+                # State already broadcast by b_setMembers, but also send to the new member
+                self.d_setGroupState(deciderId, group.groupId, group.getMembers(), group.getCapacity(), group.desiredMinigame)
                 group.announce(f"{inviter.getName()} has started a group with {invited.getName()}")
 
             # Normal invite to a group?
@@ -268,7 +315,8 @@ class GroupManagerAI(DistributedObjectGlobalAI):
                 group = self.getGroup(inviter)
                 group.addMember(deciderId)
                 group.b_setMembers(group.getMembers())
-                self.d_setCurrentGroup(deciderId, group.getDoId())
+                # State already broadcast by b_setMembers, but also send to the new member
+                self.d_setGroupState(deciderId, group.groupId, group.getMembers(), group.getCapacity(), group.desiredMinigame)
                 group.announce(f"{invited.getName()} has joined the group!")
 
             # Failed?
@@ -404,7 +452,7 @@ class GroupManagerAI(DistributedObjectGlobalAI):
         member.status = code
 
         if shouldUpdate:
-            group.d_setMembers(group.getMembers())
+            group.b_setMembers(group.getMembers())
 
     def requestMinigameSwitch(self, minigameId: int):
 

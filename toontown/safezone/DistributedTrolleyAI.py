@@ -9,7 +9,7 @@ from direct.task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame import TrolleyHolidayMgrAI
 from toontown.minigame import TrolleyWeekendMgrAI
-from ..groups.DistributedGroupAI import DistributedGroupAI
+from ..groups.Group import Group
 from ..toonbase import ToontownGlobals
 
 
@@ -170,7 +170,7 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
             self.notify.warning('avid: %s does not exist, but tried to board a trolley' % avId)
         return
 
-    def acceptingAllGroupBoardersHandler(self, group: DistributedGroupAI):
+    def acceptingAllGroupBoardersHandler(self, group: Group):
         """
         If all toons are ready, make them board the trolley. Otherwise, reject the leader.
         """
@@ -209,7 +209,7 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
         else:
             self.notify.warning('avId: %s does not exist, but tried to exit a trolley' % avId)
 
-    def acceptingAllGroupExitersHandler(self, group: DistributedGroupAI):
+    def acceptingAllGroupExitersHandler(self, group: Group):
         """
         The leader has decided to hop off the trolley. Everyone who is in the group should do the same.
         """

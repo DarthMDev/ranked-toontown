@@ -1,7 +1,5 @@
 import time
 
-from direct.distributed.DistributedObjectAI import DistributedObjectAI
-
 from toontown.groups import GroupGlobals
 from toontown.groups.GroupBase import GroupBase
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
@@ -9,11 +7,16 @@ from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 
 
-class DistributedGroupAI(DistributedObjectAI, GroupBase):
+class Group(GroupBase):
+    """
+    Represents a group on the AI side. This is NOT a distributed object.
+    Group state is sent to clients through the global GroupManagerAI.
+    """
 
     def __init__(self, air, leader: DistributedToonAI):
-        DistributedObjectAI.__init__(self, air)
         GroupBase.__init__(self, leader.getDoId())
+        self.air = air
+        self.groupId = 0  # Will be set when group is created
         self.activityStartCooldown = 0
         self.desiredMinigame = ToontownGlobals.CraneGameId
 
@@ -36,9 +39,12 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
 
     def announce(self, message: str) -> None:
         """
-        Announces a message to the toons in the group.
+        Announces a message to all members in the group.
         """
-        self.d_announce(message)
+        for avId in self.getMemberIds():
+            toon = self.air.getDo(avId)
+            if toon:
+                toon.d_setSystemMessage(0, message)
 
     def onCooldown(self) -> bool:
         if self.activityStartCooldown > time.time():
@@ -52,40 +58,55 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
 
         self.announce("Activity starting...")
         self.activityStartCooldown = time.time() + 6
-        minigame = self.air.minigameMgr.createMinigame(self.getMemberIds(), self.zoneId, hostId=self.getLeader(), spectatorIds=self.getSpectators(), desiredNextGame=self.desiredMinigame)
+        # Get zone from leader
+        leader = self.air.getDo(self.getLeader())
+        zoneId = leader.zoneId if leader else 0
+        minigame = self.air.minigameMgr.createMinigame(self.getMemberIds(), zoneId, hostId=self.getLeader(), spectatorIds=self.getSpectators(), desiredNextGame=self.desiredMinigame)
         self.d_setMinigameZone(minigame)
 
     """
-    Astron Methods (Outgoing)
+    Methods to update group state and notify clients through GroupManagerAI
     """
 
     def b_setMembers(self, members: list[GroupMemberStruct]):
+        """
+        Updates members and sends state to all group members through GroupManagerAI.
+        """
         self.setMembers(members)
-        self.d_setMembers(members)
-
-    def d_setMembers(self, members: list[GroupMemberStruct]):
-        self.sendUpdate('setMembers', [[member.to_struct() for member in members]])
+        self.broadcastGroupState()
 
     def b_setCapacity(self, capacity: int):
+        """
+        Updates capacity and sends state to all group members through GroupManagerAI.
+        """
         self.setCapacity(capacity)
-        self.d_setCapacity(capacity)
+        self.broadcastGroupState()
 
-    def d_setCapacity(self, capacity: int):
-        self.sendUpdate('setCapacity', [capacity])
-
-    def d_announce(self, message: str):
+    def broadcastGroupState(self):
         """
-        Sends a message to all members in the group. It is probably ideal if this isn't just sending raw strings over
-        the network for localizing purposes, but this is fine for now.
+        Sends the current group state to all members through the global GroupManagerAI.
         """
-        self.sendUpdate('announce', [message])
+        if not hasattr(self, 'groupId') or self.groupId == 0:
+            return
+        
+        groupManager = self.air.groupManager
+        if groupManager is None:
+            return
+        
+        for avId in self.getMemberIds():
+            groupManager.d_setGroupState(avId, self.groupId, self.getMembers(), self.getCapacity(), self.desiredMinigame)
 
     def d_setMinigameZone(self, minigame):
         """
         Forces all members to teleport to a newly created minigame.
+        Sends through GroupManagerAI.
         """
+        groupManager = self.air.groupManager
+        if groupManager is None:
+            return
+        
         for avId in self.getMemberIds():
-            self.sendUpdateToAvatarId(avId, 'setMinigameZone', [minigame.zone, minigame.gameId])
+            groupManager.d_setMinigameZone(avId, minigame.zone, minigame.gameId)
 
     def getNumPlayersNotReady(self) -> int:
         notReady = 0
@@ -95,8 +116,8 @@ class DistributedGroupAI(DistributedObjectAI, GroupBase):
         return notReady
 
     def b_setMinigameType(self, minigameId):
+        """
+        Updates minigame type and broadcasts to all members.
+        """
         self.desiredMinigame = minigameId
-        self.d_setMinigameType(minigameId)
-
-    def d_setMinigameType(self, minigameId: int):
-        self.sendUpdate('setMinigameType', [minigameId])
+        self.broadcastGroupState()

@@ -184,6 +184,10 @@ class DistributedMinigame(DistributedObject.DistributedObject):
                 maxDuration = calcMaxDuration()
                 self.randomNetPlugPullDelay = random.random() * maxDuration
                 taskMgr.doMethodLater(self.randomNetPlugPullDelay, self.doRandomNetworkPlugPull, self.uniqueName('random-netplugpull'))
+        
+        # Create debug button for group data (only if local toon is in minigame)
+        if self.hasLocalToon:
+            self.__createGroupDebugButton()
 
     def doRandomAbort(self, task):
         print('*** DOING RANDOM MINIGAME ABORT AFTER %.2f SECONDS ***' % self.randomAbortDelay)
@@ -208,6 +212,11 @@ class DistributedMinigame(DistributedObject.DistributedObject):
                 av.detachNode()
 
         messenger.send('minigameOffstage')
+        
+        # Clean up debug button
+        if hasattr(self, 'groupDebugButton'):
+            self.groupDebugButton.destroy()
+            del self.groupDebugButton
 
     def unload(self):
         self.notify.debug('BASE: unload')
@@ -546,6 +555,53 @@ class DistributedMinigame(DistributedObject.DistributedObject):
     def d_requestExit(self):
         self.notify.debug('BASE: Sending requestExit')
         self.sendUpdate('requestExit', [])
+    
+    def __createGroupDebugButton(self):
+        """Creates a debug button to print group data on both client and AI."""
+        from direct.gui.DirectButton import DirectButton
+        from direct.gui.DirectGui import DGG
+        
+        self.groupDebugButton = DirectButton(
+            parent=base.a2dTopRight,
+            pos=(-0.15, 0, -0.1),
+            scale=0.06,
+            text='Debug Group',
+            text_scale=0.5,
+            command=self.__handleGroupDebug
+        )
+    
+    def __handleGroupDebug(self):
+        """Prints group data on client and sends request to AI to print group data."""
+        self.notify.info('=' * 80)
+        self.notify.info('CLIENT GROUP DEBUG DATA')
+        self.notify.info('=' * 80)
+        
+        if not hasattr(base.cr, 'groupManager') or base.cr.groupManager is None:
+            self.notify.info('GroupManager not found!')
+            return
+        
+        gm = base.cr.groupManager
+        self.notify.info(f'Group ID: {gm.groupId}')
+        self.notify.info(f'Is in group: {gm.isInGroup()}')
+        self.notify.info(f'Leader: {gm.getLeader()}')
+        self.notify.info(f'Capacity: {gm.getCapacity()}')
+        self.notify.info(f'Minigame Type: {gm.minigameType}')
+        self.notify.info(f'Member IDs: {gm.getMemberIds()}')
+        self.notify.info(f'Member Count: {gm.getMemberCount()}')
+        
+        members = gm.getMembers()
+        self.notify.info(f'Members ({len(members)}):')
+        for member in members:
+            self.notify.info(f'  - avId: {member.avId}, team: {member.team}, status: {member.status}, leader: {member.leader}')
+        
+        self.notify.info('=' * 80)
+        
+        # Send request to AI to also print group data
+        self.sendUpdate('requestGroupDebug', [])
+    
+    def requestGroupDebug(self):
+        """Called from AI when group debug is requested. This is a no-op on client."""
+        pass
 
     def enterFrameworkInit(self):
         self.notify.debug('BASE: enterFrameworkInit')

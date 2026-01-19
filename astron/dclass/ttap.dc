@@ -34,7 +34,6 @@ from toontown.building import DistributedAnimatedProp/AI
 from toontown.toon import DistributedToon/AI/UD
 from toontown.safezone import DistributedTrolley/AI
 from toontown.groups import GroupManager/AI/UD
-from toontown.groups import DistributedGroup/AI
 from toontown.suit import DistributedSuitPlanner/AI
 from toontown.suit import DistributedSuitBase/AI
 from toontown.suit import DistributedSuit/AI
@@ -1181,14 +1180,9 @@ dclass GroupManager : DistributedObject {
   requestMinigameSwitch(uint32 minigameId) airecv clsend;
   updateStatus(uint8 code) airecv clsend;
   setCurrentGroup(int32 groupId);
-};
-
-dclass DistributedGroup : DistributedObject {
-  setMembers(GroupMember[]) required broadcast ram;
-  setCapacity(int32) required broadcast ram;
-  setMinigameZone(uint32, uint16);
-  setMinigameType(uint32) broadcast ram;
-  announce(string) broadcast;
+  // New method: sends complete group state through global object (works across zones)
+  setGroupState(int32 groupId, GroupMember [], int32 capacity, uint32 minigameType);
+  setMinigameZone(uint32 zoneId, uint16 gameId);
 };
 
 dclass DistributedSuitPlanner : DistributedObject {
@@ -1752,6 +1746,7 @@ dclass DistributedMinigame : DistributedObject {
   setGameAbort() broadcast;
   setSpectators(uint32[]) broadcast ram;
   setReadyTimeout(uint16) broadcast;
+  requestGroupDebug() airecv clsend;
 };
 
 dclass DistributedMinigameTemplate : DistributedMinigame {

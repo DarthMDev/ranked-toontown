@@ -525,9 +525,9 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
             return
 
         # Decide how we want to render the state of this button depending on our status.
-        localToonIsInGroup = base.cr.groupManager.getCurrentGroup() is not None
-        localToonLeadsGroup = localToonIsInGroup and base.cr.groupManager.getCurrentGroup().getLeader() == base.localAvatar.doId
-        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in base.cr.groupManager.getCurrentGroup().getMemberIds()
+        localToonIsInGroup = base.cr.groupManager.isInGroup()
+        localToonLeadsGroup = localToonIsInGroup and base.cr.groupManager.getLeader() == base.localAvatar.doId
+        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in base.cr.groupManager.getMemberIds()
 
         print(f"[ToonAvatarPanel] Group state: Local toon in group: {localToonIsInGroup} Local toon is leader: {localToonLeadsGroup} In same group: {viewingToonIsInSameGroup}")
 
