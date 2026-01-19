@@ -5,9 +5,9 @@ from direct.interval.IntervalGlobal import *
 from toontown.minigame.controls import ArrowKeys
 from direct.task.Task import Task
 
-class TwoDDrive:
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDDrive')
-    TASK_NAME = 'TwoDDriveTask'
+class EscapeGameDrive:
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameDrive')
+    TASK_NAME = 'EscapeGameDriveTask'
     SET_ATREST_HEADING_TASK = 'setAtRestHeadingTask'
 
     def __init__(self, game, speed, maxFrameMove = None, customCollisionCallback = None, priority = 0, setHeading = 1, upHeading = 0):
@@ -42,8 +42,8 @@ class TwoDDrive:
         self.notify.debug('start')
         self.__placeToonHOG(self.lt.getPos())
         base.localAvatar.enableAvatarControls()
-        taskMgr.remove(TwoDDrive.TASK_NAME)
-        taskMgr.add(self.__update, TwoDDrive.TASK_NAME, priority=self.priority)
+        taskMgr.remove(EscapeGameDrive.TASK_NAME)
+        taskMgr.add(self.__update, EscapeGameDrive.TASK_NAME, priority=self.priority)
 
     def __placeToonHOG(self, pos, h = None):
         if h == None:
@@ -60,8 +60,8 @@ class TwoDDrive:
     def stop(self):
         self.notify.debug('stop')
         base.localAvatar.disableAvatarControls()
-        taskMgr.remove(TwoDDrive.TASK_NAME)
-        taskMgr.remove(TwoDDrive.SET_ATREST_HEADING_TASK)
+        taskMgr.remove(EscapeGameDrive.TASK_NAME)
+        taskMgr.remove(EscapeGameDrive.SET_ATREST_HEADING_TASK)
         if hasattr(self, 'turnLocalToonIval'):
             if self.turnLocalToonIval.isPlaying():
                 self.turnLocalToonIval.pause()
@@ -130,14 +130,14 @@ class TwoDDrive:
             startAngle = self.lt.getH()
             startAngle = fitSrcAngle2Dest(startAngle, angle)
             dur = 0.1 * abs(startAngle - angle) / 90
-            self.turnLocalToonIval = LerpHprInterval(self.lt, dur, Point3(angle, 0, 0), startHpr=Point3(startAngle, 0, 0), name='TwoDDriveLerpHpr')
+            self.turnLocalToonIval = LerpHprInterval(self.lt, dur, Point3(angle, 0, 0), startHpr=Point3(startAngle, 0, 0), name='EscapeGameDriveLerpHpr')
             self.turnLocalToonIval.start()
             if self.atRestHeading != self.oldAtRestHeading:
                 self.oldAtRestHeading = self.atRestHeading
                 messenger.send('avatarOrientationChanged', [self.atRestHeading])
 
         if xVel != self.lastXVel or yVel != self.lastYVel:
-            taskMgr.remove(TwoDDrive.SET_ATREST_HEADING_TASK)
+            taskMgr.remove(EscapeGameDrive.SET_ATREST_HEADING_TASK)
             if not (xVel or yVel):
                 orientToon(self.atRestHeading)
             else:
@@ -147,7 +147,7 @@ class TwoDDrive:
                         self.atRestHeading = angle
                         return Task.done
 
-                    taskMgr.doMethodLater(0.05, setAtRestHeading, TwoDDrive.SET_ATREST_HEADING_TASK)
+                    taskMgr.doMethodLater(0.05, setAtRestHeading, EscapeGameDrive.SET_ATREST_HEADING_TASK)
                 else:
                     self.atRestHeading = curHeading
                 orientToon(curHeading)

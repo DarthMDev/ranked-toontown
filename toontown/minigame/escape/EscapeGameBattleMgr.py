@@ -7,8 +7,8 @@ from toontown.battle.BattleProps import *
 from toontown.battle import MovieUtil
 import math
 
-class TwoDBattleMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDBattleMgr')
+class EscapeGameBattleMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameBattleMgr')
 
     def __init__(self, game, toon):
         self.game = game

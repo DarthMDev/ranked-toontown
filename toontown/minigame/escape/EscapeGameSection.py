@@ -1,12 +1,12 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import ToonBlitzGlobals, TwoDBlock, TwoDStomperMgr, TwoDTreasureMgr, TwoDEnemyMgr, \
-    TwoDSpawnPointMgr
+from toontown.minigame.escape import EscapeGameGlobals, EscapeGameBlock, EscapeGameStomperMgr, EscapeGameTreasureMgr, EscapeGameEnemyMgr, \
+    EscapeGameSpawnPointMgr
 
 
-class TwoDSection(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDSection')
+class EscapeGameSection(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameSection')
 
     def __init__(self, indexNum, sectionInfo, sectionNP, sectionMgr):
         self.indexNum = indexNum
@@ -41,7 +41,7 @@ class TwoDSection(DirectObject):
         treasureIndicesSelected = sectionInfo[2]
         spawnPointIndicesSelected = sectionInfo[3]
         stomperIndicesSelected = sectionInfo[4]
-        attribs = ToonBlitzGlobals.SectionTypes[self.sectionTypeNum]
+        attribs = EscapeGameGlobals.SectionTypes[self.sectionTypeNum]
         self.length = attribs[1]
         self.blockList = attribs[2]
         enemiesPool = attribs[3]
@@ -73,18 +73,18 @@ class TwoDSection(DirectObject):
             self.notify.warning('First block of section %s does not start at (0, 0, 12)' % self.sectionTypeNum)
         for index in range(0, len(self.blockList)):
             blockAttribs = self.blockList[index]
-            fileName = ToonBlitzGlobals.BlockTypes[blockAttribs[0]][0]
+            fileName = EscapeGameGlobals.BlockTypes[blockAttribs[0]][0]
             blockIndex = int(fileName[-1])
             blockType = self.sectionMgr.game.assetMgr.blockTypes[blockIndex]
             sectionizedId = self.getSectionizedId(index)
-            newBlock = TwoDBlock.TwoDBlock(blockType, sectionizedId, blockAttribs)
+            newBlock = EscapeGameBlock.EscapeGameBlock(blockType, sectionizedId, blockAttribs)
             newBlock.model.reparentTo(self.blocksNP)
             self.blocks.append(newBlock)
 
-        self.enemyMgr = TwoDEnemyMgr.TwoDEnemyMgr(self, self.enemyList)
-        self.treasureMgr = TwoDTreasureMgr.TwoDTreasureMgr(self, self.treasureList, self.enemyList)
-        self.spawnPointMgr = TwoDSpawnPointMgr.TwoDSpawnPointMgr(self, self.spawnPointList)
-        self.stomperMgr = TwoDStomperMgr.TwoDStomperMgr(self, self.stomperList)
+        self.enemyMgr = EscapeGameEnemyMgr.EscapeGameEnemyMgr(self, self.enemyList)
+        self.treasureMgr = EscapeGameTreasureMgr.EscapeGameTreasureMgr(self, self.treasureList, self.enemyList)
+        self.spawnPointMgr = EscapeGameSpawnPointMgr.EscapeGameSpawnPointMgr(self, self.spawnPointList)
+        self.stomperMgr = EscapeGameStomperMgr.EscapeGameStomperMgr(self, self.stomperList)
         if self.sectionTypeNum == 'end':
             self.spawnPointMgr.setupLastSavePointHandle()
 

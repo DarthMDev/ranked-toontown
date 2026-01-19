@@ -1,15 +1,14 @@
 from toontown.minigame.DistributedMinigame import *
 from toontown.minigame import MinigameAvatarScorePanel
-from toontown.minigame.escape import TwoDGameToonSD
-from toontown.minigame.escape import ToonBlitzGlobals, ToonBlitzAssetMgr, TwoDCamera, TwoDSectionMgr
+from toontown.minigame.escape import EscapeGameGlobals, EscapeGameAssetMgr, EscapeGameCamera, EscapeGameSectionMgr
 from toontown.toonbase import ToontownTimer
-from toontown.minigame.escape.TwoDWalk import *
-from toontown.minigame.escape.TwoDDrive import *
+from toontown.minigame.escape.EscapeGameWalk import *
+from toontown.minigame.escape.EscapeGameDrive import *
 COLOR_RED = VBase4(1, 0, 0, 0.3)
 
 class DistributedEscapeGame(DistributedMinigame):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedEscapeGame')
-    UpdateLocalToonTask = 'ToonBlitzUpdateLocalToonTask'
+    UpdateLocalToonTask = 'EscapeGameUpdateLocalToonTask'
     EndGameTaskName = 'endEscape'
 
     def __init__(self, cr):
@@ -45,9 +44,9 @@ class DistributedEscapeGame(DistributedMinigame):
         self.notify.debug('load')
         DistributedMinigame.load(self)
         self.__defineConstants()
-        self.assetMgr = ToonBlitzAssetMgr.ToonBlitzAssetMgr(self)
-        self.cameraMgr = TwoDCamera.TwoDCamera(camera)
-        self.sectionMgr = TwoDSectionMgr.TwoDSectionMgr(self, self.sectionsSelected)
+        self.assetMgr = EscapeGameAssetMgr.EscapeGameAssetMgr(self)
+        self.cameraMgr = EscapeGameCamera.EscapeGameCamera(camera)
+        self.sectionMgr = EscapeGameSectionMgr.EscapeGameSectionMgr(self, self.sectionsSelected)
         self.gameStartX = -40.0
         endSection = self.sectionMgr.sections[-1]
         self.gameEndX = endSection.spawnPointMgr.gameEndX
@@ -98,7 +97,7 @@ class DistributedEscapeGame(DistributedMinigame):
         toonSD = self.toonSDs[self.localAvId]
         toonSD.enter()
         toonSD.fsm.request('normal')
-        self.twoDDrive = TwoDDrive(self, self.TOON_SPEED, maxFrameMove=self.MAX_FRAME_MOVE)
+        self.twoDDrive = EscapeGameDrive(self, self.TOON_SPEED, maxFrameMove=self.MAX_FRAME_MOVE)
 
     def offstage(self):
         self.notify.debug('offstage')
@@ -143,7 +142,7 @@ class DistributedEscapeGame(DistributedMinigame):
             return
         self.notify.debug('setGameStart')
         DistributedMinigame.setGameStart(self, timestamp)
-        self.twoDWalk = TwoDWalk(self.twoDDrive, broadcast=not self.isSinglePlayer())
+        self.escapeGameWalk = EscapeGameWalk(self.twoDDrive, broadcast=not self.isSinglePlayer())
         self.scores = [0] * self.numPlayers
         spacing = 0.4
         for i in range(self.numPlayers):
@@ -184,8 +183,8 @@ class DistributedEscapeGame(DistributedMinigame):
         base.localAvatar.laffMeter.stop()
         self.timer = ToontownTimer.ToontownTimer()
         self.timer.posInTopRightCorner()
-        self.timer.setTime(ToonBlitzGlobals.GameDuration[self.getSafezoneId()])
-        self.timer.countdown(ToonBlitzGlobals.GameDuration[self.getSafezoneId()], self.timerExpired)
+        self.timer.setTime(EscapeGameGlobals.GameDuration[self.getSafezoneId()])
+        self.timer.countdown(EscapeGameGlobals.GameDuration[self.getSafezoneId()], self.timerExpired)
         return
 
     def exitPlay(self):
@@ -232,7 +231,7 @@ class DistributedEscapeGame(DistributedMinigame):
             lerpTrack.append(Parallel(LerpPosInterval(panel, lerpDur, Point3(pos[0], 0, pos[1]), blendType='easeInOut'), LerpScaleInterval(panel, lerpDur, Vec3(panel.getScale()) * 1.5, blendType='easeInOut')))
 
         self.showScoreTrack = Parallel(lerpTrack, self.getElevatorCloseTrack(), Sequence(Wait(
-            ToonBlitzGlobals.ShowScoresDuration), Func(self.gameOver)))
+            EscapeGameGlobals.ShowScoresDuration), Func(self.gameOver)))
         self.showScoreTrack.start()
 
     def exitShowScores(self):
@@ -350,7 +349,7 @@ class DistributedEscapeGame(DistributedMinigame):
     def __placeToon(self, avId):
         toon = self.getAvatar(avId)
         i = self.avIdList.index(avId)
-        pos = Point3(ToonBlitzGlobals.ToonStartingPosition[0] + i, ToonBlitzGlobals.ToonStartingPosition[1], ToonBlitzGlobals.ToonStartingPosition[2])
+        pos = Point3(EscapeGameGlobals.ToonStartingPosition[0] + i, EscapeGameGlobals.ToonStartingPosition[1], EscapeGameGlobals.ToonStartingPosition[2])
         toon.setPos(pos)
         toon.setHpr(-90, 0, 0)
 
@@ -383,14 +382,14 @@ class DistributedEscapeGame(DistributedMinigame):
         if self.toonSDs[self.localAvId].fsm.getCurrentState().getName() != 'fallDown':
             self.toonSDs[self.localAvId].fsm.request('fallDown')
             timestamp = globalClockDelta.localToNetworkTime(globalClock.getFrameTime())
-            self.updateScore(self.localAvId, ToonBlitzGlobals.ScoreLossPerFallDown[self.getSafezoneId()])
+            self.updateScore(self.localAvId, EscapeGameGlobals.ScoreLossPerFallDown[self.getSafezoneId()])
             self.sendUpdate('toonFellDown', [self.localAvId, timestamp])
 
     def toonFellDown(self, avId, timestamp):
         if self.checkValidity(avId):
             self.notify.debug('avatar %s fell down.' % avId)
             if avId != self.localAvId:
-                self.updateScore(avId, ToonBlitzGlobals.ScoreLossPerFallDown[self.getSafezoneId()])
+                self.updateScore(avId, EscapeGameGlobals.ScoreLossPerFallDown[self.getSafezoneId()])
                 self.toonSDs[avId].fsm.request('fallDown')
 
     def localToonHitByEnemy(self):
@@ -398,14 +397,14 @@ class DistributedEscapeGame(DistributedMinigame):
         if not (currToonState == 'fallBack' or currToonState == 'squish'):
             self.toonSDs[self.localAvId].fsm.request('fallBack')
             timestamp = globalClockDelta.localToNetworkTime(globalClock.getFrameTime())
-            self.updateScore(self.localAvId, ToonBlitzGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()])
+            self.updateScore(self.localAvId, EscapeGameGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()])
             self.sendUpdate('toonHitByEnemy', [self.localAvId, timestamp])
 
     def toonHitByEnemy(self, avId, timestamp):
         if self.checkValidity(avId):
             self.notify.debug('avatar %s hit by a suit' % avId)
             if avId != self.localAvId:
-                self.updateScore(avId, ToonBlitzGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()])
+                self.updateScore(avId, EscapeGameGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()])
                 self.toonSDs[avId].fsm.request('fallBack')
 
     def localToonSquished(self):
@@ -413,18 +412,18 @@ class DistributedEscapeGame(DistributedMinigame):
         if not (currToonState == 'fallBack' or currToonState == 'squish'):
             self.toonSDs[self.localAvId].fsm.request('squish')
             timestamp = globalClockDelta.localToNetworkTime(globalClock.getFrameTime())
-            self.updateScore(self.localAvId, ToonBlitzGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()])
+            self.updateScore(self.localAvId, EscapeGameGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()])
             self.sendUpdate('toonSquished', [self.localAvId, timestamp])
 
     def toonSquished(self, avId, timestamp):
         if self.checkValidity(avId):
             self.notify.debug('avatar %s is squished.' % avId)
             if avId != self.localAvId:
-                self.updateScore(avId, ToonBlitzGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()])
+                self.updateScore(avId, EscapeGameGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()])
                 self.toonSDs[avId].fsm.request('squish')
 
     def localToonVictory(self):
-        if not ToonBlitzGlobals.EndlessGame:
+        if not EscapeGameGlobals.EndlessGame:
             self.ignoreInputs()
         if not self.toonSDs[self.localAvId].fsm.getCurrentState().getName() == 'victory':
             self.toonSDs[self.localAvId].fsm.request('victory')
@@ -464,7 +463,7 @@ class DistributedEscapeGame(DistributedMinigame):
                     treasure = section.treasureMgr.treasures[treasureIndex]
                     if avId != self.localAvId:
                         treasure.hideTreasure()
-                    self.updateScore(avId, ToonBlitzGlobals.ScoreGainPerTreasure * treasure.value)
+                    self.updateScore(avId, EscapeGameGlobals.ScoreGainPerTreasure * treasure.value)
                 else:
                     self.notify.error('WHOA!! treasureIndex %s is out of range; numTreasures = %s' % (treasureIndex, numTreasures))
                     base.localAvatar.sendLogMessage('treasureIndex %s is out of range; numTreasures = %s' % (treasureIndex, numTreasures))
@@ -506,7 +505,7 @@ class DistributedEscapeGame(DistributedMinigame):
     def timerExpired(self):
         self.notify.debug('timer expired')
         if not self.reportedDone:
-            if not ToonBlitzGlobals.EndlessGame:
+            if not EscapeGameGlobals.EndlessGame:
                 self.ignoreInputs()
             self.reportedDone = True
             self.sendUpdate('reportDone')
@@ -520,7 +519,7 @@ class DistributedEscapeGame(DistributedMinigame):
         self.notify.debug('setEveryoneDone')
 
         def endGame(task, self = self):
-            if not ToonBlitzGlobals.EndlessGame:
+            if not EscapeGameGlobals.EndlessGame:
                 self.gameFSM.request('showScores')
             return Task.done
 

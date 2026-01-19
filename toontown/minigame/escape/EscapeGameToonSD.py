@@ -4,7 +4,7 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.fsm import StateData
 from direct.fsm import ClassicFSM
 from direct.fsm import State
-from toontown.minigame.escape import ToonBlitzGlobals, TwoDBattleMgr
+from toontown.minigame.escape import EscapeGameGlobals, EscapeGameBattleMgr
 from otp.otpbase import OTPGlobals
 from direct.task.Task import Task
 from toontown.racing import RaceHeadFrame
@@ -61,7 +61,7 @@ class EscapeToonSD(StateData.StateData):
         for anim in self.animList:
             self.toon.pose(anim, 0)
 
-        self.battleMgr = TwoDBattleMgr.TwoDBattleMgr(self.game, self.toon)
+        self.battleMgr = EscapeGameBattleMgr.EscapeGameBattleMgr(self.game, self.toon)
         self.squishSound = base.loader.loadSfx('phase_3.5/audio/dial/AV_' + self.toon.style.getAnimal() + '_exclaim.ogg')
 
     def destroy(self):
@@ -194,7 +194,7 @@ class EscapeToonSD(StateData.StateData):
         insideElevatorPos = self.game.sectionMgr.exitElevator.find('**/loc_elevator_inside').getPos(render)
         runToElevator = Parallel(LerpPosInterval(self.toon, self.game.timeToRunToElevator, outsideElevatorPos), ActorInterval(self.toon, self.RunAnim, loop=1, duration=self.game.timeToRunToElevator))
         danceIval = Parallel(LerpPosInterval(self.toon, 2, insideElevatorPos), ActorInterval(self.toon, self.Victory, loop=1, duration=
-        ToonBlitzGlobals.GameDuration[self.game.getSafezoneId()]))
+        EscapeGameGlobals.GameDuration[self.game.getSafezoneId()]))
         waitToLand = 0.0
         if self.toon.getZ(render) > 13:
             waitToLand = 1

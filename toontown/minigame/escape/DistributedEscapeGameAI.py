@@ -2,7 +2,7 @@ from toontown.minigame.DistributedMinigameAI import *
 from toontown.ai.ToonBarrier import *
 from direct.fsm import ClassicFSM, State
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 from math import sqrt
 
 class DistributedEscapeGameAI(DistributedMinigameAI):
@@ -43,8 +43,8 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
     def setGameReady(self):
         self.notify.debug('setGameReady')
         DistributedMinigameAI.setGameReady(self)
-        self.numTreasures = ToonBlitzGlobals.NumTreasures
-        self.numEnemies = ToonBlitzGlobals.NumEnemies
+        self.numTreasures = EscapeGameGlobals.NumTreasures
+        self.numEnemies = EscapeGameGlobals.NumEnemies
         self.numTreasuresTaken = 0
         self.numEnemiesKilled = 0
         for avId in list(self.scoreDict.keys()):
@@ -61,17 +61,17 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
 
         for i in range(len(self.sectionsSelected)):
             sectionIndex = self.sectionsSelected[i][0]
-            attribs = ToonBlitzGlobals.SectionTypes[sectionIndex]
+            attribs = EscapeGameGlobals.SectionTypes[sectionIndex]
             enemiesPool = attribs[3]
             self.enemyHealthTable += [[]]
             enemyIndicesSelected = self.sectionsSelected[i][1]
             for j in range(len(enemyIndicesSelected)):
                 enemyIndex = enemyIndicesSelected[j]
                 enemyType = enemiesPool[enemyIndex][0]
-                self.enemyHealthTable[i] += [ToonBlitzGlobals.EnemyBaseHealth]
+                self.enemyHealthTable[i] += [EscapeGameGlobals.EnemyBaseHealth]
                 self.enemyHealthTable[i][j] *= self.numPlayers
-                if enemyType in ToonBlitzGlobals.EnemyHealthMultiplier:
-                    self.enemyHealthTable[i][j] *= ToonBlitzGlobals.EnemyHealthMultiplier[enemyType]
+                if enemyType in EscapeGameGlobals.EnemyHealthMultiplier:
+                    self.enemyHealthTable[i][j] *= EscapeGameGlobals.EnemyHealthMultiplier[enemyType]
 
             self.treasureTakenTable += [[]]
             treasureIndicesSelected = self.sectionsSelected[i][2]
@@ -108,7 +108,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             playerError = [self.numFallDownDict[avId], self.numHitByEnemyDict[avId], self.numSquishDict[avId]]
             playerErrorList.append(playerError)
             self.scoreDict[avId] = max(0, self.scoreDict[avId])
-            jellybeans = sqrt(self.scoreDict[avId] * ToonBlitzGlobals.ScoreToJellyBeansMultiplier)
+            jellybeans = sqrt(self.scoreDict[avId] * EscapeGameGlobals.ScoreToJellyBeansMultiplier)
             self.scoreDict[avId] = max(1, int(jellybeans))
 
         self.air.writeServerEvent('minigame_twoD', self.doId, '%s|%s|%s|%s|%s|%s|%s|%s|%s' % (ToontownGlobals.EscapeId,
@@ -145,14 +145,14 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
         def allToonsDone(self = self):
             self.notify.debug('allToonsDone')
             self.sendUpdate('setEveryoneDone')
-            if not ToonBlitzGlobals.EndlessGame:
+            if not EscapeGameGlobals.EndlessGame:
                 self.gameOver()
 
         def handleTimeout(avIds, self = self):
             self.notify.debug('handleTimeout: avatars %s did not report "done"' % avIds)
             self.setGameAbort()
 
-        self.doneBarrier = ToonBarrier('waitClientsDone', self.uniqueName('waitClientsDone'), self.avIdList, ToonBlitzGlobals.GameDuration[self.getSafezoneId()] + ToonBlitzGlobals.ShowScoresDuration + MinigameGlobals.latencyTolerance, allToonsDone, handleTimeout)
+        self.doneBarrier = ToonBarrier('waitClientsDone', self.uniqueName('waitClientsDone'), self.avIdList, EscapeGameGlobals.GameDuration[self.getSafezoneId()] + EscapeGameGlobals.ShowScoresDuration + MinigameGlobals.latencyTolerance, allToonsDone, handleTimeout)
 
     def exitPlay(self):
         pass
@@ -185,7 +185,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             treasureValue = self.numPlayers
         self.treasureTakenTable[sectionIndex][treasureIndex] = treasureValue
         self.treasuresCollectedDict[avId][treasureValue - 1] += 1
-        self.scoreDict[avId] += ToonBlitzGlobals.ScoreGainPerTreasure * treasureValue
+        self.scoreDict[avId] += EscapeGameGlobals.ScoreGainPerTreasure * treasureValue
         self.numTreasuresTaken += 1
         self.sendUpdate('setTreasureGrabbed', [avId, sectionIndex, treasureIndex])
 
@@ -199,7 +199,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             self.air.writeServerEvent('warning', enemyIndex, 'EscapeAI.claimEnemyShot enemyIndex out of range.')
             return
         if self.enemyHealthTable[sectionIndex][enemyIndex] > 0:
-            self.enemyHealthTable[sectionIndex][enemyIndex] -= ToonBlitzGlobals.DamagePerBullet
+            self.enemyHealthTable[sectionIndex][enemyIndex] -= EscapeGameGlobals.DamagePerBullet
             if self.enemyHealthTable[sectionIndex][enemyIndex] <= 0:
                 self.numEnemiesKilled += 1
             self.sendUpdate('setEnemyShot', [avId,
@@ -226,10 +226,10 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             self.air.writeServerEvent('suspicious: ', avId, 'EscapeAI.toonVictory toon not in list.')
             return
         curTime = self.getCurrentGameTime()
-        timeLeft = ToonBlitzGlobals.GameDuration[self.getSafezoneId()] - curTime
+        timeLeft = EscapeGameGlobals.GameDuration[self.getSafezoneId()] - curTime
         self.notify.debug('curTime =%s timeLeft = %s' % (curTime, timeLeft))
         addBonus = int(
-            ToonBlitzGlobals.BaseBonusOnCompletion[self.getSafezoneId()] + ToonBlitzGlobals.BonusPerSecondLeft * timeLeft)
+            EscapeGameGlobals.BaseBonusOnCompletion[self.getSafezoneId()] + EscapeGameGlobals.BonusPerSecondLeft * timeLeft)
         self.notify.debug('addBOnus = %d' % addBonus)
         if addBonus < 0:
             addBonus = 0
@@ -247,7 +247,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             self.air.writeServerEvent('warning', avId, 'EscapeAI.toonFellDown toon not in list.')
             return
         self.numFallDownDict[avId] += 1
-        self.scoreDict[avId] += ToonBlitzGlobals.ScoreLossPerFallDown[self.getSafezoneId()]
+        self.scoreDict[avId] += EscapeGameGlobals.ScoreLossPerFallDown[self.getSafezoneId()]
 
     def toonHitByEnemy(self, avId, timestamp):
         if avId not in list(self.scoreDict.keys()):
@@ -255,7 +255,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             self.air.writeServerEvent('warning', avId, 'EscapeAI.toonHitByEnemy toon not in list.')
             return
         self.numHitByEnemyDict[avId] += 1
-        self.scoreDict[avId] += ToonBlitzGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()]
+        self.scoreDict[avId] += EscapeGameGlobals.ScoreLossPerEnemyCollision[self.getSafezoneId()]
 
     def toonSquished(self, avId, timestamp):
         if avId not in list(self.scoreDict.keys()):
@@ -263,16 +263,16 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             self.air.writeServerEvent('warning', avId, 'EscapeAI.toonSquished toon not in list.')
             return
         self.numSquishDict[avId] += 1
-        self.scoreDict[avId] += ToonBlitzGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()]
+        self.scoreDict[avId] += EscapeGameGlobals.ScoreLossPerStomperSquish[self.getSafezoneId()]
 
     def setupSections(self):
         szId = self.getSafezoneId()
-        sectionWeights = ToonBlitzGlobals.SectionWeights[szId]
-        numSections = ToonBlitzGlobals.NumSections[szId]
+        sectionWeights = EscapeGameGlobals.SectionWeights[szId]
+        numSections = EscapeGameGlobals.NumSections[szId]
         difficultyPool = []
         difficultyList = []
-        sectionsPool = ToonBlitzGlobals.SectionsPool
-        sectionTypes = ToonBlitzGlobals.SectionTypes
+        sectionsPool = EscapeGameGlobals.SectionsPool
+        sectionTypes = EscapeGameGlobals.SectionTypes
         sectionsPoolByDifficulty = [[],
          [],
          [],
@@ -339,7 +339,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
                 for i in range(len(enemiesPool)):
                     enemyIndicesPool += [i]
 
-                numEnemies = maxEnemies * ToonBlitzGlobals.PercentMaxEnemies[szId] / 100
+                numEnemies = maxEnemies * EscapeGameGlobals.PercentMaxEnemies[szId] / 100
                 numEnemies = max(numEnemies, minEnemies)
                 for j in range(int(numEnemies)):
                     if len(enemyIndicesPool) == 0:
@@ -352,7 +352,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
             treasureIndicesPool = []
             treasureValuePool = []
             for value in range(1, 5):
-                treasureValuePool += [value] * ToonBlitzGlobals.TreasureValueProbability[value]
+                treasureValuePool += [value] * EscapeGameGlobals.TreasureValueProbability[value]
 
             treasureIndicesSelected = []
             if treasuresPool != None:
@@ -360,7 +360,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
                 for i in range(len(treasuresPool)):
                     treasureIndicesPool += [i]
 
-                numTreasures = maxTreasures * ToonBlitzGlobals.PercentMaxTreasures[szId] / 100
+                numTreasures = maxTreasures * EscapeGameGlobals.PercentMaxTreasures[szId] / 100
                 numTreasures = max(numTreasures, minTreasures)
                 for i in range(int(numTreasures)):
                     if len(treasureIndicesPool) == 0:
@@ -379,7 +379,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
                 for i in range(len(spawnPointsPool)):
                     spawnPointIndicesPool += [i]
 
-                numSpawnPoints = maxSpawnPoints * ToonBlitzGlobals.PercentMaxSpawnPoints[szId] / 100
+                numSpawnPoints = maxSpawnPoints * EscapeGameGlobals.PercentMaxSpawnPoints[szId] / 100
                 numSpawnPoints = max(numSpawnPoints, minSpawnPoints)
                 for i in range(int(numSpawnPoints)):
                     if len(spawnPointIndicesPool) == 0:
@@ -396,7 +396,7 @@ class DistributedEscapeGameAI(DistributedMinigameAI):
                 for i in range(len(stompersPool)):
                     stomperIndicesPool += [i]
 
-                numStompers = maxStompers * ToonBlitzGlobals.PercentMaxStompers[szId] / 100
+                numStompers = maxStompers * EscapeGameGlobals.PercentMaxStompers[szId] / 100
                 numStompers = max(numStompers, minStompers)
                 for i in range(int(numStompers)):
                     if len(stomperIndicesPool) == 0:

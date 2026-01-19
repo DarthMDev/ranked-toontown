@@ -2,14 +2,14 @@ from direct.showbase.DirectObject import DirectObject
 from toontown.toonbase.ToontownGlobals import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.interval.IntervalGlobal import *
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 
 GOING_UP = 1
 GOING_DOWN = 2
 STUCK_DOWN = 3
 
-class TwoDStomper(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDStomper')
+class EscapeGameStomper(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameStomper')
 
     def __init__(self, stomperMgr, index, stomperAttribs, model):
         self.game = stomperMgr.section.sectionMgr.game
@@ -55,7 +55,7 @@ class TwoDStomper(DirectObject):
         stomperType = stomperAttribs[0]
         self.pos = Point3(stomperAttribs[1][0], stomperAttribs[1][1], stomperAttribs[1][2])
         self.period = stomperAttribs[2]
-        typeAttribs = ToonBlitzGlobals.StomperTypes[stomperType]
+        typeAttribs = EscapeGameGlobals.StomperTypes[stomperType]
         self.motionType = typeAttribs[0]
         self.scale = typeAttribs[1]
         self.headStartZ, self.headEndZ = typeAttribs[2]

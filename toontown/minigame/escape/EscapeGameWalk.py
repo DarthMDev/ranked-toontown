@@ -1,8 +1,8 @@
 from toontown.minigame.utils.OrthoWalk import *
 
-class TwoDWalk(OrthoWalk):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDWalk')
-    BROADCAST_POS_TASK = 'TwoDWalkBroadcastPos'
+class EscapeGameWalk(OrthoWalk):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameWalk')
+    BROADCAST_POS_TASK = 'EscapeGameWalkBroadcastPos'
 
     def doBroadcast(self, task):
         dt = globalClock.getDt()

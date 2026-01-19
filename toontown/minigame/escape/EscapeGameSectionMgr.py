@@ -1,13 +1,13 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import ToonBlitzGlobals, TwoDBlock, TwoDSection
+from toontown.minigame.escape import EscapeGameGlobals, EscapeGameBlock, EscapeGameSection
 from direct.gui import DirectGui
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 
-class TwoDSectionMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDSectionMgr')
+class EscapeGameSectionMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameSectionMgr')
 
     def __init__(self, game, sectionsSelected):
         self.game = game
@@ -53,13 +53,13 @@ class TwoDSectionMgr(DirectObject):
         self.startPipe.setPos(12, 0, 44)
         self.startArrow = self.game.assetMgr.arrow.copyTo(self.startSectionNP)
         self.startArrow.setPos(23, 1.5, 12.76)
-        for index in range(len(ToonBlitzGlobals.BlockListStart)):
-            blockAttribs = ToonBlitzGlobals.BlockListStart[index]
-            fileName = ToonBlitzGlobals.BlockTypes[blockAttribs[0]][0]
+        for index in range(len(EscapeGameGlobals.BlockListStart)):
+            blockAttribs = EscapeGameGlobals.BlockListStart[index]
+            fileName = EscapeGameGlobals.BlockTypes[blockAttribs[0]][0]
             blockIndex = int(fileName[-1])
             blockType = self.game.assetMgr.blockTypes[blockIndex]
             sectionizedId = 'start-' + str(index)
-            newBlock = TwoDBlock.TwoDBlock(blockType, sectionizedId, blockAttribs)
+            newBlock = EscapeGameBlock.EscapeGameBlock(blockType, sectionizedId, blockAttribs)
             newBlock.model.reparentTo(self.startSectionNP)
 
     def setupEndSection(self, index):
@@ -90,7 +90,7 @@ class TwoDSectionMgr(DirectObject):
          [],
          [0],
          [])
-        endSection = TwoDSection.TwoDSection(index, endSectionInfo, self.endSectionNP, self)
+        endSection = EscapeGameSection.EscapeGameSection(index, endSectionInfo, self.endSectionNP, self)
         self.sections.append(endSection)
         self.incrementX += endSection.length
 
@@ -101,7 +101,7 @@ class TwoDSectionMgr(DirectObject):
             sectionNP.reparentTo(self.game.assetMgr.world)
             sectionNP.setX(self.incrementX)
             self.sectionNPList.append(sectionNP)
-            section = TwoDSection.TwoDSection(index, sectionsSelected[index], sectionNP, self)
+            section = EscapeGameSection.EscapeGameSection(index, sectionsSelected[index], sectionNP, self)
             self.sections.append(section)
             self.incrementX += section.length
 

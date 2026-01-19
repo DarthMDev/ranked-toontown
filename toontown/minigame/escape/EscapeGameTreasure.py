@@ -4,8 +4,8 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.interval.IntervalGlobal import *
 import random
 
-class TwoDTreasure(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDTreasure')
+class EscapeGameTreasure(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameTreasure')
     RADIUS = 1.3
 
     def __init__(self, treasureMgr, index, pos, value, isEnemyGenerated, model):

@@ -1,11 +1,11 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import TwoDStomper
+from toontown.minigame.escape import EscapeGameStomper
 
 
-class TwoDStomperMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDStomperMgr')
+class EscapeGameStomperMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameStomperMgr')
 
     def __init__(self, section, stomperList):
         self.section = section
@@ -35,7 +35,7 @@ class TwoDStomperMgr(DirectObject):
         stomperId = self.section.getSectionizedId(len(self.stompers))
         if model == None:
             model = self.section.sectionMgr.game.assetMgr.stomper
-        newStomper = TwoDStomper.TwoDStomper(self, stomperId, attrib, model)
+        newStomper = EscapeGameStomper.EscapeGameStomper(self, stomperId, attrib, model)
         newStomper.model.reparentTo(self.stompersNP)
         self.stompers.append(newStomper)
         return

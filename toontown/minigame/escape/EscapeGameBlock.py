@@ -3,11 +3,11 @@ from direct.interval.IntervalGlobal import *
 from toontown.coghq import MovingPlatform
 from direct.distributed import DistributedObject
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 
 
-class TwoDBlock(DistributedObject.DistributedObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDBlock')
+class EscapeGameBlock(DistributedObject.DistributedObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameBlock')
 
     def __init__(self, model, index, blockAttribs):
         self.moveIval = None
@@ -29,7 +29,7 @@ class TwoDBlock(DistributedObject.DistributedObject):
         initX, initY, initZ, initH, initP, initR = (0, 0, 0, 0, 0, 0)
         finalX, finalY, finalZ, finalH, finalP, finalR = (0, 0, 0, 0, 0, 0)
         blockType = blockAttribs[0]
-        typeAttribs = ToonBlitzGlobals.BlockTypes[blockType]
+        typeAttribs = EscapeGameGlobals.BlockTypes[blockType]
         blockName = blockType + '-' + str(self.index)
         self.model = NodePath(blockName)
         typeX, typeY, typeZ = typeAttribs[1]

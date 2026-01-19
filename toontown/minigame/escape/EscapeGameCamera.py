@@ -1,16 +1,16 @@
 from direct.interval.IntervalGlobal import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedObject
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 import math
 
-class TwoDCamera(DistributedObject.DistributedObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDCamera')
+class EscapeGameCamera(DistributedObject.DistributedObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameCamera')
 
     def __init__(self, camera):
-        self.notify.debug('Constructing TwoDCamera with %s' % camera)
+        self.notify.debug('Constructing EscapeGameCamera with %s' % camera)
         self.camera = camera
-        self.cameraSideView = ToonBlitzGlobals.CameraStartingPosition
+        self.cameraSideView = EscapeGameGlobals.CameraStartingPosition
         self.threeQuarterOffset = 2
         self.changeFacingInterval = None
         self.ivalControllingCamera = False

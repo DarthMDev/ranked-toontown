@@ -1,11 +1,11 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import TwoDTreasure
+from toontown.minigame.escape import EscapeGameTreasure
 
 
-class TwoDTreasureMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDTreasureMgr')
+class EscapeGameTreasureMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameTreasureMgr')
 
     def __init__(self, section, treasureList, enemyList):
         self.section = section
@@ -43,7 +43,7 @@ class TwoDTreasureMgr(DirectObject):
         treasureId = self.section.getSectionizedId(len(self.treasures))
         if model == None:
             model = self.getModel(value, self.section.sectionMgr.game.assetMgr.treasureModelList)
-        newTreasure = TwoDTreasure.TwoDTreasure(self, treasureId, attrib[0], value, isEnemyGenerated, model)
+        newTreasure = EscapeGameTreasure.EscapeGameTreasure(self, treasureId, attrib[0], value, isEnemyGenerated, model)
         newTreasure.model.reparentTo(self.treasuresNP)
         self.treasures.append(newTreasure)
         if isEnemyGenerated:

@@ -10,8 +10,8 @@ from toontown.battle import BattleParticles, BattleProps
 import math
 COLOR_RED = VBase4(1, 0, 0, 0.3)
 
-class TwoDEnemy(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDEnemy')
+class EscapeGameEnemy(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameEnemy')
 
     def __init__(self, enemyMgr, index, suitAttribs):
         self.enemyMgr = enemyMgr

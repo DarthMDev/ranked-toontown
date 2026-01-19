@@ -1,11 +1,11 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import TwoDEnemy
+from toontown.minigame.escape import EscapeGameEnemy
 
 
-class TwoDEnemyMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDEnemyMgr')
+class EscapeGameEnemyMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameEnemyMgr')
 
     def __init__(self, section, enemyList):
         self.section = section
@@ -30,7 +30,7 @@ class TwoDEnemyMgr(DirectObject):
         for index in range(len(self.enemyList)):
             enemyId = self.section.getSectionizedId(index)
             suitAttribs = self.enemyList[index]
-            newEnemy = TwoDEnemy.TwoDEnemy(self, enemyId, suitAttribs)
+            newEnemy = EscapeGameEnemy.EscapeGameEnemy(self, enemyId, suitAttribs)
             newEnemy.suit.reparentTo(self.enemiesNP)
             self.enemies.append(newEnemy)
 

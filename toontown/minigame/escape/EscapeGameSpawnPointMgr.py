@@ -1,11 +1,11 @@
 from panda3d.core import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.showbase.DirectObject import DirectObject
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 from toontown.toonbase import ToontownGlobals
 
-class TwoDSpawnPointMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('TwoDSpawnPointMgr')
+class EscapeGameSpawnPointMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('EscapeGameSpawnPointMgr')
 
     def __init__(self, section, spawnPointList):
         self.section = section
@@ -77,7 +77,7 @@ class TwoDSpawnPointMgr(DirectObject):
             point = self.loadPoints[self.lastSavePoint]
             return Point3(point[0], point[1], point[2])
         else:
-            return Point3(ToonBlitzGlobals.ToonStartingPosition[0], ToonBlitzGlobals.ToonStartingPosition[1], ToonBlitzGlobals.ToonStartingPosition[2])
+            return Point3(EscapeGameGlobals.ToonStartingPosition[0], EscapeGameGlobals.ToonStartingPosition[1], EscapeGameGlobals.ToonStartingPosition[2])
 
     def setupLastSavePointHandle(self):
         if len(self.collNPList) > 0:

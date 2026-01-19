@@ -1,11 +1,11 @@
 from panda3d.core import *
 from direct.showbase.DirectObject import DirectObject
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame.escape import ToonBlitzGlobals
+from toontown.minigame.escape import EscapeGameGlobals
 
 
-class ToonBlitzAssetMgr(DirectObject):
-    notify = DirectNotifyGlobal.directNotify.newCategory('DistributedToonBlitzAssets')
+class EscapeGameAssetMgr(DirectObject):
+    notify = DirectNotifyGlobal.directNotify.newCategory('DistributedEscapeGameAssets')
 
     def __init__(self, game):
         self.__defineConstants()
@@ -16,7 +16,7 @@ class ToonBlitzAssetMgr(DirectObject):
         pass
 
     def load(self):
-        self.world = NodePath('ToonBlitzWorld')
+        self.world = NodePath('EscapeGameWorld')
         self.background = loader.loadModel('phase_4/models/minigames/toonblitz_game')
         self.background.reparentTo(self.world)
         self.startingWall = loader.loadModel('phase_4/models/minigames/toonblitz_game_wall')
@@ -67,10 +67,10 @@ class ToonBlitzAssetMgr(DirectObject):
         self.progressLine.setScale(self.faceEndPos[0] - self.faceStartPos[0], 1, 0.01)
         self.progressLine.setPos(0, 0, self.faceStartPos[2])
         self.cardMaker.setName('RaceProgressLineHash')
-        for n in range(ToonBlitzGlobals.NumSections[self.game.getSafezoneId()] + 1):
+        for n in range(EscapeGameGlobals.NumSections[self.game.getSafezoneId()] + 1):
             hash = self.aspect2dRoot.attachNewNode(self.cardMaker.generate())
             hash.setScale(self.progressLine.getScale()[2], 1, self.progressLine.getScale()[2] * 5)
-            t = float(n) / ToonBlitzGlobals.NumSections[self.game.getSafezoneId()]
+            t = float(n) / EscapeGameGlobals.NumSections[self.game.getSafezoneId()]
             hash.setPos(self.faceStartPos[0] * (1 - t) + self.faceEndPos[0] * t, self.faceStartPos[1], self.faceStartPos[2])
 
     def destroy(self):
