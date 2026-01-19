@@ -1,11 +1,9 @@
 from panda3d.core import Vec3
-from direct.interval.IntervalGlobal import Sequence, Parallel, Wait, Func
+from direct.interval.IntervalGlobal import Sequence, Parallel, Func
 from direct.interval.IntervalGlobal import LerpScaleInterval
 from direct.interval.IntervalGlobal import WaitInterval, ActorInterval, FunctionInterval
-from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from direct.fsm import StateData
-from toontown.minigame.OrthoWalk import OrthoWalk
 from toontown.minigame.MinigameRulesPanel import MinigameRulesPanel
 from toontown.parties import PartyGlobals
 from direct.fsm import ClassicFSM, State

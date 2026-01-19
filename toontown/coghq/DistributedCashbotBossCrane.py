@@ -16,7 +16,7 @@ from toontown.toonbase import TTLocalizer
 from otp.otpbase import OTPGlobals
 from toontown.suit import DistributedCashbotBossGoon
 import random
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect
 
 class DistributedCashbotBossCrane(DistributedObject.DistributedObject, FSM.FSM):
     """ This class represents a crane holding a magnet on a cable.

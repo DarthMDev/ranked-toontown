@@ -71,20 +71,20 @@ from toontown.fishing import DistributedFishingPond/AI
 from toontown.fishing import DistributedFishingTarget/AI
 from toontown.fishing import DistributedPondBingoManager/AI
 from toontown.safezone import DistributedFishingSpot/AI
-from toontown.minigame.statuseffects import DistributedStatusEffectSystem/AI
+from toontown.minigame.utils.statuseffects import DistributedStatusEffectSystem/AI
 from toontown.minigame import DistributedMinigame/AI
 from toontown.minigame import DistributedMinigameTemplate/AI
-from toontown.minigame import DistributedRaceGame/AI
-from toontown.minigame import DistributedCannonGame/AI
-from toontown.minigame import DistributedPhotoGame/AI
-from toontown.minigame import DistributedPatternGame/AI
-from toontown.minigame import DistributedRingGame/AI
-from toontown.minigame import DistributedTagGame/AI
-from toontown.minigame import DistributedMazeGame/AI
-from toontown.minigame import DistributedTugOfWarGame/AI
-from toontown.minigame import DistributedCatchGame/AI
-from toontown.minigame import DistributedDivingGame/AI
-from toontown.minigame import DistributedTargetGame/AI
+from toontown.minigame.race import DistributedRaceGame/AI
+from toontown.minigame.cannon import DistributedCannonGame/AI
+from toontown.minigame.photo import DistributedPhotoGame/AI
+from toontown.minigame.pattern import DistributedPatternGame/AI
+from toontown.minigame.ring import DistributedRingGame/AI
+from toontown.minigame.tag import DistributedTagGame/AI
+from toontown.minigame.maze import DistributedMazeGame/AI
+from toontown.minigame.tugowar import DistributedTugOfWarGame/AI
+from toontown.minigame.catch import DistributedCatchGame/AI
+from toontown.minigame.diving import DistributedDivingGame/AI
+from toontown.minigame.target import DistributedTargetGame/AI
 from toontown.archipelago.distributed.DistributedArchipelagoManager/AI import DistributedArchipelagoManager/AI
 from toontown.shtiker import DeleteManager/AI
 from toontown.ai import ToontownMagicWordManager/AI
@@ -104,7 +104,7 @@ from toontown.safezone import DistributedMMTreasure/AI
 from toontown.safezone import DistributedOZTreasure/AI
 from toontown.safezone import DistributedETreasure/AI
 from toontown.safezone import DistributedEFlyingTreasure/AI
-from toontown.minigame import DistributedTagTreasure/AI
+from toontown.minigame.tag import DistributedTagTreasure/AI
 from toontown.coghq import DistributedCashbotBossTreasure/AI
 from toontown.building import DistributedTrophyMgr/AI
 from toontown.building import DistributedBuilding/AI
@@ -227,9 +227,8 @@ from toontown.coghq import DistributedLawbotBossGavel/AI
 from toontown.suit import DistributedLawbotBossSuit/AI
 from toontown.coghq import DistributedLawbotCannon/AI
 from toontown.coghq import DistributedLawbotChair/AI
-from toontown.minigame import DistributedTravelGame/AI
-from toontown.minigame import DistributedPairingGame/AI
-from toontown.minigame import DistributedVineGame/AI
+from toontown.minigame.pairing import DistributedPairingGame/AI
+from toontown.minigame.vine import DistributedVineGame/AI
 from toontown.golf import DistributedPhysicsWorld/AI
 from toontown.golf import DistributedGolfHole/AI
 from toontown.golf import DistributedGolfCourse/AI
@@ -281,9 +280,9 @@ from toontown.coghq import DistributedBanquetTable/AI
 from toontown.battle import DistributedBattleDiners/AI
 from toontown.battle import DistributedBattleSandbox/AI
 from toontown.coghq import DistributedGolfSpot/AI
-from toontown.minigame import DistributedIceGame/AI
-from toontown.minigame import DistributedCogThiefGame/AI
-from toontown.minigame import DistributedTwoDGame/AI
+from toontown.minigame.ice import DistributedIceGame/AI
+from toontown.minigame.cogthief import DistributedCogThiefGame/AI
+from toontown.minigame.escape import DistributedEscapeGame/AI
 
 from toontown.minigame.crashball import DistributedCrashBallGame/AI
 from toontown.minigame.crashball import DistributedCrashBallVehicle/AI
@@ -3461,16 +3460,6 @@ dclass DistributedGagTree : DistributedPlantBase {
   requestHarvest() airecv clsend;
 };
 
-dclass DistributedTravelGame : DistributedMinigame {
-  setTimerStartTime(int16) broadcast;
-  setAvatarChoice(uint16, uint8) airecv clsend;
-  setAvatarChose(uint32) broadcast;
-  setServerChoices(int16[], uint8[], uint8, uint8) broadcast;
-  setMinigames(uint8[], uint8[]) broadcast;
-  setBonuses(uint8[], uint8[]) broadcast;
-  setBoardIndex(uint8) required broadcast ram;
-};
-
 dclass DistributedPairingGame : DistributedMinigame {
   setDeckSeed(uint32) required broadcast ram;
   setMaxOpenCards(uint8) broadcast ram;
@@ -3869,7 +3858,7 @@ struct twoDSectionInfo {
   uint8 stomperIndicesSelected[];
 };
 
-dclass DistributedTwoDGame : DistributedMinigame {
+dclass DistributedEscapeGame : DistributedMinigame {
   showShootGun(uint32, int16) clsend broadcast;
   toonHitByEnemy(uint32, int16) clsend broadcast airecv;
   toonFellDown(uint32, int16) clsend broadcast airecv;

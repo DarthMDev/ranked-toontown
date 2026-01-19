@@ -1,13 +1,13 @@
 from direct.distributed.ClockDelta import globalClockDelta
 from direct.distributed.DistributedObject import DistributedObject
 from direct.interval.FunctionInterval import Func
-from direct.interval.LerpInterval import LerpFunctionInterval, LerpScaleInterval, LerpPosInterval
+from direct.interval.LerpInterval import LerpFunctionInterval, LerpScaleInterval
 from direct.interval.MetaInterval import Sequence, Parallel
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import ConfigVariableDouble
 from panda3d.direct import SmoothMover
 
-from toontown.minigame import IceGameGlobals
+from toontown.minigame.ice import IceGameGlobals
 
 
 class DistributedCrashBallVehicle(DistributedObject):

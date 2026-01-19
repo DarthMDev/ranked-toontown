@@ -1,5 +1,4 @@
 import functools
-import random
 import math
 
 from direct.distributed import DistributedSmoothNode
@@ -7,7 +6,7 @@ from direct.fsm import ClassicFSM
 from direct.fsm import State
 from direct.gui.OnscreenText import OnscreenText
 from direct.interval.FunctionInterval import Func, Wait
-from direct.interval.LerpInterval import LerpPosHprInterval, LerpScaleInterval, LerpColorScaleInterval
+from direct.interval.LerpInterval import LerpPosHprInterval
 from direct.interval.MetaInterval import Parallel, Sequence
 from direct.showbase.MessengerGlobal import messenger
 from otp.otpbase.PythonUtil import reduceAngle
@@ -19,7 +18,6 @@ from panda3d.physics import LinearVectorForce, ForceNode, LinearEulerIntegrator,
 
 from libotp.nametag import NametagGlobals
 from otp.otpbase import OTPGlobals
-from toontown.minigame.craning import CraneGameGlobals
 from toontown.minigame.craning.CraneGameGlobals import RED_COUNTDOWN_COLOR, ORANGE_COUNTDOWN_COLOR, \
     YELLOW_COUNTDOWN_COLOR
 from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimedTimer, BossSpeedrunTimer
@@ -29,8 +27,7 @@ from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.craning.CraneWalk import CraneWalk
 from toontown.toonbase import TTLocalizer, ToontownGlobals
 from toontown.minigame.craning.CraneGameSettingsPanel import CraneGameSettingsPanel
-from toontown.minigame.statuseffects.DistributedStatusEffectSystem import DistributedStatusEffectSystem
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
+from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystem import DistributedStatusEffectSystem
 from direct.gui.DirectGui import DGG, DirectFrame
 from direct.gui.DirectScrolledList import DirectScrolledList
 from direct.gui.DirectLabel import DirectLabel
@@ -1678,8 +1675,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __updateDroneSlotUI(self, slotIndex):
         """Update the UI for a specific drone slot."""
-        from toontown.minigame.craning import CraneGameGlobals
-        
+
         if slotIndex >= len(self.droneSelectionSlots):
             return
         
@@ -2111,8 +2107,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __showDroneCooldownIndicator(self, startTime, duration):
         """Display the drone cooldown indicator near the leave button."""
-        from panda3d.core import TransparencyAttrib
-        
+
         # Clean up existing indicator
         self.__cleanupDroneCooldownIndicator()
         
@@ -2192,8 +2187,7 @@ class DistributedCraneGame(DistributedMinigame):
     
     def __showDroneReadyIndicator(self):
         """Show the 'Drone Ready!' indicator without a cooldown."""
-        from panda3d.core import TransparencyAttrib
-        
+
         # Clean up existing indicator
         self.__cleanupDroneCooldownIndicator()
         
@@ -2931,8 +2925,7 @@ class DistributedCraneGame(DistributedMinigame):
         from toontown.toontowngui import ToonHeadDialog
         from toontown.toontowngui import TTDialog
         from otp.otpbase import OTPLocalizer
-        from direct.gui.DirectGui import DGG
-        
+
         if requesterAvId == base.localAvatar.doId:
             # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
             participants = self.getParticipantIdsNotSpectating()
@@ -3117,8 +3110,7 @@ class DistributedCraneGame(DistributedMinigame):
         from toontown.toontowngui import ToonHeadDialog
         from toontown.toontowngui import TTDialog
         from otp.otpbase import OTPLocalizer
-        from direct.gui.DirectGui import DGG
-        
+
         if requesterAvId == base.localAvatar.doId:
             # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
             participants = self.getParticipantIdsNotSpectating()

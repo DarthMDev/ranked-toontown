@@ -10,7 +10,7 @@ from ..minigame.craning import CraneGameGlobals
 from toontown.coghq import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
 from .DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, STATUS_EFFECT_DURATIONS
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, STATUS_EFFECT_DURATIONS
 
 
 class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):

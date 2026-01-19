@@ -1,5 +1,5 @@
 import math
-from otp.otpbase.PythonUtil import bound, lerp
+from otp.otpbase.PythonUtil import bound
 from direct.task.Task import Task
 from direct.interval.MetaInterval import Sequence, Parallel
 from direct.interval.FunctionInterval import Func, Wait
@@ -7,8 +7,8 @@ from direct.interval.SoundInterval import SoundInterval
 from direct.interval.LerpInterval import LerpScaleInterval, LerpFunc
 from direct.directnotify import DirectNotifyGlobal
 from panda3d.core import NodePath, Point3, VBase3
-from toontown.minigame.OrthoDrive import OrthoDrive
-from toontown.minigame.OrthoWalk import OrthoWalk
+from toontown.minigame.utils.OrthoDrive import OrthoDrive
+from toontown.minigame.utils.OrthoWalk import OrthoWalk
 from toontown.battle.BattleProps import globalPropPool
 from toontown.battle.BattleSounds import globalBattleSoundCache
 from . import PartyGlobals

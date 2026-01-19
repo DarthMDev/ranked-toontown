@@ -1,9 +1,7 @@
 from direct.distributed.ClockDelta import *
 from direct.distributed import DistributedObjectAI
-from toontown.minigame import Trajectory
-from toontown.estate import DistributedCannonAI
-from toontown.estate import CannonGlobals
-from toontown.minigame import CannonGameGlobals
+from toontown.minigame.cannon import CannonGameGlobals, CannonGlobals
+
 
 class DistributedLawbotCannonAI(DistributedObjectAI.DistributedObjectAI):
     notify = directNotify.newCategory('DistributedLawbotCannonAI')

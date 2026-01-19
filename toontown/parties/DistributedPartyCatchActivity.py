@@ -12,10 +12,10 @@ from direct.interval.FunctionInterval import Wait, Func
 from toontown.toonbase import TTLocalizer
 from toontown.toon import Toon
 from toontown.toonbase import ToontownGlobals
-from toontown.minigame.Trajectory import Trajectory
-from toontown.minigame.OrthoDrive import OrthoDrive
-from toontown.minigame.OrthoWalk import OrthoWalk
-from toontown.minigame.DropPlacer import PartyRegionDropPlacer
+from toontown.minigame.utils.Trajectory import Trajectory
+from toontown.minigame.utils.OrthoDrive import OrthoDrive
+from toontown.minigame.utils.OrthoWalk import OrthoWalk
+from toontown.minigame.catch.DropPlacer import PartyRegionDropPlacer
 from toontown.parties import PartyGlobals
 from toontown.parties.PartyCatchActivityToonSD import PartyCatchActivityToonSD
 from toontown.parties.DistributedPartyActivity import DistributedPartyActivity

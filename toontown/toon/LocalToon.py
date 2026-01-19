@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import List, Tuple
+from typing import List
 
 from libotp import *
 from direct.interval.IntervalGlobal import *
@@ -27,8 +27,6 @@ from toontown.toonbase import TTLocalizer
 from toontown.chat import ToontownChatManager, ResistanceChat
 from toontown.chat import TTTalkAssistant
 from toontown.battle.BattleSounds import *
-from toontown.battle import Fanfare
-from toontown.parties import PartyGlobals
 from toontown.toon import ElevatorNotifier
 from toontown.shtiker import WordPage
 from . import DistributedToon
@@ -631,7 +629,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
 
     def __createTrajectoryLine(self, power):
         """Create a trajectory line showing where the pie will land - OPTIMIZED VERSION"""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, CollisionRay, CollisionNode, BitMask32, Vec3
+        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, \
+            CollisionNode, BitMask32
         from direct.interval.ProjectileInterval import ProjectileInterval
         from otp.otpbase import OTPGlobals
         
@@ -654,7 +653,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         startVel = render.getRelativeVector(self, relVel)
         
         # Calculate trajectory points
-        from toontown.minigame import Trajectory
+        from ..minigame.utils import Trajectory
         startTime = globalClock.getFrameTime()
         # Use the same hand position offset as in getTossPieInterval (relative to toon)
         handOffset = render.getRelativePoint(self, Point3(0.52, 0.97, 2.24))
@@ -819,7 +818,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
     
     def __createTrajectoryTarget(self, landingPoint, surfaceNormal=None):
         """Create a target indicator (red circle with +) at the landing point, oriented to the surface"""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3, Vec3
+        from panda3d.core import LineSegs, TransparencyAttrib, Vec3
         import math
         
         # Remove existing target if any

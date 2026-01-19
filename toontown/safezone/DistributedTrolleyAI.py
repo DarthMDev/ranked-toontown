@@ -7,8 +7,7 @@ from direct.fsm import ClassicFSM, State
 from direct.fsm import State
 from direct.task import Task
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame import TrolleyHolidayMgrAI
-from toontown.minigame import TrolleyWeekendMgrAI
+
 from ..groups.Group import Group
 from ..toonbase import ToontownGlobals
 
@@ -322,9 +321,7 @@ class DistributedTrolleyAI(DistributedObjectAI.DistributedObjectAI):
             startingVotes = None
             metagameRound = -1
             trolleyGoesToMetagame = simbase.config.GetBool('trolley-goes-to-metagame', 0)
-            trolleyHoliday = bboard.get(TrolleyHolidayMgrAI.TrolleyHolidayMgrAI.PostName)
-            trolleyWeekend = bboard.get(TrolleyWeekendMgrAI.TrolleyWeekendMgrAI.PostName)
-            if trolleyGoesToMetagame or trolleyHoliday or trolleyWeekend:
+            if trolleyGoesToMetagame:
                 metagameRound = 0
                 if simbase.config.GetBool('metagame-min-2-players', 1) and len(playerArray) == 1:
                     metagameRound = -1

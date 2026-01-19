@@ -1,11 +1,10 @@
-import math
 from panda3d.core import *
 from direct.interval.MetaInterval import Sequence, Parallel
 from direct.interval.FunctionInterval import Func
 from direct.interval.LerpInterval import LerpScaleInterval, LerpColorScaleInterval
 from otp.otpbase.PythonUtil import bound
 from toontown.toon import ToonHead
-from toontown.minigame.CannonGameGlobals import *
+from toontown.minigame.cannon.CannonGameGlobals import *
 from toontown.toonbase import ToontownGlobals
 from toontown.parties.PartyUtils import toRadians, calcVelocity
 from otp.otpbase.PythonUtil import StackTrace

@@ -3,24 +3,22 @@ import random
 from enum import IntEnum
 
 from panda3d.core import Vec3
-from direct.showbase import PythonUtil
 from direct.directnotify import DirectNotifyGlobal
 from direct.task.Task import Task
 from direct.interval.FunctionInterval import Wait
 from direct.interval.IntervalGlobal import Func, LerpFunc, LerpPosInterval, LerpHprInterval, LerpFunctionInterval
 from direct.interval.MetaInterval import Sequence, Parallel
 from otp.otpbase.PythonUtil import bound as clamp
-from direct.distributed.ClockDelta import globalClockDelta
 from otp.otpbase import OTPGlobals
-from toontown.minigame.OrthoDrive import OrthoDrive
-from toontown.minigame.OrthoWalk import OrthoWalk
+from toontown.minigame.utils.OrthoDrive import OrthoDrive
+from toontown.minigame.utils.OrthoWalk import OrthoWalk
 from toontown.toonbase import TTLocalizer
 from .CogdoFlyingCollisions import CogdoFlyingCollisions
 from .CogdoFlyingPlayer import CogdoFlyingPlayer
 from .CogdoFlyingGuiManager import CogdoFlyingGuiManager
 from .CogdoFlyingInputManager import CogdoFlyingInputManager
 from .CogdoFlyingCameraManager import CogdoFlyingCameraManager
-from .CogdoFlyingObjects import CogdoFlyingPlatform, CogdoFlyingGatherable
+from .CogdoFlyingObjects import CogdoFlyingPlatform
 from .CogdoFlyingLegalEagle import CogdoFlyingLegalEagle
 from . import CogdoFlyingGameGlobals as Globals
 

@@ -1,9 +1,8 @@
-from panda3d.core import Point3, CollisionSphere, CollisionNode
+from panda3d.core import Point3
 from direct.showbase.DirectObject import DirectObject
-from otp.otpbase.PythonUtil import Functor
 from direct.showbase.RandomNumGen import RandomNumGen
 from direct.task.Task import Task
-from toontown.minigame.MazeSuit import MazeSuit
+from toontown.minigame.maze.MazeSuit import MazeSuit
 from toontown.toonbase import ToontownGlobals
 from .CogdoGameGatherable import CogdoMemo
 from .CogdoMazePlayer import CogdoMazePlayer

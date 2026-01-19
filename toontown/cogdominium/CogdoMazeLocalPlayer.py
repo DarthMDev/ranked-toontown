@@ -1,10 +1,9 @@
 from panda3d.core import Point3, CollisionNode, CollisionSphere, CollisionHandlerEvent
 from direct.interval.IntervalGlobal import Func, Sequence, Wait
 from otp.otpbase.PythonUtil import bound as clamp
-from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import TTLocalizer
-from toontown.minigame.OrthoDrive import OrthoDrive
-from toontown.minigame.OrthoWalk import OrthoWalk
+from toontown.minigame.utils.OrthoDrive import OrthoDrive
+from toontown.minigame.utils.OrthoWalk import OrthoWalk
 from toontown.toonbase import ToontownGlobals
 from . import CogdoGameConsts
 from . import CogdoMazeGameGlobals as Globals

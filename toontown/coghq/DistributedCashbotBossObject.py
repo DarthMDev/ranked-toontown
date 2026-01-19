@@ -2,7 +2,6 @@ import time
 from enum import IntEnum
 from panda3d.core import *
 from panda3d.physics import *
-from panda3d.core import CollisionHandlerQueue
 from direct.interval.IntervalGlobal import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.distributed import DistributedSmoothNode
@@ -11,7 +10,7 @@ from otp.otpbase import OTPGlobals
 from direct.fsm import FSM
 from direct.task import Task
 from direct.task.TaskManagerGlobal import taskMgr
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect
 smileyDoId = 1
 
 class DummyTaskClass:

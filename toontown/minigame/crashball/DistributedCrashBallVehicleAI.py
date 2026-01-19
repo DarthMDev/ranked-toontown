@@ -10,7 +10,7 @@ from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import Vec3, NodePath
 from panda3d.ode import OdeBody
 
-from toontown.minigame import IceGameGlobals
+from toontown.minigame.ice import IceGameGlobals
 
 
 class DistributedCrashBallVehicleAI(DistributedObjectAI):

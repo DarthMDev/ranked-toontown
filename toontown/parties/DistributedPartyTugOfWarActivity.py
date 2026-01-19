@@ -13,7 +13,7 @@ from direct.fsm.StatePush import StateVar, FunctionCall
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from toontown.effects import Splash
-from toontown.minigame.MinigamePowerMeter import MinigamePowerMeter
+from toontown.minigame.tugowar.TugOfWarPowerMeter import TugOfWarPowerMeter
 from toontown.minigame.controls.ArrowKeys import ArrowKeys
 from . import PartyGlobals
 from . import PartyUtils
@@ -204,7 +204,7 @@ class DistributedPartyTugOfWarActivity(DistributedPartyTeamActivity):
         self.splash.hide()
 
     def loadGuiElements(self):
-        self.powerMeter = MinigamePowerMeter(PartyGlobals.TugOfWarPowerMeterSize)
+        self.powerMeter = TugOfWarPowerMeter(PartyGlobals.TugOfWarPowerMeterSize)
         self.powerMeter.reparentTo(aspect2d)
         self.powerMeter.setPos(0.0, 0.0, 0.6)
         self.powerMeter.hide()

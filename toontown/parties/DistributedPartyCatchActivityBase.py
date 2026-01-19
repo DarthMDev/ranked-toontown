@@ -1,6 +1,6 @@
 import math
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame.DropScheduler import ThreePhaseDropScheduler
+from toontown.minigame.catch.DropScheduler import ThreePhaseDropScheduler
 from toontown.parties import PartyGlobals
 from functools import reduce
 

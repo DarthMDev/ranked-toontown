@@ -1,18 +1,15 @@
-import random
 from enum import IntEnum
 
 from panda3d.core import *
 from direct.interval.FunctionInterval import Wait, Func
 from direct.interval.MetaInterval import Sequence, Parallel
-from otp.otpbase.PythonUtil import lerp
 from direct.fsm import FSM
 from toontown.toonbase import TTLocalizer
-from toontown.toonbase import ToontownGlobals
-from toontown.minigame.OrthoDrive import OrthoDrive
-from toontown.minigame.OrthoWalk import OrthoWalk
+from toontown.minigame.utils.OrthoDrive import OrthoDrive
+from toontown.minigame.utils.OrthoWalk import OrthoWalk
 from toontown.parties.activityFSMs import DanceActivityFSM
-from toontown.parties.PartyGlobals import ActivityIds, ActivityTypes
-from toontown.parties.PartyGlobals import DancePatternToAnims, DanceAnimToName
+from toontown.parties.PartyGlobals import ActivityTypes
+from toontown.parties.PartyGlobals import DanceAnimToName
 from toontown.parties.DistributedPartyActivity import DistributedPartyActivity
 from toontown.parties.PartyDanceActivityToonFSM import PartyDanceActivityToonFSM
 from toontown.parties.PartyDanceActivityToonFSM import ToonDancingStates

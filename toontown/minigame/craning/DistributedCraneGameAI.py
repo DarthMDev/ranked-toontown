@@ -6,7 +6,6 @@ from direct.fsm import State
 from otp.otpbase.PythonUtil import clamp
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
-from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.CashbotBossComboTracker import CashbotBossComboTracker
 from toontown.minigame.craning.CraneGameGlobals import ScoreReason
 from toontown.coghq.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
@@ -23,9 +22,9 @@ from toontown.suit.DistributedCashbotBossGoonAI import DistributedCashbotBossGoo
 from toontown.suit.DistributedCashbotBossStrippedAI import DistributedCashbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
-from toontown.minigame.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
-from toontown.ai.ToonBarrier import ToonBarrier
+from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
+
 
 class DistributedCraneGameAI(DistributedMinigameAI):
     DESPERATION_MODE_ACTIVATE_THRESHOLD = 1800

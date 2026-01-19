@@ -382,7 +382,7 @@ PairingGameId = 11
 VineGameId = 12
 IceGameId = 13
 CogThiefGameId = 14
-TwoDGameId = 15
+EscapeId = 15
 PhotoGameId = 16
 CrashBallGameId = 17
 CraneGameId = 18
@@ -401,7 +401,6 @@ ValidMinigameIds = [
     GolfGreenGameId,
     CannonGameId,
 ]
-TravelGameId = 100
 MinigameNames = {
     'race': RaceGameId,
     'Cannon': CannonGameId,
@@ -420,9 +419,8 @@ MinigameNames = {
     'vine': VineGameId,
     'ice': IceGameId,
     'thief': CogThiefGameId,
-    '2d': TwoDGameId,
+    '2d': EscapeId,
     'photo': PhotoGameId,
-    'travel': TravelGameId,
     'Crashball': CrashBallGameId,
     'Crane': CraneGameId,
     'Pie': PieGameId,
@@ -447,9 +445,8 @@ MinigameIDs = (
     VineGameId,
     # IceGameId,
     CogThiefGameId,
-    # TwoDGameId,
+    # EscapeId,
     PhotoGameId,
-    TravelGameId,
     CrashBallGameId,
     CraneGameId,
     PieGameId,
@@ -462,7 +459,6 @@ MultiplayerMinigames = (
     TagGameId,
     IceGameId,
     RaceGameId,
-    TravelGameId,
     CrashBallGameId,
     CraneGameId,
     PieGameId,
@@ -480,7 +476,7 @@ MinigamePlayerMatrix = {1: (CannonGameId,
      PairingGameId,
      VineGameId,
      CogThiefGameId,
-     TwoDGameId),
+     EscapeId),
  2: (CannonGameId,
      PatternGameId,
      RingGameId,
@@ -494,7 +490,7 @@ MinigamePlayerMatrix = {1: (CannonGameId,
      VineGameId,
      IceGameId,
      CogThiefGameId,
-     TwoDGameId),
+     EscapeId),
  3: (CannonGameId,
      PatternGameId,
      RingGameId,
@@ -509,7 +505,7 @@ MinigamePlayerMatrix = {1: (CannonGameId,
      VineGameId,
      IceGameId,
      CogThiefGameId,
-     TwoDGameId),
+     EscapeId),
  4: (CannonGameId,
      PatternGameId,
      RingGameId,
@@ -524,7 +520,7 @@ MinigamePlayerMatrix = {1: (CannonGameId,
      VineGameId,
      IceGameId,
      CogThiefGameId,
-     TwoDGameId)}
+     EscapeId)}
 
 KeyboardTimeout = 300
 phaseMap = {Tutorial: 4,

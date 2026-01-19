@@ -1,16 +1,12 @@
-import math
 from panda3d.core import *
 from direct.distributed.ClockDelta import *
 from direct.interval.IntervalGlobal import *
 from otp.otpbase.PythonUtil import quantizeVec
 from direct.task.Task import Task
-from toontown.toontowngui import TTDialog
-from toontown.toonbase.ToonBaseGlobal import *
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
-from toontown.effects import Splash, DustCloud, Wake
-from toontown.minigame import Trajectory
-from toontown.minigame import CannonGameGlobals
+from toontown.effects import Splash, DustCloud
+from toontown.minigame.utils import Trajectory
 from toontown.parties import PartyGlobals
 from toontown.parties.PartyGlobals import ActivityIds
 from toontown.parties.PartyGlobals import ActivityTypes
@@ -19,7 +15,7 @@ from toontown.parties.PartyGlobals import FireworksFinishedEvent
 from toontown.parties.PartyGlobals import PartyCannonCollisions
 from toontown.parties.DistributedPartyActivity import DistributedPartyActivity
 from toontown.parties.CannonGui import CannonGui
-from toontown.parties.PartyUtils import toRadians, toDegrees
+
 CANNON_ROTATION_VEL = 15.0
 CANNON_ANGLE_VEL = 15.0
 GROUND_PLANE_MIN = -15
