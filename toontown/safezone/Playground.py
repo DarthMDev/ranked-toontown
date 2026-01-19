@@ -407,12 +407,9 @@ class Playground(BattlePlace):
         self.hfa.exit()
         del self.hfa
         if doneStatus['mode'] == 'complete':
-            if requestStatus.get('partyHat', 0):
-                outHow = {'teleportIn': 'tunnelOut'}
-            else:
-                outHow = {'teleportIn': 'teleportOut',
-                 'tunnelIn': 'tunnelOut',
-                 'doorIn': 'doorOut'}
+            outHow = {'teleportIn': 'teleportOut',
+             'tunnelIn': 'tunnelOut',
+             'doorIn': 'doorOut'}
             self.fsm.request(outHow[requestStatus['how']], [requestStatus])
         elif doneStatus['mode'] == 'incomplete':
             self.fsm.request('HFAReject')

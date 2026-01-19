@@ -6,7 +6,6 @@ from direct.fsm import StateData
 from direct.gui.DirectGui import *
 from toontown.toonbase import TTLocalizer
 from toontown.effects import DistributedFireworkShow
-from toontown.parties import DistributedPartyFireworksActivity
 from direct.directnotify import DirectNotifyGlobal
 
 class ShtikerBook(DirectFrame, StateData.StateData):

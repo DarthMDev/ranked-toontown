@@ -377,11 +377,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
             zoneId = bookStatus['hood']
             base.localAvatar.collisionsOff()
             base.localAvatar.b_setAnimState('CloseBook', 1, callback=self.goHomeNow, extraArgs=[zoneId])
-        elif bookStatus['mode'] == 'startparty':
-            firstStart = bookStatus['firstStart']
-            hostId = bookStatus['hostId']
-            base.localAvatar.collisionsOff()
-            base.localAvatar.b_setAnimState('CloseBook', 1, callback=self.startPartyNow, extraArgs=[firstStart, hostId])
 
     def handleBookCloseTeleport(self, hoodId, zoneId):
         if localAvatar.hasActiveBoardingGroup():
@@ -405,58 +400,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
             base.cr.timeManager.setDisconnectReason(ToontownGlobals.DisconnectBookExit)
         base.transitions.fadeScreen(1.0)
         base.cr.gameFSM.request(self.exitTo)
-
-    def goHomeNow(self, curZoneId):
-        return  # todo: fix estates
-        if localAvatar.hasActiveBoardingGroup():
-            rejectText = TTLocalizer.BoardingCannotLeaveZone
-            localAvatar.elevatorNotifier.showMe(rejectText)
-            return
-        hoodId = ToontownGlobals.MyEstate
-        self.requestLeave({'loader': 'safeZoneLoader',
-         'where': 'estate',
-         'how': 'teleportIn',
-         'hoodId': hoodId,
-         'zoneId': -1,
-         'shardId': None,
-         'avId': -1})
-        return
-
-    def startPartyNow(self, firstStart, hostId):
-        if localAvatar.hasActiveBoardingGroup():
-            rejectText = TTLocalizer.BoardingCannotLeaveZone
-            localAvatar.elevatorNotifier.showMe(rejectText)
-            return
-        base.localAvatar.creatingNewPartyWithMagicWord = False
-        base.localAvatar.aboutToPlanParty = False
-        hoodId = ToontownGlobals.PartyHood
-        if firstStart:
-            zoneId = 0
-            ToontownDistrictStats.refresh('shardInfoUpdated')
-            curShardTuples = base.cr.listActiveShards()
-            lowestPop = 100000000000000000
-            shardId = None
-            for shardInfo in curShardTuples:
-                pop = shardInfo[2]
-                if pop < lowestPop:
-                    lowestPop = pop
-                    shardId = shardInfo[0]
-
-            if shardId == base.localAvatar.defaultShard:
-                shardId = None
-            base.cr.playGame.getPlace().requestLeave({'loader': 'safeZoneLoader',
-             'where': 'party',
-             'how': 'teleportIn',
-             'hoodId': hoodId,
-             'zoneId': zoneId,
-             'shardId': shardId,
-             'avId': -1})
-        else:
-            if hostId is None:
-                hostId = base.localAvatar.doId
-            base.cr.partyManager.sendAvatarToParty(hostId)
-            return
-        return
 
     def handleBookClose(self):
         if hasattr(self, 'fsm'):
@@ -830,9 +773,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         if hoodId == ToontownGlobals.MyEstate:
             loaderId = 'safeZoneLoader'
             whereId = 'estate'
-        if hoodId == ToontownGlobals.PartyHood:
-            loaderId = 'safeZoneLoader'
-            whereId = 'party'
         self.requestLeave({'loader': loaderId,
          'where': whereId,
          'how': 'teleportIn',

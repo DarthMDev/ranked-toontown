@@ -8,7 +8,6 @@ from toontown.coghq import LobbyManagerAI
 from toontown.building import DistributedCFOElevatorAI
 from toontown.suit import DistributedCashbotBossAI
 from toontown.building import FADoorCodes
-from toontown.building import DistributedBoardingPartyAI
 from toontown.safezone import ArchipelagoTreasurePlannerAI
 
 class CashbotHQDataAI(HoodDataAI.HoodDataAI):
@@ -39,9 +38,6 @@ class CashbotHQDataAI(HoodDataAI.HoodDataAI):
         self.lobbyElevator = DistributedCFOElevatorAI.DistributedCFOElevatorAI(self.air, self.lobbyMgr, ToontownGlobals.CashbotLobby, antiShuffle=1)
         self.lobbyElevator.generateWithRequired(ToontownGlobals.CashbotLobby)
         self.addDistObj(self.lobbyElevator)
-        if simbase.config.GetBool('want-boarding-groups', 1):
-            self.boardingParty = DistributedBoardingPartyAI.DistributedBoardingPartyAI(self.air, [self.lobbyElevator.doId], 8)
-            self.boardingParty.generateWithRequired(ToontownGlobals.CashbotLobby)
         destinationZone = ToontownGlobals.CashbotLobby
         extDoor0 = DistributedCogHQDoorAI.DistributedCogHQDoorAI(self.air, 0, DoorTypes.EXT_COGHQ, destinationZone, doorIndex=0, lockValue=FADoorCodes.CB_DISGUISE_INCOMPLETE)
         extDoorList = [
@@ -51,9 +47,6 @@ class CashbotHQDataAI(HoodDataAI.HoodDataAI):
         intDoor0.zoneId = ToontownGlobals.CashbotLobby
         mintIdList = [
          self.testElev0.doId, self.testElev1.doId, self.testElev2.doId]
-        if simbase.config.GetBool('want-boarding-groups', 1):
-            self.mintBoardingParty = DistributedBoardingPartyAI.DistributedBoardingPartyAI(self.air, mintIdList, 4)
-            self.mintBoardingParty.generateWithRequired(self.zoneId)
         for extDoor in extDoorList:
             extDoor.setOtherDoor(intDoor0)
             extDoor.zoneId = ToontownGlobals.CashbotHQ

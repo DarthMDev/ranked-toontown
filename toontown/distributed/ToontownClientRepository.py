@@ -37,7 +37,6 @@ from toontown.toontowngui import TTDialog
 from toontown.toon import LocalToon
 from toontown.toon import ToonDNA
 from toontown.distributed import ToontownDistrictStats
-from toontown.parties import ToontownTimeManager
 from toontown.toon import Toon, DistributedToon
 from .ToontownMsgTypes import *
 from . import HoodMgr
@@ -50,6 +49,7 @@ from ..friends.OnlineToon import OnlineToon
 from ..groups.GroupManager import GroupManager
 from ..matchmaking.DistributedMatchmaker import DistributedMatchmaker
 from ..matchmaking.LeaderboardManager import LeaderboardManager
+from ..parties import ToontownTimeManager
 
 
 class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
@@ -95,7 +95,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         self.newsManager = None
         self.streetSign = None
         self.distributedDistrict = None
-        self.partyManager = None
         self.inGameNewsMgr = None
         self.whitelistMgr = None
         self.toontownTimeManager = ToontownTimeManager.ToontownTimeManager()

@@ -87,7 +87,6 @@ from toontown.minigame.diving import DistributedDivingGame/AI
 from toontown.minigame.target import DistributedTargetGame/AI
 from toontown.archipelago.distributed.DistributedArchipelagoManager/AI import DistributedArchipelagoManager/AI
 from toontown.shtiker import DeleteManager/AI
-from toontown.ai import ToontownMagicWordManager/AI
 from toontown.ai import NewsManager/AI
 from toontown.shtiker import PurchaseManager/AI
 from toontown.shtiker import NewbiePurchaseManager/AI
@@ -129,7 +128,6 @@ from toontown.toon import DistributedNPCClerk/AI
 from toontown.toon import DistributedNPCTailor/AI
 from toontown.toon import DistributedNPCBlocker/AI
 from toontown.toon import DistributedNPCFisherman/AI
-from toontown.toon import DistributedNPCPartyPerson/AI
 from toontown.toon import DistributedNPCPetclerk/AI
 from toontown.toon import DistributedNPCKartClerk/AI
 from toontown.building import DistributedKnockKnockDoor/AI
@@ -148,7 +146,6 @@ from toontown.building import DistributedCFOElevator/AI
 from toontown.building import DistributedCFOCLMatchElevator/AI
 from toontown.building import DistributedCJElevator/AI
 from toontown.building import DistributedBBElevator/AI
-from toontown.building import DistributedBoardingParty/AI
 from toontown.building import DistributedTutorialInterior/AI
 from toontown.effects import DistributedFireworkShow/AI
 from toontown.coghq import LobbyManager/AI
@@ -232,31 +229,6 @@ from toontown.minigame.vine import DistributedVineGame/AI
 from toontown.golf import DistributedPhysicsWorld/AI
 from toontown.golf import DistributedGolfHole/AI
 from toontown.golf import DistributedGolfCourse/AI
-from toontown.parties import DistributedParty/AI
-from toontown.parties import DistributedPartyActivity/AI
-from toontown.parties import DistributedPartyTeamActivity/AI
-from toontown.parties import DistributedPartyCannon/AI
-from toontown.parties import DistributedPartyCannonActivity/AI
-from toontown.parties import DistributedPartyCatchActivity/AI
-from toontown.parties import DistributedPartyWinterCatchActivity/AI
-from toontown.parties import DistributedPartyCogActivity/AI
-from toontown.parties import DistributedPartyWinterCogActivity/AI
-from toontown.parties import DistributedPartyFireworksActivity/AI
-from toontown.parties import DistributedPartyDanceActivityBase/AI
-from toontown.parties import DistributedPartyDanceActivity/AI
-from toontown.parties import DistributedPartyDance20Activity/AI
-from toontown.parties import DistributedPartyValentineDanceActivity/AI
-from toontown.parties import DistributedPartyValentineDance20Activity/AI
-from toontown.parties import DistributedPartyTrampolineActivity/AI
-from toontown.parties import DistributedPartyValentineTrampolineActivity/AI
-from toontown.parties import DistributedPartyVictoryTrampolineActivity/AI
-from toontown.parties import DistributedPartyWinterTrampolineActivity/AI
-from toontown.parties import DistributedPartyTugOfWarActivity/AI
-from toontown.parties import DistributedPartyJukeboxActivityBase/AI
-from toontown.parties import DistributedPartyJukeboxActivity/AI
-from toontown.parties import DistributedPartyJukebox40Activity/AI
-from toontown.parties import DistributedPartyValentineJukeboxActivity/AI
-from toontown.parties import DistributedPartyValentineJukebox40Activity/AI
 from toontown.friends import TTPlayerFriendsManager/UD
 from toontown.friends import OnlinePlayerManager/UD
 from toontown.matchmaking import DistributedMatchmaker/AI
@@ -299,7 +271,6 @@ from toontown.safezone import DistributedChineseCheckers/AI
 from toontown.safezone import DistributedCheckers/AI
 from toontown.safezone import DistributedFindFour/AI
 from toontown.uberdog.DistributedMailManager/AI/UD import DistributedMailManager/AI/UD
-from toontown.uberdog.DistributedPartyManager/AI/UD import DistributedPartyManager/AI/UD
 from toontown.rpc.AwardManager/UD import AwardManager/UD
 from toontown.uberdog.DistributedCpuInfoMgr/AI/UD import DistributedCpuInfoMgr/AI/UD
 from toontown.uberdog.DistributedSecurityMgr/AI/UD import DistributedSecurityMgr/AI/UD
@@ -854,12 +825,6 @@ struct simpleMail {
   string body;
 };
 
-struct invite {
-  uint64 inviteKey;
-  uint64 partyId;
-  uint8 status;
-};
-
 struct decoration {
   uint8 decorId;
   uint8 x;
@@ -874,55 +839,9 @@ struct activity {
   uint8 h;
 };
 
-struct party {
-  uint64 partyId;
-  uint32 hostId;
-  uint16 startYear;
-  uint8 startMonth;
-  uint8 startDay;
-  uint8 startHour;
-  uint8 startMinute;
-  uint16 endYear;
-  uint8 endMonth;
-  uint8 endDay;
-  uint8 endHour;
-  uint8 endMinute;
-  uint8 isPrivate;
-  uint8 inviteTheme;
-  activity activities[];
-  decoration decors[];
-  uint8 status;
-};
-
-struct partyReply {
-  uint32 inviteeId;
-  uint8 status;
-};
-
-struct repliesForOneParty {
-  uint64 partyId;
-  partyReply partyReplies[];
-};
-
-struct publicPartyInfo {
-  uint32 shardId;
-  uint32 zoneId;
-  uint8 numberOfGuests;
-  string hostName;
-  uint8[] activityIds;
-  uint16 minLeft;
-};
-
 struct jukeboxSongInfo {
   uint8/10 phase;
   string fileName;
-};
-
-struct partyCloudColor {
-  uint16 cloudNumber;
-  uint8/100 r;
-  uint8/100 g;
-  uint8/100 b;
 };
 
 struct datetime {
@@ -1101,19 +1020,6 @@ dclass DistributedToon : DistributedPlayer {
   setPinkSlips(uint8 = 0) required ownrecv db;
   setNametagStyle(uint8 = 0) broadcast required ram db;
   requestNametagStyle(uint8) ownsend airecv;
-  setMail(simpleMail []) ownrecv;
-  setNumMailItems(uint32) airecv;
-  setSimpleMailNotify(uint8) ownrecv airecv;
-  setInvites(invite []) ownrecv airecv ram;
-  setPartiesInvitedTo(party []) ownrecv airecv ram;
-  setHostedParties(party []) ownrecv airecv ram;
-  setPartyReplies(repliesForOneParty []) ownrecv airecv ram;
-  updateInvite(uint64, uint8) ownrecv airecv;
-  updateReply(uint64, uint64, uint8) ownrecv airecv;
-  setPartyCanStart(uint64) ownrecv airecv;
-  setPartyStatus(uint64, uint8) ownrecv airecv;
-  announcePartyStarted(uint64) ownrecv;
-  setNeverStartedPartyRefunded(uint64, int8, uint16) ownrecv;
   setModuleInfo(string []) airecv clsend;
   setDISLname(string) ram;
   setDISLid(uint32) ram db airecv;
@@ -1929,183 +1835,14 @@ dclass DistributedGarden : DistributedObject {
   sendNewProp(uint8, int16/10, int16/10, int16/10) broadcast;
 };
 
-dclass DistributedParty : DistributedObject {
-  setPartyClockInfo(uint8, uint8, uint8) required broadcast;
-  setInviteeIds(uint32[]) required broadcast;
-  setPartyState(bool) required broadcast;
-  setPartyInfoTuple(party) required broadcast;
-  setAvIdsAtParty(uint32 []) required broadcast;
-  setPartyStartedTime(string) required broadcast;
-  setHostName(string) required broadcast;
-  avIdEnteredParty(uint32) clsend airecv;
-};
-
-dclass DistributedPartyActivity : DistributedObject {
-  setX(int16/10) broadcast required;
-  setY(int16/10) broadcast required;
-  setH(uint16%360/100) broadcast required;
-  setPartyDoId(uint32) broadcast required;
-  toonJoinRequest() airecv clsend;
-  toonExitRequest() airecv clsend;
-  toonExitDemand() airecv clsend;
-  toonReady() airecv clsend;
-  joinRequestDenied(uint8);
-  exitRequestDenied(uint8);
-  setToonsPlaying(uint32 []) broadcast ram;
-  setState(string, int16) broadcast ram;
-  showJellybeanReward(uint32, uint8, string);
-};
-
-dclass DistributedPartyTeamActivity : DistributedPartyActivity {
-  toonJoinRequest(uint8(0-1)) airecv clsend;
-  toonExitRequest(uint8(0-1)) airecv clsend;
-  toonSwitchTeamRequest() airecv clsend;
-  setPlayersPerTeam(uint8, uint8) broadcast required;
-  setDuration(uint8) broadcast required;
-  setCanSwitchTeams(bool) broadcast required;
-  setState(string, int16, uint32) broadcast ram;
-  setToonsPlaying(uint32 [0-8], uint32 [0-8]) required broadcast ram;
-  setAdvantage(uint16/100);
-  switchTeamRequestDenied(uint8);
-};
-
 struct CatchGeneration {
   uint32 generation;
   uint32 timestamp;
   int8 numPlayers;
 };
 
-dclass DistributedPartyCatchActivity : DistributedPartyActivity {
-  setStartTimestamp(uint32) required broadcast ram;
-  setGenerations(CatchGeneration []) required broadcast ram;
-  requestActivityStart() airecv clsend;
-  startRequestResponse(uint8);
-  claimCatch(uint32, uint32, uint32) airecv clsend;
-  setObjectCaught(uint32, uint32, uint32) broadcast;
-};
-
-dclass DistributedPartyWinterCatchActivity : DistributedPartyCatchActivity {
-};
-
-dclass DistributedPartyCogActivity : DistributedPartyTeamActivity {
-  pieThrow(uint32, int32, int32/100, int32/100, int32/100, int32/100, uint8) clsend broadcast;
-  pieHitsToon(uint32, int32, int32/100, int32/100, int32/100) clsend broadcast;
-  pieHitsCog(uint32, int32, int8(0-2), int32/100, int32/100, int32/100, int32, bool) clsend broadcast airecv;
-  setCogDistances(int8/100 [3]) broadcast ram;
-  setHighScore(string, uint16) broadcast ram;
-};
-
-dclass DistributedPartyWinterCogActivity : DistributedPartyCogActivity {
-};
-
-dclass DistributedPartyDanceActivityBase : DistributedPartyActivity {
-  updateDancingToon(uint8, char [0-256]) clsend airecv;
-  setToonsPlaying(uint32 [], uint16%360/100 []) broadcast ram;
-  setDancingToonState(uint32, uint8, string) broadcast;
-};
-
-dclass DistributedPartyDanceActivity : DistributedPartyDanceActivityBase {
-};
-
-dclass DistributedPartyDance20Activity : DistributedPartyDanceActivityBase {
-};
-
-dclass DistributedPartyValentineDanceActivity : DistributedPartyDanceActivityBase {
-};
-
-dclass DistributedPartyValentineDance20Activity : DistributedPartyDanceActivityBase {
-};
-
-dclass DistributedPartyJukeboxActivityBase : DistributedPartyActivity {
-  setNextSong(jukeboxSongInfo) clsend airecv;
-  setSongPlaying(jukeboxSongInfo, uint32) broadcast ram;
-  queuedSongsRequest() clsend airecv;
-  queuedSongsResponse(jukeboxSongInfo [], int16);
-  setSongInQueue(jukeboxSongInfo);
-  moveHostSongToTopRequest() clsend airecv;
-  moveHostSongToTop();
-};
-
-dclass DistributedPartyJukeboxActivity : DistributedPartyJukeboxActivityBase {
-};
-
-dclass DistributedPartyJukebox40Activity : DistributedPartyJukeboxActivityBase {
-};
-
-dclass DistributedPartyValentineJukeboxActivity : DistributedPartyJukeboxActivityBase {
-};
-
-dclass DistributedPartyValentineJukebox40Activity : DistributedPartyJukeboxActivityBase {
-};
-
-dclass DistributedPartyCannonActivity : DistributedPartyActivity {
-  setMovie(uint8, uint32) broadcast;
-  setLanded(uint32) airecv broadcast clsend;
-  setCannonWillFire(uint32, int32/100, uint32/100) broadcast;
-  cloudsColorRequest() clsend airecv;
-  cloudsColorResponse(partyCloudColor []);
-  requestCloudHit(uint16, uint8/100, uint8/100, uint8/100) clsend airecv;
-  setCloudHit(uint16, uint8/100, uint8/100, uint8/100) broadcast;
-  setToonTrajectoryAi(int32, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100) airecv clsend;
-  setToonTrajectory(uint32, int32, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100, int32/100) broadcast;
-  updateToonTrajectoryStartVelAi(int32/100, int32/100, int32/100) airecv clsend;
-  updateToonTrajectoryStartVel(uint32, int32/100, int32/100, int32/100) broadcast;
-};
-
-dclass DistributedPartyCannon : DistributedObject {
-  setActivityDoId(uint64) required broadcast ram;
-  setPosHpr(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) required broadcast ram;
-  requestEnter() airecv clsend;
-  requestExit() broadcast;
-  setMovie(uint8, uint32) broadcast ram;
-  setCannonPosition(int32/100, uint32/100) airecv clsend;
-  setCannonLit(int32/100, uint32/100) airecv clsend;
-  setFired() airecv clsend;
-  setLanded(uint32) airecv clsend;
-  updateCannonPosition(uint32, int32/100, uint32/100) broadcast ram;
-  setCannonExit(uint32) broadcast;
-  setTimeout() clsend airecv;
-};
-
-dclass DistributedPartyFireworksActivity : DistributedPartyActivity {
-  setEventId(uint8) required broadcast;
-  setShowStyle(uint8) required broadcast;
-};
-
-dclass DistributedPartyTrampolineActivity : DistributedPartyActivity {
-  awardBeans(uint8, uint16) clsend airecv;
-  setBestHeightInfo(string, uint16) broadcast ram;
-  reportHeightInformation(uint16) airecv clsend;
-  leaveTrampoline() broadcast;
-  requestAnim(char [0-256]) clsend airecv;
-  requestAnimEcho(string) broadcast;
-  removeBeans(int8 []) clsend airecv;
-  removeBeansEcho(int8 []) broadcast;
-};
-
-dclass DistributedPartyValentineTrampolineActivity : DistributedPartyTrampolineActivity {
-};
-
-dclass DistributedPartyVictoryTrampolineActivity : DistributedPartyTrampolineActivity {
-};
-
-dclass DistributedPartyWinterTrampolineActivity : DistributedPartyTrampolineActivity {
-};
-
-dclass DistributedPartyTugOfWarActivity : DistributedPartyTeamActivity {
-  reportKeyRateForce(uint32, int16/100) airecv clsend;
-  reportFallIn(uint8) airecv clsend;
-  setToonsPlaying(uint32 [0-4], uint32 [0-4]) required broadcast ram;
-  updateToonKeyRate(uint32, uint32) broadcast;
-  updateToonPositions(int16/1000) broadcast;
-};
-
 dclass DeleteManager : DistributedObject {
   setInventory(blob) airecv clsend;
-};
-
-dclass ToontownMagicWordManager : MagicWordManager {
-  requestTeleport(string, string, uint32, uint32, uint32);
 };
 
 struct weeklyCalendarHoliday {
@@ -2573,11 +2310,6 @@ dclass DistributedNPCFisherman : DistributedNPCToonBase {
   completeSale(uint8) airecv clsend;
 };
 
-dclass DistributedNPCPartyPerson : DistributedNPCToonBase {
-  setMovie(uint8, uint32, uint32, uint32[], int16) broadcast ram;
-  answer(uint8) airecv clsend;
-};
-
 dclass DistributedNPCPetclerk : DistributedNPCToonBase {
   setMovie(uint8, uint32, uint32, uint32[], int16) broadcast ram;
   setSubId(int8) broadcast ram;
@@ -2715,43 +2447,6 @@ dclass DistributedCJElevator : DistributedBossElevator {
 };
 
 dclass DistributedBBElevator : DistributedBossElevator {
-};
-
-dclass DistributedBoardingParty : DistributedObject {
-  postGroupInfo(uint32, uint32[], uint32[], uint32[]) broadcast;
-  informDestinationInfo(uint8) clsend airecv;
-  postDestinationInfo(uint8) broadcast;
-  postInvite(uint32, uint32) broadcast;
-  postInviteCanceled() broadcast;
-  postKick(uint32) broadcast;
-  postKickReject(uint32, uint32, uint32) broadcast;
-  postSizeReject(uint32, uint32, uint32) broadcast;
-  postInviteAccepted(uint32) broadcast;
-  postInviteDelcined(uint32) broadcast;
-  postInviteNotQualify(uint32, int8, uint32) broadcast;
-  postAlreadyInGroup() broadcast;
-  postGroupDissolve(uint32, uint32, uint32 [], uint8) broadcast;
-  postMessageAcceptanceFailed(uint32, int8) broadcast;
-  postGroupAlreadyFull() broadcast;
-  postSomethingMissing() broadcast;
-  postRejectBoard(uint32, int8, uint32 [], uint32 []) broadcast;
-  postRejectGoto(uint32, int8, uint32 [], uint32 []) broadcast;
-  postMessageInvited(uint32, uint32) broadcast;
-  postMessageInvitationFailed(uint32) broadcast;
-  acceptGoToFirstTime(uint32) broadcast;
-  acceptGoToSecondTime(uint32) broadcast;
-  rejectGoToRequest(uint32, int8, uint32 [], uint32 []) broadcast;
-  requestInvite(uint32) airecv clsend;
-  requestCancelInvite(uint32) airecv clsend;
-  requestAcceptInvite(uint32, uint32) airecv clsend;
-  requestRejectInvite(uint32, uint32) airecv clsend;
-  requestKick(uint32) airecv clsend;
-  requestLeave(uint32) airecv clsend;
-  requestBoard(uint32) airecv clsend;
-  requestGoToFirstTime(uint32) airecv clsend;
-  requestGoToSecondTime(uint32) airecv clsend;
-  setElevatorIdList(uint32[]) required broadcast ram;
-  setGroupSize(uint8) required broadcast ram;
 };
 
 dclass DistributedTutorialInterior : DistributedObject {
@@ -3339,7 +3034,6 @@ dclass DistributedDeliveryManager : DistributedObject {
   giveBeanBonus(uint32, uint16);
   requestAck() clsend;
   returnAck();
-  givePartyRefund(uint32, uint32, uint64, int8, uint16);
 };
 
 dclass DistributedLawbotBoss : DistributedBossCog {
@@ -4100,49 +3794,6 @@ dclass DistributedFindFour : DistributedNode {
 dclass DistributedMailManager : DistributedObject {
   sendSimpleMail(uint32, uint32, string);
   setNumMailItems(uint32, uint32) airecv;
-};
-
-dclass DistributedPartyManager : DistributedObject {
-  addParty(uint32, uint32, string, string, int8, int8, activity [], decoration [], uint32[], uint16);
-  addPartyRequest(uint32, char [0-256], char [0-256], int8, int8, activity [], decoration [], uint32[]) airecv clsend;
-  addPartyResponse(uint32, int8);
-  addPartyResponseUdToAi(uint32, int8, uint16) airecv;
-  markInviteAsReadButNotReplied(uint32, uint64);
-  respondToInvite(uint32, uint32, uint16, uint64, uint8);
-  respondToInviteResponse(uint32, uint16, uint64, int8, uint8) airecv;
-  changePrivateRequest(uint64, int8) airecv clsend;
-  changePrivateRequestAiToUd(uint32, uint64, int8);
-  changePrivateResponseUdToAi(uint32, uint64, int8, int8) airecv;
-  changePrivateResponse(uint64, int8, int8);
-  changePartyStatusRequest(uint64, int8) airecv clsend;
-  changePartyStatusRequestAiToUd(uint32, uint64, int8);
-  changePartyStatusResponseUdToAi(uint32, uint64, int8, int8) airecv;
-  changePartyStatusResponse(uint64, int8, int8, uint16);
-  partyInfoOfHostRequestAiToUd(uint32, uint32);
-  partyInfoOfHostFailedResponseUdToAi(uint32) airecv;
-  partyInfoOfHostResponseUdToAi(party, uint32[]) airecv;
-  givePartyRefundResponse(uint32, uint64, int8, uint16, uint32);
-  getPartyZone(uint32, uint32, uint8) clsend airecv;
-  receivePartyZone(uint32, uint64, uint32);
-  freeZoneIdFromPlannedParty(uint32, uint32) clsend airecv;
-  sendAvToPlayground(uint32, uint8);
-  exitParty(uint32) clsend airecv;
-  removeGuest(uint32, uint32) airecv clsend;
-  partyManagerAIStartingUp(uint32, uint32);
-  partyManagerAIGoingDown(uint32, uint32);
-  partyHasStartedAiToUd(uint32, uint64, uint32, uint32, string);
-  toonHasEnteredPartyAiToUd(uint32);
-  toonHasExitedPartyAiToUd(uint32);
-  partyHasFinishedUdToAllAi(uint32) airecv;
-  updateToPublicPartyInfoUdToAllAi(uint32, uint64, uint32, uint32, uint8, uint8, string, uint8 [], uint64) airecv;
-  updateToPublicPartyCountUdToAllAi(uint32, uint8) airecv;
-  requestShardIdZoneIdForHostId(uint32) clsend airecv;
-  sendShardIdZoneIdToAvatar(uint32, uint32);
-  partyManagerUdStartingUp() airecv;
-  updateAllPartyInfoToUd(uint32, uint64, uint32, uint32, uint8, uint8, string, uint8 [], uint64);
-  forceCheckStart();
-  requestMw(uint32, string, uint32, uint32);
-  mwResponseUdToAllAi(uint32, string, uint32, uint32) airecv;
 };
 
 dclass DistributedObjectGlobal : DistributedObject {

@@ -62,7 +62,6 @@ P_ItemInCloset = -18
 P_ItemOnGiftOrder = -17
 P_ItemOnOrder = -16
 P_ItemInMailbox = -15
-P_PartyNotFound = 14
 P_WillNotFit = -13
 P_NotAGift = -12
 P_OnOrderListFull = -11
@@ -84,7 +83,6 @@ GIFT_admin = 1
 GIFT_RAT = 2
 GIFT_mobile = 3
 GIFT_cogs = 4
-GIFT_partyrefund = 5
 FM_InvalidItem = -7
 FM_NondeletableItem = -6
 FM_InvalidIndex = -5
@@ -240,8 +238,7 @@ LawbotStageIntD = 13600
 Tutorial = 15000
 MyEstate = 16000
 GolfZone = 17000
-PartyHood = 18000
-HoodsAlwaysVisited = [17000, 18000]
+HoodsAlwaysVisited = [17000]
 WelcomeValleyBegin = 22000
 WelcomeValleyEnd = 61000
 DynamicZonesBegin = 61000
@@ -538,8 +535,7 @@ phaseMap = {Tutorial: 4,
  SellbotHQ: 9,
  CashbotHQ: 10,
  LawbotHQ: 11,
- GolfZone: 8,
- PartyHood: 13}
+ GolfZone: 8}
 streetPhaseMap = {ToontownCentral: 5,
  DonaldsDock: 6,
  MinniesMelodyland: 6,
@@ -552,8 +548,7 @@ streetPhaseMap = {ToontownCentral: 5,
  BossbotHQ: 12,
  SellbotHQ: 9,
  CashbotHQ: 10,
- LawbotHQ: 11,
- PartyHood: 13}
+ LawbotHQ: 11}
 dnaMap = {Tutorial: 'toontown_central',
  ToontownCentral: 'toontown_central',
  DonaldsDock: 'donalds_dock',
@@ -592,8 +587,7 @@ hoodNameMap = {DonaldsDock: TTLocalizer.DonaldsDock,
  LawbotHQ: TTLocalizer.LawbotHQ,
  Tutorial: TTLocalizer.Tutorial,
  MyEstate: TTLocalizer.MyEstate,
- GolfZone: TTLocalizer.GolfZone,
- PartyHood: TTLocalizer.PartyHood}
+ GolfZone: TTLocalizer.GolfZone}
 safeZoneCountMap = {MyEstate: 8,
  Tutorial: 6,
  ToontownCentral: 6,
@@ -605,8 +599,7 @@ safeZoneCountMap = {MyEstate: 8,
  FunnyFarm: 500,
  DonaldsDreamland: 5,
  OutdoorZone: 500,
- GolfZone: 500,
- PartyHood: 500}
+ GolfZone: 500}
 townCountMap = {MyEstate: 8,
  Tutorial: 40,
  ToontownCentral: 37,
@@ -617,8 +610,7 @@ townCountMap = {MyEstate: 8,
  DaisyGardens: 40,
  FunnyFarm: 40,
  DonaldsDreamland: 40,
- OutdoorZone: 40,
- PartyHood: 20}
+ OutdoorZone: 40}
 hoodCountMap = {MyEstate: 2,
  Tutorial: 2,
  ToontownCentral: 2,
@@ -634,8 +626,7 @@ hoodCountMap = {MyEstate: 2,
  SellbotHQ: 43,
  CashbotHQ: 2,
  LawbotHQ: 2,
- GolfZone: 2,
- PartyHood: 2}
+ GolfZone: 2}
 TrophyStarLevels = (10,
  20,
  30,
@@ -924,7 +915,6 @@ AMBULANCE_CHASER_INVASION = 91
 MICROMANAGER_INVASION = 92
 NUMBER_CRUNCHER_INVASION = 93
 SILLY_CHATTER_FIVE = 94
-VICTORY_PARTY_HOLIDAY = 95
 SELLBOT_NERF_HOLIDAY = 96
 JELLYBEAN_TROLLEY_HOLIDAY = 97
 JELLYBEAN_FISHING_HOLIDAY = 98

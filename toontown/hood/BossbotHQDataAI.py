@@ -6,7 +6,6 @@ from toontown.building import DoorTypes
 from toontown.coghq import LobbyManagerAI
 from toontown.suit import DistributedBossbotBossAI
 from toontown.building import DistributedBBElevatorAI
-from toontown.building import DistributedBoardingPartyAI
 from toontown.building import FADoorCodes
 from toontown.coghq import DistributedCogKartAI
 
@@ -31,9 +30,6 @@ class BossbotHQDataAI(HoodDataAI.HoodDataAI):
         self.lobbyElevator = DistributedBBElevatorAI.DistributedBBElevatorAI(self.air, self.lobbyMgr, ToontownGlobals.BossbotLobby, antiShuffle=1)
         self.lobbyElevator.generateWithRequired(ToontownGlobals.BossbotLobby)
         self.addDistObj(self.lobbyElevator)
-        if simbase.config.GetBool('want-boarding-groups', 1):
-            self.boardingParty = DistributedBoardingPartyAI.DistributedBoardingPartyAI(self.air, [self.lobbyElevator.doId], 8)
-            self.boardingParty.generateWithRequired(ToontownGlobals.BossbotLobby)
 
         def makeDoor(destinationZone, intDoorIndex, extDoorIndex, lock=0):
             intDoor = DistributedCogHQDoorAI.DistributedCogHQDoorAI(self.air, 0, DoorTypes.INT_COGHQ, self.canonicalHoodId, doorIndex=intDoorIndex, lockValue=lock)
@@ -50,9 +46,6 @@ class BossbotHQDataAI(HoodDataAI.HoodDataAI):
 
         makeDoor(ToontownGlobals.BossbotLobby, 0, 0, FADoorCodes.BB_DISGUISE_INCOMPLETE)
         kartIdList = self.createCogKarts()
-        if simbase.config.GetBool('want-boarding-groups', 1):
-            self.courseBoardingParty = DistributedBoardingPartyAI.DistributedBoardingPartyAI(self.air, kartIdList, 4)
-            self.courseBoardingParty.generateWithRequired(self.zoneId)
 
     def createCogKarts(self):
         posList = (

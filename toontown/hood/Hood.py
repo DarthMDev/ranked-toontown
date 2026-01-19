@@ -208,7 +208,7 @@ class Hood(StateData.StateData):
     def handleSafeZoneLoaderDone(self):
         doneStatus = self.loader.getDoneStatus()
         teleportDebug(doneStatus, 'handleSafeZoneLoaderDone, doneStatus=%s' % doneStatus)
-        if self.isSameHood(doneStatus) and doneStatus['where'] != 'party' or doneStatus['loader'] == 'minigame':
+        if self.isSameHood(doneStatus) or doneStatus['loader'] == 'minigame':
             teleportDebug(doneStatus, 'same hood')
             self.fsm.request('quietZone', [doneStatus])
         else:

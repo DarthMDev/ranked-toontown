@@ -428,7 +428,7 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             leaderId = self.getLeader()
 
         self.currentInvite = GroupInvitee()
-        self.currentInvite.make(None, inviter, leaderId)
+        self.currentInvite.make(inviter, leaderId)
     
     def getCurrentGroup(self):
         """

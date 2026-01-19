@@ -3,7 +3,6 @@ from direct.distributed.ClockDelta import *
 from direct.interval.IntervalGlobal import *
 from toontown.toonbase.ToontownGlobals import *
 from toontown.toonbase import TTLocalizer
-from toontown.parties import PartyGlobals
 from toontown.hood import *
 from . import Fireworks
 from . import FireworkShows
@@ -87,11 +86,6 @@ class FireworkShowMixin:
             startMessage = TTLocalizer.FireworksNewYearsEveBeginning
             endMessage = TTLocalizer.FireworksNewYearsEveEnding
             musicFile = 'phase_4/audio/bgm/tt_s_ara_gen_fireworks_auldLangSyne.ogg'
-        elif eventId == PartyGlobals.FireworkShows.Summer:
-            instructionMessage = TTLocalizer.FireworksActivityInstructions
-            startMessage = TTLocalizer.FireworksActivityBeginning
-            endMessage = TTLocalizer.FireworksActivityEnding
-            musicFile = 'phase_4/audio/bgm/tt_summer.ogg'
         elif eventId == COMBO_FIREWORKS:
             instructionMessage = TTLocalizer.FireworksInstructions
             startMessage = TTLocalizer.FireworksComboBeginning
@@ -147,8 +141,6 @@ class FireworkShowMixin:
             endMessage = TTLocalizer.FireworksJuly4Ending
         elif eventId == NEWYEARS_FIREWORKS:
             endMessage = TTLocalizer.FireworksNewYearsEveEnding
-        elif eventId == PartyGlobals.FireworkShows.Summer:
-            endMessage = TTLocalizer.FireworksActivityEnding
         elif eventId == COMBO_FIREWORKS:
             endMessage = TTLocalizer.FireworksComboEnding
         else:
@@ -200,10 +192,6 @@ class FireworkShowMixin:
             elif isinstance(hood, OZHood.OZHood):
                 self.fireworkShow.setPos(-450, -80, 140)
                 self.fireworkShow.setHpr(300, 0, 0)
-            elif isinstance(hood, PartyHood.PartyHood):
-                self.fireworkShow.setPos(0, -400, 120)
-                self.fireworkShow.lookAt(0, 0, 0)
-                self.fireworkShow.setScale(1.8)
 
     def getFireworkShowIval(self, eventId, index, startT):
         show = FireworkShows.getShow(eventId, index)

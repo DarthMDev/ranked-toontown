@@ -248,7 +248,7 @@ class GroupManagerAI(DistributedObjectGlobalAI):
                 if group is not None:
                     group.announce(f"{inviter.getName()} has invited {otherToon.getName()}.")
                 else:
-                    inviter.d_setSystemMessage(0, f"Asking {otherToon.getName()} if they want to start a party with you!")
+                    inviter.d_setSystemMessage(0, f"Asking {otherToon.getName()} if they want to start a group with you!")
 
             # Is this toon inviting themselves?
             case GroupOperationResult.IS_SAME_PERSON:

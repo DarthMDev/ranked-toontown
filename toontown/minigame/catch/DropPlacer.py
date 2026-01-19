@@ -1,6 +1,5 @@
 from direct.showbase.RandomNumGen import RandomNumGen
 from toontown.minigame.catch import CatchGameGlobals, DropScheduler
-from toontown.parties.PartyGlobals import CatchActivityDuration as PartyCatchDuration
 
 class DropPlacer:
 

@@ -62,7 +62,6 @@ from toontown.toon import NPCToons
 from toontown.toonbase import ToontownGlobals
 from toontown.tutorial.TutorialManagerAI import TutorialManagerAI
 from toontown.uberdog.DistributedInGameNewsMgrAI import DistributedInGameNewsMgrAI
-from toontown.uberdog.DistributedPartyManagerAI import DistributedPartyManagerAI
 from toontown.api.ApiManagerAI import ApiManagerAI
 
 
@@ -107,7 +106,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.countryClubMgr = None
         self.promotionMgr = None
         self.cogSuitMgr = None
-        self.partyManager = None
         self.safeZoneManager = None
         self.raceMgr = None
         self.polarPlaceEffectMgr = None
@@ -260,10 +258,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         # Generate our trophy manager...
         self.trophyMgr = DistributedTrophyMgrAI(self)
         self.trophyMgr.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
-
-        # Generate our party manager...
-        self.partyManager = DistributedPartyManagerAI(self)
-        self.partyManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
 
         # Generate our safezone manager...
         self.safeZoneManager = SafeZoneManagerAI(self)
@@ -479,9 +473,6 @@ class ToontownAIRepository(ToontownInternalRepository):
             fishingSpots.extend(foundFishingSpots)
 
         return fishingSpots
-
-    def findPartyHats(self, dnaData, zoneId):
-        return []
 
     def loadDNAFileAI(self, dnaStore, dnaFileName):
         return loadDNAFileAI(dnaStore, dnaFileName)
