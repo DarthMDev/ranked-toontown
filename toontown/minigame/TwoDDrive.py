@@ -1,3 +1,5 @@
+from direct.directnotify import DirectNotifyGlobal
+
 from otp.otpbase import OTPGlobals
 from direct.interval.IntervalGlobal import *
 from .controls import ArrowKeys

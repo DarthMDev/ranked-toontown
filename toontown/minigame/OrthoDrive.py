@@ -1,7 +1,9 @@
+from direct.directnotify import DirectNotifyGlobal
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from otp.otpbase import OTPGlobals
 from .controls import ArrowKeys
+
 
 
 class OrthoDrive:

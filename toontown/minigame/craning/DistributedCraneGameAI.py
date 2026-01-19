@@ -1711,8 +1711,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.sendUpdate('setOvertime', [flag])
 
     def enterVictory(self):
-
-
         highest_scorers = self.getHighestScorers()
 
         # If nobody is in the lead, check if this is a single-player forfeit
@@ -1759,6 +1757,31 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             self.sendUpdate("declareVictor", [victorId])
             taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
 
+        # Clean up all status effects from boss and safes before cleanup
+        if self.statusEffectSystem:
+            # Clear all status effects from the boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+
+            # Clear all status effects from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+
+        # Clean up all drones before cleaning up other objects
+        if self.boss and hasattr(self.boss, 'drones'):
+            for drone in list(self.boss.drones):
+                if drone:
+                    drone.vanishWithPoof()
+            self.boss.drones = []
+
+        # Reset drone cooldowns for all players and broadcast the reset
+        self.droneCooldowns.clear()
+        self.sendUpdate('clearAllDroneCooldowns', [])
+
+        self.__deleteCraningObjects()
+        self.__deleteBoss()
+
     def getWinners(self):
 
         # Find who has most round wins.
@@ -1782,31 +1805,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
-        
-        # Clean up all status effects from boss and safes before cleanup
-        if self.statusEffectSystem:
-            # Clear all status effects from the boss
-            if self.boss:
-                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
-            
-            # Clear all status effects from all safes
-            for safe in self.safes:
-                if safe:
-                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
-        
-        # Clean up all drones before cleaning up other objects
-        if self.boss and hasattr(self.boss, 'drones'):
-            for drone in list(self.boss.drones):
-                if drone:
-                    drone.vanishWithPoof()
-            self.boss.drones = []
-        
-        # Reset drone cooldowns for all players and broadcast the reset
-        self.droneCooldowns.clear()
-        self.sendUpdate('clearAllDroneCooldowns', [])
-        
-        self.__deleteCraningObjects()
-        self.__deleteBoss()
         self.gameFSM.request('inactive')
 
     def exitCleanup(self):

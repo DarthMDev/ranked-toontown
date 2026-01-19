@@ -168,8 +168,6 @@ class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCas
         self.b_destroyGoon()
 
     def handleToonDetect(self, collEntry = None):
-        if self.boss.getBoss() is None:
-            return
         if self.boss.getBoss().localToonIsSafe:
             return
         DistributedGoon.DistributedGoon.handleToonDetect(self, collEntry)
