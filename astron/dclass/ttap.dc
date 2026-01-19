@@ -49,7 +49,6 @@ from toontown.suit import DistributedSellbotBossStripped/AI
 from toontown.suit import DistributedCashbotBossStripped/AI
 from toontown.suit import DistributedLawbotBossStripped/AI
 from toontown.suit import DistributedBossbotBossStripped/AI
-
 from toontown.coghq import DistributedCashbotBossSafe/AI
 from toontown.coghq import DistributedCashbotBossCrane/AI
 from toontown.coghq import DistributedCashbotBossSideCrane/AI
