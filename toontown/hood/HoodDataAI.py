@@ -3,7 +3,6 @@ from typing import List
 from direct.directnotify import DirectNotifyGlobal
 from . import ZoneUtil
 from toontown.building import DistributedBuildingMgrAI
-from toontown.suit import DistributedSuitPlannerAI
 from toontown.safezone import ButterflyGlobals
 from toontown.safezone import DistributedButterflyAI
 from panda3d.core import *
@@ -47,7 +46,6 @@ class HoodDataAI:
         self.createFishingPonds()
         self.createStreetClerks()
         self.createBuildingManagers()
-        self.createSuitPlanners()
 
     def shutdown(self):
         self.setRedirect(None)
@@ -130,17 +128,6 @@ class HoodDataAI:
                 mgr = DistributedBuildingMgrAI.DistributedBuildingMgrAI(self.air, zoneId, dnaStore, self.air.trophyMgr)
                 self.buildingManagers.append(mgr)
                 self.air.buildingManagers[zoneId] = mgr
-
-    def createSuitPlanners(self):
-        for zone in self.air.zoneTable[self.canonicalHoodId]:
-            if zone[2]:
-                zoneId = ZoneUtil.getTrueZoneId(zone[0], self.zoneId)
-                sp = DistributedSuitPlannerAI.DistributedSuitPlannerAI(self.air, zoneId)
-                sp.generateWithRequired(zoneId)
-                sp.d_setZoneId(zoneId)
-                sp.initTasks()
-                self.suitPlanners.append(sp)
-                self.air.suitPlanners[zoneId] = sp
 
     def createButterflies(self, playground):
         ButterflyGlobals.generateIndexes(self.zoneId, playground)

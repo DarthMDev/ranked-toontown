@@ -1,10 +1,10 @@
 import random
 
-from otp.ai.AIBaseGlobal import *
-from otp.avatar import DistributedAvatarAI
-from . import SuitPlannerBase, SuitBase, SuitDNA
 from direct.directnotify import DirectNotifyGlobal
+
+from otp.avatar import DistributedAvatarAI
 from toontown.battle import SuitBattleGlobals
+from . import SuitBase, SuitDNA
 from ..battle.SuitBattleGlobals import SuitAttributes
 
 

@@ -18,11 +18,6 @@ from toontown.ai.NewsManagerAI import NewsManagerAI
 from toontown.archipelago.distributed.DistributedArchipelagoManagerAI import DistributedArchipelagoManagerAI
 from toontown.building.DistributedTrophyMgrAI import DistributedTrophyMgrAI
 from toontown.catalog.CatalogManagerAI import CatalogManagerAI
-from toontown.coghq.CogSuitManagerAI import CogSuitManagerAI
-from toontown.coghq.CountryClubManagerAI import CountryClubManagerAI
-from toontown.coghq.FactoryManagerAI import FactoryManagerAI
-from toontown.coghq.LawOfficeManagerAI import LawOfficeManagerAI
-from toontown.coghq.MintManagerAI import MintManagerAI
 from toontown.coghq.PromotionManagerAI import PromotionManagerAI
 from toontown.distributed.ToontownDistrictAI import ToontownDistrictAI
 from toontown.distributed.ToontownDistrictStatsAI import ToontownDistrictStatsAI
@@ -31,15 +26,9 @@ from toontown.fishing.FishManagerAI import FishManagerAI
 from toontown.groups.GroupManagerAI import GroupManagerAI
 from toontown.hood import ZoneUtil
 from toontown.hood.BRHoodDataAI import BRHoodDataAI
-from toontown.hood.BossbotHQDataAI import BossbotHQDataAI
-from toontown.hood.CSHoodDataAI import CSHoodDataAI
-from toontown.hood.CashbotHQDataAI import CashbotHQDataAI
 from toontown.hood.DDHoodDataAI import DDHoodDataAI
 from toontown.hood.DGHoodDataAI import DGHoodDataAI
 from toontown.hood.DLHoodDataAI import DLHoodDataAI
-from toontown.hood.GSHoodDataAI import GSHoodDataAI
-from toontown.hood.GZHoodDataAI import GZHoodDataAI
-from toontown.hood.LawbotHQDataAI import LawbotHQDataAI
 from toontown.hood.MMHoodDataAI import MMHoodDataAI
 from toontown.hood.OZHoodDataAI import OZHoodDataAI
 from toontown.hood.TTHoodDataAI import TTHoodDataAI
@@ -49,11 +38,6 @@ from toontown.minigame.MinigameCreatorAI import MinigameCreatorAI
 from toontown.parties.ToontownTimeManager import ToontownTimeManager
 from toontown.pets.PetManagerAI import PetManagerAI
 from toontown.quest.QuestManagerAI import QuestManagerAI
-from toontown.racing import RaceGlobals
-from toontown.racing.DistributedRacePadAI import DistributedRacePadAI
-from toontown.racing.DistributedStartingBlockAI import DistributedStartingBlockAI, DistributedViewingBlockAI
-from toontown.racing.DistributedViewPadAI import DistributedViewPadAI
-from toontown.racing.RaceManagerAI import RaceManagerAI
 from toontown.safezone.SafeZoneManagerAI import SafeZoneManagerAI
 from toontown.shtiker.CogPageManagerAI import CogPageManagerAI
 from toontown.spellbook.TTOffMagicWordManagerAI import TTOffMagicWordManagerAI
@@ -105,9 +89,7 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.lawMgr = None
         self.countryClubMgr = None
         self.promotionMgr = None
-        self.cogSuitMgr = None
         self.safeZoneManager = None
-        self.raceMgr = None
         self.polarPlaceEffectMgr = None
         self.resistanceEmoteMgr = None
         self.tutorialManager = None
@@ -197,26 +179,8 @@ class ToontownAIRepository(ToontownInternalRepository):
         # Create our fish manager...
         self.fishManager = FishManagerAI(self)
 
-        # Create our factory manager...
-        self.factoryMgr = FactoryManagerAI(self)
-
-        # Create our mint manager...
-        self.mintMgr = MintManagerAI(self)
-
-        # Create our law office manager...
-        self.lawMgr = LawOfficeManagerAI(self)
-
-        # Create our country club manager...
-        self.countryClubMgr = CountryClubManagerAI(self)
-
         # Create our promotion manager...
         self.promotionMgr = PromotionManagerAI(self)
-
-        # Create our Cog suit manager...
-        self.cogSuitMgr = CogSuitManagerAI(self)
-
-        # Create our race manager...
-        self.raceMgr = RaceManagerAI(self)
 
         # Create our Toontown time manager...
         self.toontownTimeManager = ToontownTimeManager(serverTimeUponLogin=int(time.time()),
@@ -363,51 +327,11 @@ class ToontownAIRepository(ToontownInternalRepository):
         )
         self.createHood(DLHoodDataAI, ToontownGlobals.DonaldsDreamland)
 
-        # Sellbot HQ
-        self.zoneTable[ToontownGlobals.SellbotHQ] = (
-            (ToontownGlobals.SellbotHQ, 0, 1), (ToontownGlobals.SellbotFactoryExt, 0, 1)
-        )
-        self.createHood(CSHoodDataAI, ToontownGlobals.SellbotHQ)
-        NPCToons.createNpcsInZone(self, ToontownGlobals.SellbotHQ)
-
-        # Cashbot HQ
-        self.zoneTable[ToontownGlobals.CashbotHQ] = (
-            (ToontownGlobals.CashbotHQ, 0, 1),
-        )
-        self.createHood(CashbotHQDataAI, ToontownGlobals.CashbotHQ)
-        NPCToons.createNpcsInZone(self, ToontownGlobals.CashbotHQ)
-
-        # Lawbot HQ
-        self.zoneTable[ToontownGlobals.LawbotHQ] = (
-            (ToontownGlobals.LawbotHQ, 0, 1), (ToontownGlobals.LawbotOfficeExt, 0, 1),
-        )
-        self.createHood(LawbotHQDataAI, ToontownGlobals.LawbotHQ)
-        NPCToons.createNpcsInZone(self, ToontownGlobals.LawbotHQ)
-
-        # Bossbot HQ
-        self.zoneTable[ToontownGlobals.BossbotHQ] = (
-            (ToontownGlobals.BossbotHQ, 0, 1),
-        )
-        self.createHood(BossbotHQDataAI, ToontownGlobals.BossbotHQ)
-        NPCToons.createNpcsInZone(self, ToontownGlobals.BossbotHQ)
-
-        # Goofy Speedway
-        self.zoneTable[ToontownGlobals.GoofySpeedway] = (
-            (ToontownGlobals.GoofySpeedway, 1, 0),
-        )
-        self.createHood(GSHoodDataAI, ToontownGlobals.GoofySpeedway)
-
         # Chip 'n Dale's Acorn Acres
         self.zoneTable[ToontownGlobals.OutdoorZone] = (
             (ToontownGlobals.OutdoorZone, 1, 0),
         )
         self.createHood(OZHoodDataAI, ToontownGlobals.OutdoorZone)
-
-        # Chip 'n Dale's MiniGolf
-        self.zoneTable[ToontownGlobals.GolfZone] = (
-            (ToontownGlobals.GolfZone, 1, 0),
-        )
-        self.createHood(GZHoodDataAI, ToontownGlobals.GolfZone)
 
         # Welcome Valley hoods (Toontown Central & Goofy Speedway)
         # self.notify.info('Creating ' + TTLocalizer.WelcomeValley[2] + '...')
@@ -492,52 +416,6 @@ class ToontownAIRepository(ToontownInternalRepository):
 
     def trueUniqueName(self, idString):
         return self.uniqueName(idString)
-
-    def findRacingPads(self, dnaData, zoneId, area, type='racing_pad', overrideDNAZone=False):
-        racingPads, racingPadGroups = [], []
-        if isinstance(dnaData, DNAGroup.DNAGroup) and (type in dnaData.getName()):
-            if type == 'racing_pad':
-                nameSplit = dnaData.getName().split('_')
-                racePad = DistributedRacePadAI(self)
-                racePad.setArea(area)
-                racePad.index = int(nameSplit[2])
-                racePad.genre = nameSplit[3]
-                trackInfo = RaceGlobals.getNextRaceInfo(-1, racePad.genre, racePad.index)
-                racePad.setTrackInfo([trackInfo[0], trackInfo[1]])
-                racePad.laps = trackInfo[2]
-                racePad.generateWithRequired(zoneId)
-                racingPads.append(racePad)
-                racingPadGroups.append(dnaData)
-            elif type == 'viewing_pad':
-                viewPad = DistributedViewPadAI(self)
-                viewPad.setArea(area)
-                viewPad.generateWithRequired(zoneId)
-                racingPads.append(viewPad)
-                racingPadGroups.append(dnaData)
-
-        for i in range(dnaData.getNumChildren()):
-            foundRacingPads, foundRacingPadGroups = self.findRacingPads(dnaData.at(i), zoneId, area, type,
-                                                                        overrideDNAZone)
-            racingPads.extend(foundRacingPads)
-            racingPadGroups.extend(foundRacingPadGroups)
-
-        return racingPads, racingPadGroups
-
-    def findStartingBlocks(self, dnaData, pad):
-        startingBlocks = []
-        for i in range(dnaData.getNumChildren()):
-            groupName = dnaData.getName()
-            blockName = dnaData.at(i).getName()
-            if 'starting_block' in blockName:
-                cls = DistributedStartingBlockAI if 'racing_pad' in groupName else DistributedViewingBlockAI
-                x, y, z = dnaData.at(i).getPos()
-                h, p, r = dnaData.at(i).getHpr()
-                padLocationId = int(dnaData.at(i).getName()[-1])
-                startingBlock = cls(self, pad, x, y, z, h, p, r, padLocationId)
-                startingBlock.generateWithRequired(pad.zoneId)
-                startingBlocks.append(startingBlock)
-
-        return startingBlocks
 
     def getAvatarDisconnectReason(self, avId):
         return self.timeManager.avId2disconnectcode.get(avId, ToontownGlobals.DisconnectUnknown)

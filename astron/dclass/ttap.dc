@@ -34,15 +34,9 @@ from toontown.building import DistributedAnimatedProp/AI
 from toontown.toon import DistributedToon/AI/UD
 from toontown.safezone import DistributedTrolley/AI
 from toontown.groups import GroupManager/AI/UD
-from toontown.suit import DistributedSuitPlanner/AI
 from toontown.suit import DistributedSuitBase/AI
 from toontown.suit import DistributedSuit/AI
 from toontown.suit import DistributedTutorialSuit/AI
-from toontown.suit import DistributedFactorySuit/AI
-from toontown.suit import DistributedMintSuit/AI
-from toontown.suit import DistributedStageSuit/AI
-from toontown.suit import DistributedSellbotBoss/AI
-from toontown.suit import DistributedCashbotBoss/AI
 
 from toontown.suit import DistributedBossCogStripped/AI
 from toontown.suit import DistributedSellbotBossStripped/AI
@@ -109,7 +103,6 @@ from toontown.building import DistributedBuilding/AI
 from toontown.building import DistributedAnimBuilding/AI
 from toontown.building import DistributedToonInterior/AI
 from toontown.building import DistributedToonHallInterior/AI
-from toontown.building import DistributedSuitInterior/AI
 from toontown.building import DistributedHQInterior/AI
 from toontown.building import DistributedGagshopInterior/AI
 from toontown.building import DistributedPetshopInterior/AI
@@ -130,21 +123,6 @@ from toontown.toon import DistributedNPCFisherman/AI
 from toontown.toon import DistributedNPCPetclerk/AI
 from toontown.toon import DistributedNPCKartClerk/AI
 from toontown.building import DistributedKnockKnockDoor/AI
-from toontown.building import DistributedElevator/AI
-from toontown.building import DistributedElevatorFSM/AI
-from toontown.building import DistributedElevatorExt/AI
-from toontown.building import DistributedElevatorInt/AI
-from toontown.coghq import DistributedFactoryElevatorExt/AI
-from toontown.coghq import DistributedMintElevatorExt/AI
-from toontown.coghq import DistributedLawOfficeElevatorExt/AI
-from toontown.coghq import DistributedLawOfficeElevatorInt/AI
-from toontown.building import DistributedElevatorFloor/AI
-from toontown.building import DistributedBossElevator/AI
-from toontown.building import DistributedVPElevator/AI
-from toontown.building import DistributedCFOElevator/AI
-from toontown.building import DistributedCFOCLMatchElevator/AI
-from toontown.building import DistributedCJElevator/AI
-from toontown.building import DistributedBBElevator/AI
 from toontown.building import DistributedTutorialInterior/AI
 from toontown.effects import DistributedFireworkShow/AI
 from toontown.coghq import LobbyManager/AI
@@ -152,8 +130,6 @@ from otp.level import DistributedLevel/AI
 from otp.level import DistributedEntity/AI
 from otp.level import DistributedInteractiveEntity/AI
 from toontown.coghq import DistributedFactory/AI
-from toontown.coghq import DistributedLawOffice/AI
-from toontown.coghq import DistributedLawOfficeFloor/AI
 from toontown.coghq import DistributedLift/AI
 from toontown.coghq import DistributedDoorEntity/AI
 from toontown.coghq import DistributedSwitch/AI
@@ -166,7 +142,6 @@ from toontown.coghq import DistributedStomperPair/AI
 from toontown.coghq import DistributedLaserField/AI
 from toontown.coghq import DistributedSecurityCamera/AI
 from toontown.coghq import DistributedMover/AI
-from toontown.coghq import DistributedElevatorMarker/AI
 from toontown.coghq import DistributedBarrelBase/AI
 from toontown.coghq import DistributedGagBarrel/AI
 from toontown.coghq import DistributedBeanBarrel/AI
@@ -197,28 +172,21 @@ from toontown.ai import DistributedWinterCarolingTarget/AI
 from toontown.coghq import DistributedMint/AI
 from toontown.coghq import DistributedMintRoom/AI
 from toontown.coghq import DistributedMintBattle/AI
-from toontown.coghq import DistributedStage/AI
-from toontown.coghq import DistributedStageRoom/AI
-from toontown.coghq import DistributedStageBattle/AI
 from toontown.pets.PetDCImports/AI import *
 from toontown.pets import DistributedPetProxy/AI
 from toontown.coghq.InGameEditorDCImports/AI import *
 from toontown.distributed import ToontownDistrict/AI
 from toontown.distributed import ToontownDistrictStats/AI
 from toontown.racing import DistributedVehicle/AI
-from toontown.racing import DistributedStartingBlock/AI
 from toontown.racing import DistributedRace/AI
 from toontown.racing import DistributedKartPad/AI
 from toontown.racing import DistributedRacePad/AI
 from toontown.racing import DistributedViewPad/AI
-from toontown.racing import DistributedStartingBlock/AI
 from toontown.racing import DistributedLeaderBoard/AI
 from toontown.racing import DistributedGag/AI
 from toontown.racing import DistributedProjectile/AI
-from toontown.racing.DistributedStartingBlock/AI import DistributedViewingBlock/AI
 from toontown.uberdog.DistributedDeliveryManager/AI/UD import DistributedDeliveryManager/AI/UD
 from toontown.uberdog.DistributedDataStoreManager/AI/UD import DistributedDataStoreManager/AI/UD
-from toontown.suit import DistributedLawbotBoss/AI
 from toontown.coghq import DistributedLawbotBossGavel/AI
 from toontown.suit import DistributedLawbotBossSuit/AI
 from toontown.coghq import DistributedLawbotCannon/AI
@@ -237,13 +205,9 @@ from toontown.uberdog import TTSpeedchatRelay/UD
 from toontown.safezone import DistributedGolfKart/AI
 from toontown.safezone import DistributedPicnicBasket/AI
 from toontown.distributed import DistributedTimer/AI
-from toontown.suit import DistributedBossbotBoss/AI
-from toontown.coghq import DistributedCogKart/AI
-from toontown.coghq import DistributedCountryClub/AI
 from toontown.coghq import DistributedCountryClubRoom/AI
 from toontown.coghq import DistributedMoleField/AI
 from toontown.coghq import DistributedCountryClubBattle/AI
-from toontown.building import DistributedClubElevator/AI
 from toontown.coghq import DistributedMaze/AI
 from toontown.battle import DistributedBattleWaiters/AI
 from toontown.coghq import DistributedFoodBelt/AI
@@ -286,20 +250,6 @@ from toontown.ai.DistributedHydrantZeroMgr/AI import DistributedHydrantZeroMgr/A
 from toontown.ai.DistributedMailboxZeroMgr/AI import DistributedMailboxZeroMgr/AI
 from toontown.ai.DistributedTrashcanZeroMgr/AI import DistributedTrashcanZeroMgr/AI
 from toontown.ai import DistributedSillyMeterMgr/AI
-from toontown.cogdominium import DistributedCogdoInterior/AI
-from toontown.cogdominium import DistributedCogdoBattleBldg/AI
-from toontown.cogdominium import DistributedCogdoElevatorExt/AI
-from toontown.cogdominium import DistributedCogdoElevatorInt/AI
-from toontown.cogdominium import DistributedCogdoBarrel/AI
-from toontown.cogdominium import DistCogdoGame/AI
-from toontown.cogdominium import DistCogdoLevelGame/AI
-from toontown.cogdominium import DistCogdoBoardroomGame/AI
-from toontown.cogdominium import DistCogdoCraneGame/AI
-from toontown.cogdominium import DistCogdoMazeGame/AI
-from toontown.cogdominium import DistCogdoFlyingGame/AI
-from toontown.cogdominium import DistCogdoCrane/AI
-from toontown.cogdominium import DistCogdoCraneMoneyBag/AI
-from toontown.cogdominium import DistCogdoCraneCog/AI
 from toontown.spellbook import TTOffMagicWordManager/AI
 
 typedef uint8 bool;
@@ -1089,14 +1039,6 @@ dclass GroupManager : DistributedObject {
   setMinigameZone(uint32 zoneId, uint16 gameId);
 };
 
-dclass DistributedSuitPlanner : DistributedObject {
-  setZoneId(uint32) required broadcast ram;
-  suitListQuery() airecv clsend;
-  suitListResponse(uint8[]);
-  buildingListQuery() airecv clsend;
-  buildingListResponse(uint8[]);
-};
-
 dclass DistributedSuitBase : DistributedObject {
   denyBattle();
   setDNAString(blob) required broadcast ram;
@@ -1130,12 +1072,6 @@ dclass DistributedFactorySuit : DistributedSuitBase {
   setConfrontToon(uint32) broadcast;
   setStrayed() airecv clsend;
   setReturn() broadcast;
-};
-
-dclass DistributedMintSuit : DistributedFactorySuit {
-};
-
-dclass DistributedStageSuit : DistributedFactorySuit {
 };
 
 dclass DistributedBossCogStripped: DistributedNode {
@@ -1522,15 +1458,6 @@ dclass DistributedBattleTutorial : DistributedBattle {
 };
 
 dclass DistributedLevelBattle : DistributedBattle {
-};
-
-dclass DistributedBattleFactory : DistributedLevelBattle {
-};
-
-dclass DistributedMintBattle : DistributedLevelBattle {
-};
-
-dclass DistributedStageBattle : DistributedLevelBattle {
 };
 
 dclass DistributedBattleFinal : DistributedBattleBase {
@@ -2052,168 +1979,6 @@ dclass DistributedToonInterior : DistributedObject {
 dclass DistributedToonHallInterior : DistributedToonInterior {
 };
 
-dclass DistributedSuitInterior : DistributedObject {
-  setZoneId(uint32) required broadcast ram;
-  setExtZoneId(uint32) required broadcast ram;
-  setDistBldgDoId(uint32) required broadcast ram;
-  setNumFloors(int8) required broadcast ram;
-  setToons(uint32[], uint16) broadcast ram;
-  setSuits(uint32[], uint32[], uint16[]) broadcast ram;
-  setState(string, int16) required broadcast ram;
-  setAvatarJoined() airecv clsend;
-  elevatorDone() airecv clsend;
-  reserveJoinDone() airecv clsend;
-};
-
-dclass DistributedCogdoBarrel : DistributedObject {
-  requestGrab() airecv clsend;
-  setIndex(uint32) required broadcast ram;
-  setState(uint32) required broadcast ram;
-  setGrab(uint32) broadcast ram;
-  setReject() broadcast;
-};
-
-dclass DistributedCogdoInterior : DistributedObject {
-  setZoneId(uint32) required broadcast ram;
-  setExtZoneId(uint32) required broadcast ram;
-  setDistBldgDoId(uint32) required broadcast ram;
-  setNumFloors(int8) required broadcast ram;
-  setShopOwnerNpcId(uint32) required broadcast ram;
-  setSOSNpcId(uint32) broadcast ram;
-  setFOType(int8) broadcast ram;
-  setToons(uint32[], uint16) broadcast ram;
-  setSuits(uint32[], uint32[], uint16[]) broadcast ram;
-  setState(string, int16) required broadcast ram;
-  setAvatarJoined() airecv clsend;
-  elevatorDone() airecv clsend;
-  reserveJoinDone() airecv clsend;
-  toonLeftBarrelRoom() airecv clsend;
-  toonBarrelRoomIntroDone() airecv clsend;
-  setBarrelRoomReward(uint32 [], uint8 []) broadcast;
-  toonBarrelRoomRewardDone() airecv clsend;
-};
-
-dclass DistributedCogdoBattleBldg : DistributedBattleBldg {
-};
-
-dclass DistCogdoGame : DistributedObject {
-  setInteriorId(uint32) required broadcast ram;
-  setExteriorZone(uint32) broadcast ram required;
-  setDifficultyOverrides(int32, int32) broadcast ram required;
-  setVisible() broadcast;
-  setIntroStart() broadcast;
-  setToonSad(uint32) broadcast;
-  setToonDisconnect(uint32) broadcast;
-  setAvatarReady() airecv clsend;
-  setGameStart(int16) broadcast;
-  setGameFinish(int16) broadcast;
-};
-
-dclass DistCogdoLevelGame : DistCogdoGame, DistributedLevel {
-};
-
-dclass DistCogdoMazeGame : DistCogdoGame {
-  requestAction(uint8, uint32) airecv clsend;
-  doAction(uint8, uint32, int16) broadcast;
-  setNumSuits(uint8 [3]) required broadcast;
-  requestUseGag(int16/10, int16/10, int16/10, int16) clsend airecv;
-  toonUsedGag(uint32, int16/10, int16/10, int16/10, int16) broadcast;
-  requestSuitHitByGag(uint8, uint8) clsend airecv;
-  suitHitByGag(uint32, uint8, uint8) broadcast;
-  requestHitBySuit(uint8, uint8, int16) clsend airecv;
-  toonHitBySuit(uint32, uint8, uint8, int16) broadcast;
-  requestHitByDrop() clsend airecv;
-  toonHitByDrop(uint32) broadcast;
-  requestPickUp(uint8) clsend airecv;
-  pickUp(uint32, uint8, int16) broadcast;
-  requestGag(uint8) clsend airecv;
-  hasGag(uint32, int16) broadcast;
-};
-
-dclass DistCogdoFlyingGame : DistCogdoGame {
-  requestAction(uint8, uint8) airecv clsend;
-  requestPickUp(uint16, uint8) airecv clsend;
-  pickUp(uint32, uint16, int16) broadcast;
-  debuffPowerup(uint32, uint16, int16) broadcast;
-  doAction(uint8, uint32) broadcast;
-  eagleExitCooldown(uint32, int16) broadcast;
-  toonSetAsEagleTarget(uint32, uint8, int16) broadcast;
-  toonClearAsEagleTarget(uint32, uint8, int16) broadcast;
-  toonDied(uint32, int32) broadcast;
-  toonSpawn(uint32, int32) broadcast;
-  toonSetBlades(uint32, int32) broadcast;
-  toonBladeLost(uint32) broadcast;
-};
-
-dclass DistCogdoBoardroomGame : DistCogdoLevelGame {
-};
-
-dclass DistCogdoCraneGame : DistCogdoLevelGame {
-};
-
-dclass DistCogdoCrane : DistributedObject {
-  setCraneGameId(uint32) required broadcast ram;
-  setIndex(uint8) required broadcast ram;
-  setState(char, uint32) broadcast ram;
-  clearSmoothing(int8) broadcast clsend;
-  setCablePos(uint8, int16/100, uint16%360/100, LinkPosition [3], int16) broadcast clsend;
-};
-
-dclass DistCogdoCraneObject : DistributedObject {
-  setCraneGameId(uint32) required broadcast ram;
-  setObjectState(char, uint32, uint32) broadcast ram;
-  requestGrab() airecv clsend;
-  rejectGrab();
-  requestDrop() airecv clsend;
-  hitFloor() clsend;
-  requestFree(int16/10, int16/10, int16/10, uint16%360/100) airecv clsend;
-  hitBoss(uint16/255) airecv clsend;
-  setX(int16/10) broadcast ram clsend airecv;
-  setY(int16/10) broadcast ram clsend airecv;
-  setZ(int16/10) broadcast ram clsend airecv;
-  setH(int16%360/10) broadcast ram clsend airecv;
-  setP(int16%360/10) broadcast ram clsend airecv;
-  setR(int16%360/10) broadcast ram clsend airecv;
-  setPos : setX, setY, setZ;
-  setHpr : setH, setP, setR;
-  setPosHpr : setX, setY, setZ, setH, setP, setR;
-  setXY : setX, setY;
-  setXZ : setX, setZ;
-  setXYH : setX, setY, setH;
-  setXYZH : setX, setY, setZ, setH;
-  setComponentL(uint64) broadcast ram clsend airecv;
-  setComponentX(int16/10) broadcast ram clsend airecv;
-  setComponentY(int16/10) broadcast ram clsend airecv;
-  setComponentZ(int16/10) broadcast ram clsend airecv;
-  setComponentH(int16%360/10) broadcast ram clsend airecv;
-  setComponentP(int16%360/10) broadcast ram clsend airecv;
-  setComponentR(int16%360/10) broadcast ram clsend airecv;
-  setComponentT(int16) broadcast ram clsend airecv;
-  setSmStop : setComponentT;
-  setSmH : setComponentH, setComponentT;
-  setSmZ : setComponentZ, setComponentT;
-  setSmXY : setComponentX, setComponentY, setComponentT;
-  setSmXZ : setComponentX, setComponentZ, setComponentT;
-  setSmPos : setComponentX, setComponentY, setComponentZ, setComponentT;
-  setSmHpr : setComponentH, setComponentP, setComponentR, setComponentT;
-  setSmXYH : setComponentX, setComponentY, setComponentH, setComponentT;
-  setSmXYZH : setComponentX, setComponentY, setComponentZ, setComponentH, setComponentT;
-  setSmPosHpr : setComponentX, setComponentY, setComponentZ, setComponentH, setComponentP, setComponentR, setComponentT;
-  setSmPosHprL : setComponentL, setComponentX, setComponentY, setComponentZ, setComponentH, setComponentP, setComponentR, setComponentT;
-  clearSmoothing(int8) broadcast clsend;
-};
-
-dclass DistCogdoCraneMoneyBag : DistCogdoCraneObject {
-  setIndex(uint8) required broadcast ram;
-  requestInitial() airecv clsend;
-};
-
-dclass DistCogdoCraneCog : DistributedObject {
-  setGameId(uint32) required broadcast ram;
-  setDNAString(blob) required broadcast ram;
-  setSpawnInfo(uint8, int16) required broadcast ram;
-};
-
 dclass DistributedHQInterior : DistributedObject {
   setZoneIdAndBlock(uint32, uint16) required broadcast ram;
   setLeaderBoard(uint32[], string[], uint32[]) required broadcast ram;
@@ -2327,125 +2092,6 @@ dclass DistributedNPCKartClerk : DistributedNPCToonBase {
 };
 
 dclass DistributedKnockKnockDoor : DistributedAnimatedProp {
-};
-
-dclass DistributedElevator : DistributedObject {
-  setBldgDoId(uint32) required broadcast ram;
-  setState(string, int16) broadcast ram;
-  fillSlot0(uint32, uint8) broadcast ram;
-  fillSlot1(uint32, uint8) broadcast ram;
-  fillSlot2(uint32, uint8) broadcast ram;
-  fillSlot3(uint32, uint8) broadcast ram;
-  fillSlot4(uint32, uint8) broadcast ram;
-  fillSlot5(uint32, uint8) broadcast ram;
-  fillSlot6(uint32, uint8) broadcast ram;
-  fillSlot7(uint32, uint8) broadcast ram;
-  emptySlot0(uint32, int8, int16, int16) broadcast ram;
-  emptySlot1(uint32, int8, int16, int16) broadcast ram;
-  emptySlot2(uint32, int8, int16, int16) broadcast ram;
-  emptySlot3(uint32, int8, int16, int16) broadcast ram;
-  emptySlot4(uint32, int8, int16, int16) broadcast ram;
-  emptySlot5(uint32, int8, int16, int16) broadcast ram;
-  emptySlot6(uint32, int8, int16, int16) broadcast ram;
-  emptySlot7(uint32, int8, int16, int16) broadcast ram;
-  requestBoard() airecv clsend;
-  rejectBoard(uint32, uint8);
-  requestExit() airecv clsend;
-  setElevatorTripId(uint32) required broadcast ram;
-  setAntiShuffle(uint8) required broadcast ram;
-  setMinLaff(uint8) required broadcast ram;
-};
-
-dclass DistributedElevatorFSM : DistributedObject {
-  setBldgDoId(uint32) required broadcast ram;
-  setState(string, int16) broadcast ram;
-  fillSlot0(uint32) broadcast ram;
-  fillSlot1(uint32) broadcast ram;
-  fillSlot2(uint32) broadcast ram;
-  fillSlot3(uint32) broadcast ram;
-  fillSlot4(uint32) broadcast ram;
-  fillSlot5(uint32) broadcast ram;
-  fillSlot6(uint32) broadcast ram;
-  fillSlot7(uint32) broadcast ram;
-  emptySlot0(uint32, int8, int16) broadcast ram;
-  emptySlot1(uint32, int8, int16) broadcast ram;
-  emptySlot2(uint32, int8, int16) broadcast ram;
-  emptySlot3(uint32, int8, int16) broadcast ram;
-  emptySlot4(uint32, int8, int16) broadcast ram;
-  emptySlot5(uint32, int8, int16) broadcast ram;
-  emptySlot6(uint32, int8, int16) broadcast ram;
-  emptySlot7(uint32, int8, int16) broadcast ram;
-  requestBoard() airecv clsend;
-  rejectBoard(uint32, uint8);
-  requestExit() airecv clsend;
-  setElevatorTripId(uint32) required broadcast ram;
-  setAntiShuffle(uint8) required broadcast ram;
-  setMinLaff(uint8) required broadcast ram;
-};
-
-dclass DistributedElevatorFloor : DistributedElevatorFSM {
-  setFloor(int8) broadcast ram;
-  setLocked(uint16) required broadcast ram;
-  setEntering(uint16) required broadcast ram;
-  kickToonsOut() broadcast;
-  setLatch(uint32) required broadcast ram;
-};
-
-dclass DistributedElevatorExt : DistributedElevator {
-  setFloor(int8) broadcast ram;
-};
-
-dclass DistributedLawOfficeElevatorExt : DistributedElevatorExt {
-  setEntranceId(uint8) required broadcast ram;
-  setLawOfficeInteriorZone(uint32);
-  setLawOfficeInteriorZoneForce(uint32);
-};
-
-dclass DistributedElevatorInt : DistributedElevator {
-  requestBuildingExit() airecv clsend;
-  forcedExit(uint32);
-};
-
-dclass DistributedFactoryElevatorExt : DistributedElevatorExt {
-  setEntranceId(uint8) required broadcast ram;
-  setFactoryInteriorZone(uint32);
-  setFactoryInteriorZoneForce(uint32);
-};
-
-dclass DistributedMintElevatorExt : DistributedElevatorExt {
-  setMintId(uint16) required broadcast ram;
-  setMintInteriorZone(uint32);
-  setMintInteriorZoneForce(uint32);
-};
-
-dclass DistributedCogdoElevatorExt : DistributedElevatorExt {
-};
-
-dclass DistributedLawOfficeElevatorInt : DistributedElevatorFloor {
-  setLawOfficeInteriorZone(uint32);
-};
-
-dclass DistributedCogdoElevatorInt : DistributedElevatorInt {
-};
-
-dclass DistributedBossElevator : DistributedElevatorExt {
-  setBossOfficeZone(uint32);
-  setBossOfficeZoneForce(uint32);
-};
-
-dclass DistributedVPElevator : DistributedBossElevator {
-};
-
-dclass DistributedCFOElevator : DistributedBossElevator {
-};
-
-dclass DistributedCFOCLMatchElevator : DistributedBossElevator {
-};
-
-dclass DistributedCJElevator : DistributedBossElevator {
-};
-
-dclass DistributedBBElevator : DistributedBossElevator {
 };
 
 dclass DistributedTutorialInterior : DistributedObject {
@@ -2611,25 +2257,6 @@ dclass DistributedMintRoom : DistributedLevel {
   setDefeated() broadcast ram;
 };
 
-dclass DistributedStage : DistributedObject {
-  setZoneId(uint32) required broadcast ram;
-  setStageId(uint16) required broadcast ram;
-  setLayoutIndex(uint16) required broadcast ram;
-  setFloorNum(uint8) required broadcast ram;
-  setRoomDoIds(uint32[]) broadcast ram;
-  setStageZone(uint32) broadcast ram;
-  elevatorAlert(uint32) broadcast ram;
-};
-
-dclass DistributedStageRoom : DistributedLevel {
-  setStageId(uint16) required broadcast ram;
-  setRoomId(uint16) required broadcast ram;
-  setRoomNum(uint8) required broadcast ram;
-  setSuits(uint32[], uint32[]) broadcast ram;
-  setBossConfronted(uint32) broadcast ram;
-  setDefeated() broadcast ram;
-};
-
 dclass DistributedInGameEditor : DistributedObject {
   setEditorAvId(uint32) required broadcast ram;
   setEditUsername(blob) required broadcast ram;
@@ -2668,9 +2295,6 @@ dclass DistributedCrushableEntity : DistributedEntity {
 };
 
 dclass DistributedCrusherEntity : DistributedEntity {
-};
-
-dclass DistributedElevatorMarker : DistributedEntity {
 };
 
 dclass DistributedStomper : DistributedCrusherEntity {
@@ -2982,21 +2606,6 @@ dclass DistributedRacePad : DistributedKartPad {
 
 dclass DistributedViewPad : DistributedKartPad {
   setLastEntered(int16) required broadcast ram;
-};
-
-dclass DistributedStartingBlock : DistributedObject {
-  setPadDoId(uint32) required broadcast ram;
-  setPosHpr(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) required broadcast ram;
-  setPadLocationId(uint8) required broadcast ram;
-  requestEnter(uint8) airecv clsend;
-  rejectEnter(uint8);
-  requestExit() airecv clsend;
-  setOccupied(uint32) broadcast ram;
-  setMovie(uint8) broadcast ram;
-  movieFinished() airecv clsend;
-};
-
-dclass DistributedViewingBlock : DistributedStartingBlock {
 };
 
 struct RaceRecord {
@@ -3400,24 +3009,6 @@ dclass DistributedBossbotBoss : DistributedBossCog {
   toonGotToonup(uint32, int8, int8, uint32) broadcast;
 };
 
-dclass DistributedCogKart : DistributedElevatorExt {
-  setCountryClubId(uint16) required broadcast ram;
-  setPosHpr(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) required broadcast ram;
-  setCountryClubInteriorZone(uint32);
-  setCountryClubInteriorZoneForce(uint32);
-};
-
-dclass DistributedCountryClub : DistributedObject {
-  setZoneId(uint32) required broadcast ram;
-  setBlockedRooms(uint8[]) required broadcast ram;
-  setCountryClubId(uint16) required broadcast ram;
-  setLayoutIndex(uint16) required broadcast ram;
-  setFloorNum(uint8) required broadcast ram;
-  setRoomDoIds(uint32[]) broadcast ram;
-  setCountryClubZone(uint32) broadcast ram;
-  elevatorAlert(uint32) broadcast ram;
-};
-
 dclass DistributedCountryClubRoom : DistributedLevel {
   setCountryClubId(uint16) required broadcast ram;
   setRoomId(uint16) required broadcast ram;
@@ -3441,14 +3032,6 @@ dclass DistributedMoleField : DistributedEntity {
 };
 
 dclass DistributedCountryClubBattle : DistributedLevelBattle {
-};
-
-dclass DistributedClubElevator : DistributedElevatorFSM {
-  setFloor(int8) broadcast ram;
-  setLocked(uint16) required broadcast ram;
-  setEntering(uint16) required broadcast ram;
-  kickToonsOut() broadcast;
-  setLatch(uint32) required broadcast ram;
 };
 
 dclass DistributedMaze : DistributedEntity {

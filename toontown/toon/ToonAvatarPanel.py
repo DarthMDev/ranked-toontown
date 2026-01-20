@@ -556,7 +556,7 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         self.boardingInfoButton['state'] = DGG.DISABLED
         if self.boardingInfoText:
             self.boardingInfoText.destroy()
-        self.boardingInfoText = TTDialog.TTDialog(style=TTDialog.Acknowledge, text=TTLocalizer.BoardingPartyInform % localAvatar.boardingParty.maxSize, command=self.handleCloseInfo)
+        self.boardingInfoText = TTDialog.TTDialog(style=TTDialog.Acknowledge, text="" % localAvatar.boardingParty.maxSize, command=self.handleCloseInfo)
 
     def handleCloseInfo(self, *extraArgs):
         self.boardingInfoButton['state'] = DGG.NORMAL
@@ -583,7 +583,7 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         self.confirmKickOutDialog = None
         groupAvatarBgGui = loader.loadModel('phase_3.5/models/gui/tt_m_gui_brd_avatarPanelBg')
         boardingGroupBGImage = groupAvatarBgGui.find('**/tt_t_gui_brd_avatar_panel_party')
-        self.groupFrame = DirectFrame(parent=self.frame, relief=None, image=boardingGroupBGImage, image_scale=(0.5, 1, 0.5), textMayChange=1, text=TTLocalizer.BoardingPartyTitle, text_wordwrap=16, text_scale=TTLocalizer.TAPgroupFrame, text_pos=(0.01, 0.08), pos=(0, 0, -0.61))
+        self.groupFrame = DirectFrame(parent=self.frame, relief=None, image=boardingGroupBGImage, image_scale=(0.5, 1, 0.5), textMayChange=1, text="", text_wordwrap=16, text_scale=TTLocalizer.TAPgroupFrame, text_pos=(0.01, 0.08), pos=(0, 0, -0.61))
         groupInviteGui = loader.loadModel('phase_3.5/models/gui/tt_m_gui_brd_inviteButton')
         self.inviteImageList = (groupInviteGui.find('**/tt_t_gui_brd_inviteUp'),
          groupInviteGui.find('**/tt_t_gui_brd_inviteDown'),

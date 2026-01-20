@@ -2,9 +2,6 @@ from panda3d.core import *
 from direct.distributed.ClockDelta import *
 from direct.interval.IntervalGlobal import *
 from direct.directtools.DirectGeometry import *
-from .ElevatorConstants import *
-from .ElevatorUtils import *
-from .SuitBuildingGlobals import *
 from direct.gui.DirectGui import *
 from toontown.toonbase import ToontownGlobals
 from direct.directnotify import DirectNotifyGlobal
@@ -94,7 +91,6 @@ class DistributedBuilding(DistributedObject.DistributedObject):
             del self.leftDoor
             del self.rightDoor
         del self.suitDoorOrigin
-        self.cleanupSuitBuilding()
         self.unloadSfx()
         del self.fsm
         DistributedObject.DistributedObject.delete(self)
@@ -386,202 +382,8 @@ class DistributedBuilding(DistributedObject.DistributedObject):
             self.transitionTrack = None
         return
 
-    def animToSuit(self, timeStamp):
-        self.stopTransition()
-        if self.mode != 'toon':
-            self.setToToon()
-        self.loadAnimToSuitSfx()
-        sideBldgNodes = self.getNodePaths()
-        nodePath = hidden.find(self.getSbSearchString())
-        newNP = self.setupSuitBuilding(nodePath)
-        closeDoors(self.leftDoor, self.rightDoor)
-        newNP.stash()
-        sideBldgNodes.append(newNP)
-        soundPlayed = 0
-        tracks = Parallel(name=self.taskName('toSuitTrack'))
-        for i in sideBldgNodes:
-            name = i.getName()
-            timeForDrop = TO_SUIT_BLDG_TIME * 0.85
-            if name[0] == 's':
-                showTrack = Sequence(name=self.taskName('ToSuitFlatsTrack') + '-' + str(sideBldgNodes.index(i)))
-                initPos = Point3(0, 0, self.SUIT_INIT_HEIGHT) + i.getPos()
-                showTrack.append(Func(i.setPos, initPos))
-                showTrack.append(Func(i.unstash))
-                if i == sideBldgNodes[len(sideBldgNodes) - 1]:
-                    showTrack.append(Func(self.normalizeElevator))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogDropSound, 0, 1, None, 0.0))
-                showTrack.append(LerpPosInterval(i, timeForDrop, i.getPos(), name=self.taskName('ToSuitAnim') + '-' + str(sideBldgNodes.index(i))))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogLandSound, 0, 1, None, 0.0))
-                showTrack.append(self.createBounceTrack(i, 2, 0.65, TO_SUIT_BLDG_TIME - timeForDrop, slowInitBounce=1.0))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogSettleSound, 0, 1, None, 0.0))
-                tracks.append(showTrack)
-                if not soundPlayed:
-                    soundPlayed = 1
-            elif name[0] == 't':
-                hideTrack = Sequence(name=self.taskName('ToSuitToonFlatsTrack'))
-                timeTillSquish = (self.SUIT_INIT_HEIGHT - 20.0) / self.SUIT_INIT_HEIGHT
-                timeTillSquish *= timeForDrop
-                hideTrack.append(LerpFunctionInterval(self.adjustColorScale, fromData=1, toData=0.25, duration=timeTillSquish, extraArgs=[i]))
-                hideTrack.append(LerpScaleInterval(i, timeForDrop - timeTillSquish, Vec3(1, 1, 0.01)))
-                hideTrack.append(Func(i.stash))
-                hideTrack.append(Func(i.setScale, Vec3(1)))
-                hideTrack.append(Func(i.clearColorScale))
-                tracks.append(hideTrack)
-
-        self.stopTransition()
-        self._deleteTransitionTrack()
-        self.transitionTrack = tracks
-        self.transitionTrack.start(timeStamp)
-        return
-
-    def setupSuitBuilding(self, nodePath):
-        dnaStore = self.cr.playGame.dnaStore
-        level = int(self.difficulty / 2) + 1
-        suitNP = dnaStore.findNode('suit_landmark_' + chr(self.track) + str(level))
-        zoneId = dnaStore.getZoneFromBlockNumber(self.block)
-        zoneId = ZoneUtil.getTrueZoneId(zoneId, self.interiorZoneId)
-        newParentNP = base.cr.playGame.hood.loader.zoneDict[zoneId]
-        suitBuildingNP = suitNP.copyTo(newParentNP)
-        zoneIdBlock = zoneId + self.block
-        if not dnaStore.isSuitBlock(zoneIdBlock):
-            dnaStore.storeSuitBlock(zoneIdBlock, chr(self.track))
-        buildingTitle = dnaStore.getTitleFromBlockNumber(self.block)
-        if not buildingTitle:
-            buildingTitle = TTLocalizer.CogsInc
-        else:
-            buildingTitle += TTLocalizer.CogsIncExt
-        buildingTitle += '\n%s' % SuitDNA.getDeptFullname(chr(self.track))
-        textNode = TextNode('sign')
-        textNode.setTextColor(1.0, 1.0, 1.0, 1.0)
-        textNode.setFont(ToontownGlobals.getSuitFont())
-        textNode.setAlign(TextNode.ACenter)
-        textNode.setWordwrap(17.0)
-        textNode.setText(buildingTitle)
-        textHeight = textNode.getHeight()
-        zScale = (textHeight + 2) / 3.0
-        signOrigin = suitBuildingNP.find('**/sign_origin;+s')
-        backgroundNP = loader.loadModel('phase_5/models/modules/suit_sign')
-        backgroundNP.reparentTo(signOrigin)
-        backgroundNP.setPosHprScale(0.0, 0.0, textHeight * 0.8 / zScale, 0.0, 0.0, 0.0, 8.0, 8.0, 8.0 * zScale)
-        signTextNodePath = backgroundNP.attachNewNode(textNode.generate())
-        signTextNodePath.setPosHprScale(0.0, 0.0, -0.21 + textHeight * 0.1 / zScale, 0.0, 0.0, 0.0, 0.1, 0.1, 0.1 / zScale)
-        signTextNodePath.setColor(1.0, 1.0, 1.0, 1.0)
-        signTextNodePath.setAttrib(DepthOffsetAttrib.make(1))
-        frontNP = suitBuildingNP.find('**/*_front/+GeomNode;+s')
-        backgroundNP.wrtReparentTo(frontNP)
-        frontNP.node().setEffect(DecalEffect.make())
-        suitBuildingNP.setName('sb' + str(self.block) + ':_landmark__DNARoot')
-        suitBuildingNP.setPosHprScale(nodePath, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-        suitBuildingNP.flattenMedium()
-        self.loadElevator(suitBuildingNP)
-        return suitBuildingNP
-
-    def cleanupSuitBuilding(self):
-        if hasattr(self, 'floorIndicator'):
-            del self.floorIndicator
-
     def adjustColorScale(self, scale, node):
         node.setColorScale(scale, scale, scale, 1)
-
-    def animToCogdo(self, timeStamp):
-        self.stopTransition()
-        if self.mode != 'toon':
-            self.setToToon()
-        self.loadAnimToSuitSfx()
-        sideBldgNodes = self.getNodePaths()
-        nodePath = hidden.find(self.getSbSearchString())
-        newNP = self.setupCogdo(nodePath)
-        closeDoors(self.leftDoor, self.rightDoor)
-        newNP.stash()
-        sideBldgNodes.append(newNP)
-        for np in sideBldgNodes:
-            if not np.isEmpty():
-                np.setColorScale(0.6, 0.6, 0.6, 1.0)
-
-        soundPlayed = 0
-        tracks = Parallel(name=self.taskName('toCogdoTrack'))
-        for i in sideBldgNodes:
-            name = i.getName()
-            timeForDrop = TO_SUIT_BLDG_TIME * 0.85
-            if name[0] == 'c':
-                showTrack = Sequence(name=self.taskName('ToCogdoFlatsTrack') + '-' + str(sideBldgNodes.index(i)))
-                initPos = Point3(0, 0, self.SUIT_INIT_HEIGHT) + i.getPos()
-                showTrack.append(Func(i.setPos, initPos))
-                showTrack.append(Func(i.unstash))
-                if i == sideBldgNodes[len(sideBldgNodes) - 1]:
-                    showTrack.append(Func(self.normalizeElevator))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogDropSound, 0, 1, None, 0.0))
-                showTrack.append(LerpPosInterval(i, timeForDrop, i.getPos(), name=self.taskName('ToCogdoAnim') + '-' + str(sideBldgNodes.index(i))))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogLandSound, 0, 1, None, 0.0))
-                showTrack.append(self.createBounceTrack(i, 2, 0.65, TO_SUIT_BLDG_TIME - timeForDrop, slowInitBounce=1.0))
-                if not soundPlayed:
-                    showTrack.append(Func(base.playSfx, self.cogSettleSound, 0, 1, None, 0.0))
-                tracks.append(showTrack)
-                if not soundPlayed:
-                    soundPlayed = 1
-            elif name[0] == 't':
-                hideTrack = Sequence(name=self.taskName('ToCogdoToonFlatsTrack'))
-                timeTillSquish = (self.SUIT_INIT_HEIGHT - 20.0) / self.SUIT_INIT_HEIGHT
-                timeTillSquish *= timeForDrop
-                hideTrack.append(LerpFunctionInterval(self.adjustColorScale, fromData=1, toData=0.25, duration=timeTillSquish, extraArgs=[i]))
-                hideTrack.append(LerpScaleInterval(i, timeForDrop - timeTillSquish, Vec3(1, 1, 0.01)))
-                hideTrack.append(Func(i.stash))
-                hideTrack.append(Func(i.setScale, Vec3(1)))
-                hideTrack.append(Func(i.clearColorScale))
-                tracks.append(hideTrack)
-
-        self.stopTransition()
-        self._deleteTransitionTrack()
-        self.transitionTrack = tracks
-        self.transitionTrack.start(timeStamp)
-        return
-
-    def setupCogdo(self, nodePath):
-        dnaStore = self.cr.playGame.dnaStore
-        level = int(self.difficulty / 2) + 1
-        suitNP = dnaStore.findNode(FO_DICT[chr(self.track)])
-        zoneId = dnaStore.getZoneFromBlockNumber(self.block)
-        zoneId = ZoneUtil.getTrueZoneId(zoneId, self.interiorZoneId)
-        newParentNP = base.cr.playGame.hood.loader.zoneDict[zoneId]
-        suitBuildingNP = suitNP.copyTo(newParentNP)
-        buildingTitle = dnaStore.getTitleFromBlockNumber(self.block)
-        if not buildingTitle:
-            buildingTitle = TTLocalizer.Cogdominiums
-        else:
-            buildingTitle += TTLocalizer.CogdominiumsExt
-        textNode = TextNode('sign')
-        textNode.setTextColor(1.0, 1.0, 1.0, 1.0)
-        textNode.setFont(ToontownGlobals.getSuitFont())
-        textNode.setAlign(TextNode.ACenter)
-        textNode.setWordwrap(12.0)
-        textNode.setText(buildingTitle)
-        textHeight = textNode.getHeight()
-        zScale = (textHeight + 2) / 3.0
-        signOrigin = suitBuildingNP.find('**/sign_origin;+s')
-        backgroundNP = loader.loadModel('phase_5/models/cogdominium/field_office_sign')
-        backgroundNP.reparentTo(signOrigin)
-        backgroundNP.setPosHprScale(0.0, 0.0, -1.2 + textHeight * 0.8 / zScale, 0.0, 0.0, 0.0, 20.0, 8.0, 8.0 * zScale)
-        signTextNodePath = backgroundNP.attachNewNode(textNode.generate())
-        signTextNodePath.setPosHprScale(0.0, 0.0, -0.13 + textHeight * 0.1 / zScale, 0.0, 0.0, 0.0, 0.1 * 8.0 / 20.0, 0.1, 0.1 / zScale)
-        signTextNodePath.setColor(1.0, 1.0, 1.0, 1.0)
-        signTextNodePath.setAttrib(DepthOffsetAttrib.make(1))
-        if chr(self.track) == 'l':
-            frontNP = suitBuildingNP.find('**/*_front')
-        else:
-            frontNP = suitBuildingNP.find('**/*_front/+GeomNode;+s')
-        backgroundNP.wrtReparentTo(frontNP)
-        frontNP.node().setEffect(DecalEffect.make())
-        suitBuildingNP.setName('cb' + str(self.block) + ':_landmark__DNARoot')
-        suitBuildingNP.setPosHprScale(nodePath, 15.463, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-        suitBuildingNP.flattenMedium()
-        suitBuildingNP.setColorScale(0.6, 0.6, 0.6, 1.0)
-        self.loadElevator(suitBuildingNP, cogdo=True)
-        return suitBuildingNP
 
     def animToToon(self, timeStamp):
         self.stopTransition()
@@ -830,72 +632,6 @@ class DistributedBuilding(DistributedObject.DistributedObject):
         if self.transitionTrack:
             self.transitionTrack.finish()
             self._deleteTransitionTrack()
-
-    def setToSuit(self):
-        self.stopTransition()
-        if self.mode == 'suit':
-            return
-        self.mode = 'suit'
-        nodes = self.getNodePaths()
-        for i in nodes:
-            name = i.getName()
-            if name[0] == 's':
-                if name.find('_landmark_') != -1:
-                    i.removeNode()
-                else:
-                    i.unstash()
-            elif name[0] == 't':
-                if name.find('_landmark_') != -1:
-                    i.stash()
-                else:
-                    i.stash()
-            elif name[0] == 'c':
-                if name.find('_landmark_') != -1:
-                    i.removeNode()
-                else:
-                    i.stash()
-
-        npc = hidden.findAllMatches(self.getSbSearchString())
-        for i in range(npc.getNumPaths()):
-            nodePath = npc.getPath(i)
-            self.adjustSbNodepathScale(nodePath)
-            self.notify.debug('net transform = %s' % str(nodePath.getNetTransform()))
-            self.setupSuitBuilding(nodePath)
-
-    def setToCogdo(self):
-        self.stopTransition()
-        if self.mode == 'cogdo':
-            return
-        self.mode = 'cogdo'
-        nodes = self.getNodePaths()
-        for i in nodes:
-            name = i.getName()
-            if name[0] == 'c':
-                if name.find('_landmark_') != -1:
-                    i.removeNode()
-                else:
-                    i.unstash()
-            elif name[0] == 't':
-                if name.find('_landmark_') != -1:
-                    i.stash()
-                else:
-                    i.stash()
-            elif name[0] == 's':
-                if name.find('_landmark_') != -1:
-                    i.removeNode()
-                else:
-                    i.stash()
-
-        for np in nodes:
-            if not np.isEmpty():
-                np.setColorScale(0.6, 0.6, 0.6, 1.0)
-
-        npc = hidden.findAllMatches(self.getSbSearchString())
-        for i in range(npc.getNumPaths()):
-            nodePath = npc.getPath(i)
-            self.adjustSbNodepathScale(nodePath)
-            self.notify.debug('net transform = %s' % str(nodePath.getNetTransform()))
-            self.setupCogdo(nodePath)
 
     def setToToon(self):
         self.stopTransition()

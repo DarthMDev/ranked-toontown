@@ -673,8 +673,6 @@ class BossCog(Avatar.Avatar):
                 ival = Sequence(Track((0, self.getAngryActorInterval('Fb_downRtSwing')), (0.9, SoundInterval(self.swingSfx, node=self)), (1, Func(self.bubbleR.unstash))), Func(self.bubbleR.stash))
 
         elif anim == 'frontAttack':
-            # This is a bit hacky, and involves code defined in
-            # DistributedSellbotBoss.py.
             self.doAnimate(None, raised=1, happy=0, queueNeutral=0)
             pe = BattleParticles.loadParticleFile('bossCogFrontAttack.ptf')
             # Keep the head reversed so we play the spin animation

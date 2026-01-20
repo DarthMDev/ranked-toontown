@@ -7,7 +7,6 @@ from direct.fsm import StateData
 from direct.task.Task import Task
 from toontown.minigame import Purchase
 from direct.gui import OnscreenText
-from toontown.building import SuitInterior
 from . import QuietZoneState
 from . import ZoneUtil
 from toontown.toonbase import TTLocalizer

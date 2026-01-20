@@ -1,12 +1,8 @@
 from direct.directnotify import DirectNotifyGlobal
 from . import HoodDataAI, ZoneUtil
 from toontown.toonbase import ToontownGlobals
-from toontown.racing import DistributedStartingBlockAI
 from toontown.racing.DistributedLeaderBoardAI import DistributedLeaderBoardAI
-from panda3d.core import *
 from toontown.racing.RaceGlobals import *
-if __debug__:
-    import pdb
 
 class GSHoodDataAI(HoodDataAI.HoodDataAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('GSHoodDataAI')

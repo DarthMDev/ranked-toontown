@@ -219,7 +219,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         base.localAvatar.setTeleportAvailable(1)
         # base.localAvatar.questPage.acceptOnscreenHooks()
         # base.localAvatar.invPage.acceptOnscreenHooks()
-        # base.localAvatar.questMap.acceptOnscreenHooks()
         # base.localAvatar.suitPage.acceptOnscreenHooks()
         self.walkStateData.fsm.request('walking')
         self.enablePeriodTimer()
@@ -241,8 +240,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         # base.localAvatar.invPage.hideInventoryOnscreen()
         # base.localAvatar.suitPage.hideGalleryOnscreen()
         # base.localAvatar.suitPage.ignoreOnscreenHooks()
-        # base.localAvatar.questMap.hide()
-        # base.localAvatar.questMap.ignoreOnscreenHooks()
         return
 
     def handleWalkDone(self, doneStatus):
@@ -498,7 +495,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         door = base.cr.doId2do.get(requestStatus['doorDoId'])
         door.readyToExit()
         base.localAvatar.obscureMoveFurnitureButton(1)
-        base.localAvatar.startQuestMap()
 
     def exitDoorIn(self):
         NametagGlobals.setMasterArrowsOn(1)
@@ -509,7 +505,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
 
     def exitDoorOut(self):
         base.localAvatar.obscureMoveFurnitureButton(-1)
-        base.localAvatar.stopQuestMap()
 
     def handleDoorDoneEvent(self, requestStatus):
         self.doneStatus = requestStatus
@@ -527,7 +522,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         self.accept('tunnelInMovieDone', self.__tunnelInMovieDone)
         base.localAvatar.reconsiderCheesyEffect()
         base.localAvatar.tunnelIn(tunnelOrigin)
-        base.localAvatar.startQuestMap()
 
     def __tunnelInMovieDone(self):
         self.ignore('tunnelInMovieDone')
@@ -554,7 +548,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
          'tunnelName': tunnelName}
         self.accept('tunnelOutMovieDone', self.__tunnelOutMovieDone)
         base.localAvatar.tunnelOut(tunnelOrigin)
-        base.localAvatar.stopQuestMap()
         return
 
     def __tunnelOutMovieDone(self):
@@ -572,7 +565,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
 
     def exitTeleportOut(self):
         base.localAvatar.laffMeter.stop()
-        base.localAvatar.stopQuestMap()
         base.localAvatar.obscureMoveFurnitureButton(-1)
         base.localAvatar.setTeleporting(False)
 
@@ -678,7 +670,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         teleportDebug(requestStatus, '_placeTeleportInPostZoneComplete(%s)' % (requestStatus,))
         NametagGlobals.setMasterArrowsOn(0)
         base.localAvatar.laffMeter.start()
-        base.localAvatar.startQuestMap()
         base.localAvatar.reconsiderCheesyEffect()
         base.localAvatar.obscureMoveFurnitureButton(1)
         avId = requestStatus.get('avId', -1)

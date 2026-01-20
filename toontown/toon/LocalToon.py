@@ -32,7 +32,6 @@ from toontown.shtiker import WordPage
 from . import DistributedToon
 from . import Toon
 from . import LaffMeter
-from toontown.quest import QuestMap
 from toontown.archipelago.gui.ArchipelagoOnscreenLog import ArchipelagoOnscreenLog
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
@@ -129,7 +128,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                                                base.config.GetBool('accepting-non-friend-whispers-default', True))
             self.physControls.event.addAgainPattern('again%in')
             self.oldPos = None
-            self.questMap = None
             self.prevToonIdx = 0
             self.teleporting = False
             self.camStart = [0, 0, 0, 0, 0, 0]
@@ -222,8 +220,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.__cleanupPieFlyNodes(sequence)
         self.laffMeter.destroy()
         del self.laffMeter
-        self.questMap.destroy()
-        self.questMap = None
         if hasattr(self, 'purchaseButton'):
             self.purchaseButton.destroy()
             del self.purchaseButton
@@ -302,8 +298,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         else:
             self.laffMeter.setPos(0.133, 0.0, 0.13)
         self.laffMeter.stop()
-        self.questMap = QuestMap.QuestMap(self)
-        self.questMap.stop()
         if not base.cr.isPaid():
             guiButton = loader.loadModel('phase_3/models/gui/quit_button')
             self.purchaseButton = DirectButton(parent=aspect2d, relief=None, image=(guiButton.find('**/QuitBtn_UP'), guiButton.find('**/QuitBtn_DN'), guiButton.find('**/QuitBtn_RLVR')), image_scale=0.9, text=TTLocalizer.OptionsPagePurchase, text_scale=0.05, text_pos=(0, -0.01), textMayChange=0, pos=(0.885, 0, -0.94), sortOrder=100, command=self.__handlePurchase)
@@ -1639,14 +1633,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                  zoneId], sendToId)
         else:
             DistributedPlayer.DistributedPlayer.d_teleportResponse(self, avId, available, shardId, hoodId, zoneId, sendToId)
-
-    def startQuestMap(self):
-        if self.questMap:
-            self.questMap.start()
-
-    def stopQuestMap(self):
-        if self.questMap:
-            self.questMap.stop()
 
     def _startZombieCheck(self):
         pass

@@ -7,7 +7,6 @@ from toontown.battle import SuitBattleGlobals
 from toontown.toonbase import TTLocalizer
 from . import HolidayDecorator
 from . import HalloweenHolidayDecorator
-from . import CrashedLeaderBoardDecorator
 from direct.interval.IntervalGlobal import *
 import calendar
 from copy import deepcopy
@@ -123,8 +122,6 @@ class NewsManager(DistributedObject.DistributedObject):
                 if hasattr(base.cr.playGame, 'dnaStore') and hasattr(base.cr.playGame, 'hood') and hasattr(base.cr.playGame.hood, 'loader'):
                     if holidayId == ToontownGlobals.HALLOWEEN_COSTUMES or holidayId == ToontownGlobals.SPOOKY_COSTUMES:
                         self.holidayDecorator = HalloweenHolidayDecorator.HalloweenHolidayDecorator()
-                    elif holidayId == ToontownGlobals.CRASHED_LEADERBOARD:
-                        self.holidayDecorator = CrashedLeaderBoardDecorator.CrashedLeaderBoardDecorator()
                     else:
                         self.holidayDecorator = HolidayDecorator.HolidayDecorator()
                     self.holidayDecorator.decorate()
@@ -232,8 +229,6 @@ class NewsManager(DistributedObject.DistributedObject):
                 if hasattr(base.cr.playGame, 'dnaStore') and hasattr(base.cr.playGame, 'hood') and hasattr(base.cr.playGame.hood, 'loader'):
                     if holidayId == ToontownGlobals.HALLOWEEN_COSTUMES or holidayId == ToontownGlobals.SPOOKY_COSTUMES:
                         self.holidayDecorator = HalloweenHolidayDecorator.HalloweenHolidayDecorator()
-                    elif holidayId == ToontownGlobals.CRASHED_LEADERBOARD:
-                        self.holidayDecorator = CrashedLeaderBoardDecorator.CrashedLeaderBoardDecorator()
                     else:
                         self.holidayDecorator = HolidayDecorator.HolidayDecorator()
                     self.holidayDecorator.undecorate()

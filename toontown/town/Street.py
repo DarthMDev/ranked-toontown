@@ -10,7 +10,6 @@ from toontown.battle import BattlePlace
 from direct.fsm import ClassicFSM, State
 from direct.task import Task
 from otp.distributed.TelemetryLimiter import RotationLimitToH, TLGatherAllAvs
-from toontown.building import Elevator
 from toontown.hood import ZoneUtil
 from toontown.toonbase import ToontownGlobals
 from toontown.toon.Toon import teleportDebug
@@ -25,8 +24,7 @@ class Street(BattlePlace.BattlePlace):
         self.fsm = ClassicFSM.ClassicFSM('Street', [State.State('start', self.enterStart, self.exitStart, ['walk',
           'tunnelIn',
           'doorIn',
-          'teleportIn',
-          'elevatorIn']),
+          'teleportIn']),
          State.State('walk', self.enterWalk, self.exitWalk, ['push',
           'sit',
           'stickerBook',
@@ -35,7 +33,6 @@ class Street(BattlePlace.BattlePlace):
           'DFA',
           'trialerFA',
           'doorOut',
-          'elevator',
           'tunnelIn',
           'tunnelOut',
           'teleportOut',
@@ -53,7 +50,6 @@ class Street(BattlePlace.BattlePlace):
           'DFA',
           'trialerFA',
           'doorOut',
-          'elevator',
           'tunnelIn',
           'tunnelOut',
           'WaitForBattle',
@@ -66,8 +62,6 @@ class Street(BattlePlace.BattlePlace):
          State.State('battle', self.enterBattle, self.exitBattle, ['walk', 'teleportOut', 'died']),
          State.State('doorIn', self.enterDoorIn, self.exitDoorIn, ['walk']),
          State.State('doorOut', self.enterDoorOut, self.exitDoorOut, ['walk']),
-         State.State('elevatorIn', self.enterElevatorIn, self.exitElevatorIn, ['walk']),
-         State.State('elevator', self.enterElevator, self.exitElevator, ['walk']),
          State.State('trialerFA', self.enterTrialerFA, self.exitTrialerFA, ['trialerFAReject', 'DFA']),
          State.State('trialerFAReject', self.enterTrialerFAReject, self.exitTrialerFAReject, ['walk']),
          State.State('DFA', self.enterDFA, self.exitDFA, ['DFAReject', 'teleportOut', 'tunnelOut']),
@@ -90,7 +84,6 @@ class Street(BattlePlace.BattlePlace):
          State.State('final', self.enterFinal, self.exitFinal, ['start'])], 'start', 'final')
         self.parentFSM = parentFSM
         self.tunnelOriginList = []
-        self.elevatorDoneEvent = 'elevatorDone'
         self.halloweenLights = []
 
     def enter(self, requestStatus, visibilityFlag = 1, arrowsOn = 1):
@@ -167,57 +160,6 @@ class Street(BattlePlace.BattlePlace):
         self.ignoreAll()
         BattlePlace.BattlePlace.unload(self)
         return
-
-    def enterElevatorIn(self, requestStatus):
-        self._eiwbTask = taskMgr.add(Functor(self._elevInWaitBldgTask, requestStatus['bldgDoId']), uniqueName('elevInWaitBldg'))
-
-    def _elevInWaitBldgTask(self, bldgDoId, task):
-        bldg = base.cr.doId2do.get(bldgDoId)
-        if bldg:
-            if bldg.elevatorNodePath is not None:
-                self._enterElevatorGotElevator()
-                return Task.done
-        return Task.cont
-
-    def _enterElevatorGotElevator(self):
-        messenger.send('insideVictorElevator')
-
-    def exitElevatorIn(self):
-        taskMgr.remove(self._eiwbTask)
-
-    def enterElevator(self, distElevator):
-        base.localAvatar.cantLeaveGame = 1
-        self.accept(self.elevatorDoneEvent, self.handleElevatorDone)
-        self.elevator = Elevator.Elevator(self.fsm.getStateNamed('elevator'), self.elevatorDoneEvent, distElevator)
-        self.elevator.load()
-        self.elevator.enter()
-
-    def exitElevator(self):
-        base.localAvatar.cantLeaveGame = 0
-        self.ignore(self.elevatorDoneEvent)
-        self.elevator.unload()
-        self.elevator.exit()
-        del self.elevator
-
-    def detectedElevatorCollision(self, distElevator):
-        self.fsm.request('elevator', [distElevator])
-        return None
-
-    def handleElevatorDone(self, doneStatus):
-        self.notify.debug('handling elevator done event')
-        where = doneStatus['where']
-        if where == 'reject':
-            if hasattr(base.localAvatar, 'elevatorNotifier') and base.localAvatar.elevatorNotifier.isNotifierOpen():
-                pass
-            else:
-                self.fsm.request('walk')
-        elif where == 'exit':
-            self.fsm.request('walk')
-        elif where in ('suitInterior', 'cogdoInterior'):
-            self.doneStatus = doneStatus
-            messenger.send(self.doneEvent)
-        else:
-            self.notify.error('Unknown mode: ' + where + ' in handleElevatorDone')
 
     def enterTunnelIn(self, requestStatus):
         self.enterZone(requestStatus['zoneId'])

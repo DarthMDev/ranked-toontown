@@ -14,12 +14,8 @@ from toontown.hood import MMHood
 from toontown.hood import BRHood
 from toontown.hood import DGHood
 from toontown.hood import DLHood
-from toontown.hood import GSHood
 from toontown.hood import OZHood
-from toontown.hood import GZHood
-from toontown.hood import SellbotHQ, CashbotHQ, LawbotHQ, BossbotHQ
 from toontown.hood import TutorialHood
-from direct.task import TaskManagerGlobal
 from toontown.hood import QuietZoneState
 from toontown.hood import ZoneUtil
 from toontown.toonbase import TTLocalizer
@@ -32,28 +28,16 @@ class PlayGame(StateData.StateData):
      ToontownGlobals.MinniesMelodyland: MMHood.MMHood,
      ToontownGlobals.DaisyGardens: DGHood.DGHood,
      ToontownGlobals.DonaldsDreamland: DLHood.DLHood,
-     ToontownGlobals.GoofySpeedway: GSHood.GSHood,
      ToontownGlobals.OutdoorZone: OZHood.OZHood,
-     ToontownGlobals.Tutorial: TutorialHood.TutorialHood,
-     ToontownGlobals.BossbotHQ: BossbotHQ.BossbotHQ,
-     ToontownGlobals.SellbotHQ: SellbotHQ.SellbotHQ,
-     ToontownGlobals.CashbotHQ: CashbotHQ.CashbotHQ,
-     ToontownGlobals.LawbotHQ: LawbotHQ.LawbotHQ,
-     ToontownGlobals.GolfZone: GZHood.GZHood}
+     ToontownGlobals.Tutorial: TutorialHood.TutorialHood}
     Hood2StateDict = {ToontownGlobals.ToontownCentral: 'TTHood',
      ToontownGlobals.DonaldsDock: 'DDHood',
      ToontownGlobals.TheBrrrgh: 'BRHood',
      ToontownGlobals.MinniesMelodyland: 'MMHood',
      ToontownGlobals.DaisyGardens: 'DGHood',
      ToontownGlobals.DonaldsDreamland: 'DLHood',
-     ToontownGlobals.GoofySpeedway: 'GSHood',
      ToontownGlobals.OutdoorZone: 'OZHood',
-     ToontownGlobals.Tutorial: 'TutorialHood',
-     ToontownGlobals.BossbotHQ: 'BossbotHQ',
-     ToontownGlobals.SellbotHQ: 'SellbotHQ',
-     ToontownGlobals.CashbotHQ: 'CashbotHQ',
-     ToontownGlobals.LawbotHQ: 'LawbotHQ',
-     ToontownGlobals.GolfZone: 'GZHood'}
+     ToontownGlobals.Tutorial: 'TutorialHood'}
 
     def __init__(self, parentFSM, doneEvent):
         StateData.StateData.__init__(self, doneEvent)
@@ -68,10 +52,6 @@ class PlayGame(StateData.StateData):
           'GSHood',
           'OZHood',
           'GZHood',
-          'SellbotHQ',
-          'CashbotHQ',
-          'LawbotHQ',
-          'BossbotHQ',
           'TutorialHood']),
          State.State('TTHood', self.enterTTHood, self.exitTTHood, ['quietZone']),
          State.State('DDHood', self.enterDDHood, self.exitDDHood, ['quietZone']),
@@ -82,10 +62,6 @@ class PlayGame(StateData.StateData):
          State.State('GSHood', self.enterGSHood, self.exitGSHood, ['quietZone']),
          State.State('OZHood', self.enterOZHood, self.exitOZHood, ['quietZone']),
          State.State('GZHood', self.enterGZHood, self.exitGZHood, ['quietZone']),
-         State.State('BossbotHQ', self.enterBossbotHQ, self.exitBossbotHQ, ['quietZone']),
-         State.State('SellbotHQ', self.enterSellbotHQ, self.exitSellbotHQ, ['quietZone']),
-         State.State('CashbotHQ', self.enterCashbotHQ, self.exitCashbotHQ, ['quietZone']),
-         State.State('LawbotHQ', self.enterLawbotHQ, self.exitLawbotHQ, ['quietZone']),
          State.State('TutorialHood', self.enterTutorialHood, self.exitTutorialHood, ['quietZone'])], 'start', 'start')
         self.fsm.enterInitialState()
         self.parentFSM = parentFSM

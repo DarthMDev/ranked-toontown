@@ -9570,14 +9570,6 @@ hedgeMazePlaces = ['first',
  'third',
  'Fourth']
 mazeLabel = 'Maze Race!'
-BoardingPartyReadme = 'Boarding Group?'
-BoardingGroupHide = 'Hide'
-BoardingGroupShow = 'Show Boarding Group'
-BoardingPartyInform = 'Create an elevator Boarding Group by clicking on another Toon and Inviting them.\nIn this area Boarding Groups cannot have more than %s Toons.'
-BoardingPartyTitle = 'Boarding Group'
-QuitBoardingPartyLeader = 'Disband'
-QuitBoardingPartyNonLeader = 'Leave'
-QuitBoardingPartyConfirm = 'Are you sure you want to quit this Boarding Group?'
 BoardcodeMissing = 'Something went wrong; try again later.'
 BoardcodeMinLaffLeader = 'Your group cannot board because you have less than %s laff points.'
 BoardcodeMinLaffNonLeaderSingular = 'Your group cannot board because %s has less than %s laff points.'

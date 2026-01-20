@@ -13,8 +13,8 @@ from panda3d.core import Fog, CollisionPlane, Plane, Vec3, Point3, CollisionNode
 
 from libotp import NametagGroup, CFSpeech, CFTimeout
 from libotp.nametag import NametagGlobals
-from toontown.building import ElevatorUtils
-from toontown.building.ElevatorConstants import ELEVATOR_CJ
+from toontown.minigame.utils.elevator import ElevatorConstants
+from toontown.minigame.utils.elevator.ElevatorConstants import ElevatorData, ELEVATOR_CJ
 from toontown.coghq import ScaleLeagueGlobals
 from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimer
 from toontown.coghq.CogBossScoreboard import CogBossScoreboard
@@ -127,12 +127,11 @@ class DistributedScaleGame(DistributedMinigame):
         leftDoor = self.elevatorModel.find('**/left-door')
         if leftDoor.isEmpty():
             leftDoor = self.elevatorModel.find('**/left_door')
-        leftDoor.setPos(ElevatorUtils.getLeftClosePoint(ELEVATOR_CJ))
+        leftDoor.setPos(ElevatorConstants.getLeftClosePoint(ELEVATOR_CJ))
         rightDoor = self.elevatorModel.find('**/right-door')
         if rightDoor.isEmpty():
             rightDoor = self.elevatorModel.find('**/right_door')
-        rightDoor.setPos(ElevatorUtils.getRightClosePoint(ELEVATOR_CJ))
-
+        rightDoor.setPos(ElevatorConstants.getRightClosePoint(ELEVATOR_CJ))
         floor = self.geom.find('**/MidVaultFloor1')
         if floor.isEmpty():
             floor = self.geom.find('**/CR3_Floor')

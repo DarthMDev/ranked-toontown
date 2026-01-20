@@ -1,17 +1,16 @@
-from otp.ai.AIBaseGlobal import *
-from panda3d.core import *
-from toontown.suit.SuitLegList import SuitLeg
-from direct.distributed.ClockDelta import *
-from otp.avatar import DistributedAvatarAI
-from . import SuitTimings
-from direct.task import Task
-from . import SuitPlannerBase, SuitBase, SuitDialog, SuitDNA
 from direct.directnotify import DirectNotifyGlobal
-from toontown.battle import SuitBattleGlobals
+from direct.distributed.ClockDelta import *
+from direct.task import Task
+from panda3d.core import *
+
+from otp.ai.AIBaseGlobal import *
 from toontown.building import FADoorCodes
-from . import DistributedSuitBaseAI
 from toontown.hood import ZoneUtil
-import random
+from toontown.suit.SuitLegList import SuitLeg
+from . import DistributedSuitBaseAI
+from . import SuitBase, SuitDialog, SuitDNA
+from . import SuitTimings
+
 
 class DistributedSuitAI(DistributedSuitBaseAI.DistributedSuitBaseAI):
     SUIT_BUILDINGS = simbase.config.GetBool('want-suit-buildings', 1)

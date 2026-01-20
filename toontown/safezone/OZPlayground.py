@@ -2,7 +2,6 @@ from panda3d.core import *
 from toontown.toonbase import ToontownGlobals
 from . import Playground
 from toontown.launcher import DownloadForceAcknowledge
-from toontown.building import Elevator
 from toontown.toontowngui import TTDialog
 from toontown.toonbase import TTLocalizer
 from toontown.racing import RaceGlobals
