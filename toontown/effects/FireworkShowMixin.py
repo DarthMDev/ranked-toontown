@@ -30,9 +30,6 @@ class FireworkShowMixin:
                 ivalMgr.finishIntervalsMatching('shootFirework*')
             else:
                 self.destroyFireworkShow()
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.8, 0.8, 0.8, 1)
         self.restoreCameraLens()
         if hasattr(self.getHood(), 'loader'):
             self.getGeom().clearColorScale()
@@ -239,22 +236,6 @@ class FireworkShowMixin:
         if hood:
             return hood.sky
         return None
-
-    def __checkDDFog(self):
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.2, 0.2, 0.2, 1)
-            if hasattr(base.cr.playGame.getPlace(), 'cameraSubmerged'):
-                if not base.cr.playGame.getPlace().cameraSubmerged:
-                    self.getHood().setWhiteFog()
-
-    def __restoreDDFog(self):
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.8, 0.8, 0.8, 1)
-            if hasattr(base.cr.playGame.getPlace(), 'cameraSubmerged'):
-                if not base.cr.playGame.getPlace().cameraSubmerged:
-                    self.getHood().setWhiteFog()
 
     def __checkStreetValidity(self):
         if hasattr(base.cr.playGame, 'getPlace') and base.cr.playGame.getPlace() and hasattr(base.cr.playGame.getPlace(), 'loader') and base.cr.playGame.getPlace().loader and hasattr(base.cr.playGame.getPlace().loader, 'geom') and base.cr.playGame.getPlace().loader.geom:

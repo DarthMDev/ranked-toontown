@@ -74,9 +74,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         base.playSfx(self.closeSound)
         self.pages[self.currPageIndex].exit()
         setBlackBackground = 1
-        for obj in list(base.cr.doId2do.values()):
-            if isinstance(obj, DistributedFireworkShow.DistributedFireworkShow) or isinstance(obj, DistributedPartyFireworksActivity.DistributedPartyFireworksActivity):
-                setBlackBackground = 1
 
         if setBlackBackground:
             base.setBackgroundColor(Vec4(0, 0, 0, 1))

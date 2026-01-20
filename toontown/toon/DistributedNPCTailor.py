@@ -6,7 +6,6 @@ from direct.task.Task import Task
 from . import TailorClothesGUI
 from toontown.toonbase import TTLocalizer
 from . import ToonDNA
-from toontown.estate import ClosetGlobals
 
 class DistributedNPCTailor(DistributedNPCToonBase):
 
@@ -210,13 +209,13 @@ class DistributedNPCTailor(DistributedNPCToonBase):
         else:
             which = 0
             if self.clothesGUI.topChoice != -1:
-                which = which | ClosetGlobals.SHIRT
+                which = which | ToonDNA.SHIRT
             if self.clothesGUI.bottomChoice != -1:
-                which = which | ClosetGlobals.SHORTS
+                which = which | ToonDNA.SHORTS
             print('setDNA: which = %d, top = %d, bot = %d' % (which, self.clothesGUI.topChoice, self.clothesGUI.bottomChoice))
             if self.roomAvailable == 0:
                 if self.isLocalToon:
-                    if self.av.isClosetFull() or which & ClosetGlobals.SHIRT and which & ClosetGlobals.SHORTS:
+                    if self.av.isClosetFull() or which & ToonDNA.SHIRT and which & ToonDNA.SHORTS:
                         self.__enterConfirmLoss(2, which)
                         self.clothesGUI.hideButtons()
                         self.button.hide()
@@ -281,7 +280,7 @@ class DistributedNPCTailor(DistributedNPCToonBase):
         self.d_setDNA(self.oldStyle.makeNetString(), 1)
         self.popupInfo.reparentTo(hidden)
 
-    def d_setDNA(self, dnaString, finished, whichItems = ClosetGlobals.SHIRT | ClosetGlobals.SHORTS):
+    def d_setDNA(self, dnaString, finished, whichItems = ToonDNA.SHIRT | ToonDNA.SHORTS):
         self.sendUpdate('setDNA', [dnaString, finished, whichItems])
 
     def setCustomerDNA(self, avId, dnaString):

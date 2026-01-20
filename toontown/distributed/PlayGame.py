@@ -9,60 +9,21 @@ from direct.task.Task import Task
 from .ToontownMsgTypes import *
 from toontown.toonbase import ToontownGlobals
 from toontown.hood import TTHood
-from toontown.hood import DDHood
-from toontown.hood import MMHood
-from toontown.hood import BRHood
-from toontown.hood import DGHood
-from toontown.hood import DLHood
-from toontown.hood import OZHood
-from toontown.hood import TutorialHood
 from toontown.hood import QuietZoneState
 from toontown.hood import ZoneUtil
 from toontown.toonbase import TTLocalizer
 
 class PlayGame(StateData.StateData):
     notify = DirectNotifyGlobal.directNotify.newCategory('PlayGame')
-    Hood2ClassDict = {ToontownGlobals.ToontownCentral: TTHood.TTHood,
-     ToontownGlobals.DonaldsDock: DDHood.DDHood,
-     ToontownGlobals.TheBrrrgh: BRHood.BRHood,
-     ToontownGlobals.MinniesMelodyland: MMHood.MMHood,
-     ToontownGlobals.DaisyGardens: DGHood.DGHood,
-     ToontownGlobals.DonaldsDreamland: DLHood.DLHood,
-     ToontownGlobals.OutdoorZone: OZHood.OZHood,
-     ToontownGlobals.Tutorial: TutorialHood.TutorialHood}
-    Hood2StateDict = {ToontownGlobals.ToontownCentral: 'TTHood',
-     ToontownGlobals.DonaldsDock: 'DDHood',
-     ToontownGlobals.TheBrrrgh: 'BRHood',
-     ToontownGlobals.MinniesMelodyland: 'MMHood',
-     ToontownGlobals.DaisyGardens: 'DGHood',
-     ToontownGlobals.DonaldsDreamland: 'DLHood',
-     ToontownGlobals.OutdoorZone: 'OZHood',
-     ToontownGlobals.Tutorial: 'TutorialHood'}
+    Hood2ClassDict = {ToontownGlobals.ToontownCentral: TTHood.TTHood}
+    Hood2StateDict = {ToontownGlobals.ToontownCentral: 'TTHood'}
 
     def __init__(self, parentFSM, doneEvent):
         StateData.StateData.__init__(self, doneEvent)
         self.place = None
         self.fsm = ClassicFSM.ClassicFSM('PlayGame', [State.State('start', self.enterStart, self.exitStart, ['quietZone']),
-         State.State('quietZone', self.enterQuietZone, self.exitQuietZone, ['TTHood',
-          'DDHood',
-          'BRHood',
-          'MMHood',
-          'DGHood',
-          'DLHood',
-          'GSHood',
-          'OZHood',
-          'GZHood',
-          'TutorialHood']),
-         State.State('TTHood', self.enterTTHood, self.exitTTHood, ['quietZone']),
-         State.State('DDHood', self.enterDDHood, self.exitDDHood, ['quietZone']),
-         State.State('BRHood', self.enterBRHood, self.exitBRHood, ['quietZone']),
-         State.State('MMHood', self.enterMMHood, self.exitMMHood, ['quietZone']),
-         State.State('DGHood', self.enterDGHood, self.exitDGHood, ['quietZone']),
-         State.State('DLHood', self.enterDLHood, self.exitDLHood, ['quietZone']),
-         State.State('GSHood', self.enterGSHood, self.exitGSHood, ['quietZone']),
-         State.State('OZHood', self.enterOZHood, self.exitOZHood, ['quietZone']),
-         State.State('GZHood', self.enterGZHood, self.exitGZHood, ['quietZone']),
-         State.State('TutorialHood', self.enterTutorialHood, self.exitTutorialHood, ['quietZone'])], 'start', 'start')
+         State.State('quietZone', self.enterQuietZone, self.exitQuietZone, ['TTHood']),
+         State.State('TTHood', self.enterTTHood, self.exitTTHood, ['quietZone'])], 'start', 'start')
         self.fsm.enterInitialState()
         self.parentFSM = parentFSM
         self.parentFSM.getStateNamed('playGame').addChild(self.fsm)

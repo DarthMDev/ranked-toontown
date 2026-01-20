@@ -2,7 +2,6 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.distributed.DistributedObjectAI import DistributedObjectAI
 
 from toontown.hood import ZoneUtil
-from toontown.hood.GSHoodDataAI import GSHoodDataAI
 from toontown.hood.TTHoodDataAI import TTHoodDataAI
 from toontown.toonbase import ToontownGlobals
 

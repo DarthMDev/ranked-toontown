@@ -25,12 +25,6 @@ from toontown.distributed.ToontownInternalRepository import ToontownInternalRepo
 from toontown.fishing.FishManagerAI import FishManagerAI
 from toontown.groups.GroupManagerAI import GroupManagerAI
 from toontown.hood import ZoneUtil
-from toontown.hood.BRHoodDataAI import BRHoodDataAI
-from toontown.hood.DDHoodDataAI import DDHoodDataAI
-from toontown.hood.DGHoodDataAI import DGHoodDataAI
-from toontown.hood.DLHoodDataAI import DLHoodDataAI
-from toontown.hood.MMHoodDataAI import MMHoodDataAI
-from toontown.hood.OZHoodDataAI import OZHoodDataAI
 from toontown.hood.TTHoodDataAI import TTHoodDataAI
 from toontown.matchmaking.DistributedMatchmakerAI import DistributedMatchmakerAI
 from toontown.matchmaking.LeaderboardManagerAI import LeaderboardManagerAI
@@ -291,51 +285,6 @@ class ToontownAIRepository(ToontownInternalRepository):
             (ToontownGlobals.PunchlinePlace, 1, 1)
         )
         self.createHood(TTHoodDataAI, ToontownGlobals.ToontownCentral)
-
-        # Donald's Dock
-        self.zoneTable[ToontownGlobals.DonaldsDock] = (
-            (ToontownGlobals.DonaldsDock, 1, 0), (ToontownGlobals.BarnacleBoulevard, 1, 1),
-            (ToontownGlobals.SeaweedStreet, 1, 1), (ToontownGlobals.LighthouseLane, 1, 1)
-        )
-        self.createHood(DDHoodDataAI, ToontownGlobals.DonaldsDock)
-
-        # Daisy Gardens
-        self.zoneTable[ToontownGlobals.DaisyGardens] = (
-            (ToontownGlobals.DaisyGardens, 1, 0), (ToontownGlobals.ElmStreet, 1, 1),
-            (ToontownGlobals.MapleStreet, 1, 1), (ToontownGlobals.OakStreet, 1, 1)
-        )
-        self.createHood(DGHoodDataAI, ToontownGlobals.DaisyGardens)
-
-        # Minnie's Melodyland
-        self.zoneTable[ToontownGlobals.MinniesMelodyland] = (
-            (ToontownGlobals.MinniesMelodyland, 1, 0), (ToontownGlobals.AltoAvenue, 1, 1),
-            (ToontownGlobals.BaritoneBoulevard, 1, 1), (ToontownGlobals.TenorTerrace, 1, 1)
-        )
-        self.createHood(MMHoodDataAI, ToontownGlobals.MinniesMelodyland)
-
-        # The Brrrgh
-        self.zoneTable[ToontownGlobals.TheBrrrgh] = (
-            (ToontownGlobals.TheBrrrgh, 1, 0), (ToontownGlobals.WalrusWay, 1, 1),
-            (ToontownGlobals.SleetStreet, 1, 1), (ToontownGlobals.PolarPlace, 1, 1)
-        )
-        self.createHood(BRHoodDataAI, ToontownGlobals.TheBrrrgh)
-
-        # Donald's Dreamland
-        self.zoneTable[ToontownGlobals.DonaldsDreamland] = (
-            (ToontownGlobals.DonaldsDreamland, 1, 0), (ToontownGlobals.LullabyLane, 1, 1),
-            (ToontownGlobals.PajamaPlace, 1, 1)
-        )
-        self.createHood(DLHoodDataAI, ToontownGlobals.DonaldsDreamland)
-
-        # Chip 'n Dale's Acorn Acres
-        self.zoneTable[ToontownGlobals.OutdoorZone] = (
-            (ToontownGlobals.OutdoorZone, 1, 0),
-        )
-        self.createHood(OZHoodDataAI, ToontownGlobals.OutdoorZone)
-
-        # Welcome Valley hoods (Toontown Central & Goofy Speedway)
-        # self.notify.info('Creating ' + TTLocalizer.WelcomeValley[2] + '...')
-        # self.welcomeValleyManager.createWelcomeValleyHoods()
 
         # Assign the initial suit buildings.
         self.notify.info('Assigning initial Cog buildings and Field Offices...')
