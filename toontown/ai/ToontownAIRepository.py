@@ -38,7 +38,6 @@ from toontown.spellbook.TTOffMagicWordManagerAI import TTOffMagicWordManagerAI
 from toontown.suit.SuitInvasionManagerAI import SuitInvasionManagerAI
 from toontown.toon import NPCToons
 from toontown.toonbase import ToontownGlobals
-from toontown.tutorial.TutorialManagerAI import TutorialManagerAI
 from toontown.uberdog.DistributedInGameNewsMgrAI import DistributedInGameNewsMgrAI
 from toontown.api.ApiManagerAI import ApiManagerAI
 
@@ -229,10 +228,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.resistanceEmoteMgr = DistributedResistanceEmoteMgrAI(self)
         self.resistanceEmoteMgr.generateWithRequired(9720)
 
-        # Generate our tutorial manager...
-        self.tutorialManager = TutorialManagerAI(self)
-        self.tutorialManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
-
         # Generate our friend manager...
         self.friendManager = FriendManagerAI(self)
         self.friendManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
@@ -262,13 +257,8 @@ class ToontownAIRepository(ToontownInternalRepository):
 
 
     def createHood(self, hoodCtr, zoneId):
-        # Bossbot HQ doesn't use DNA, so we skip over that.
         self.dnaStoreMap[zoneId] = DNAStorage()
         self.dnaDataMap[zoneId] = loadDNAFileAI(self.dnaStoreMap[zoneId], self.genDNAFileName(zoneId))
-        if zoneId in ToontownGlobals.HoodHierarchy:
-            for streetId in ToontownGlobals.HoodHierarchy[zoneId]:
-                self.dnaStoreMap[streetId] = DNAStorage()
-                self.dnaDataMap[streetId] = loadDNAFileAI(self.dnaStoreMap[streetId], self.genDNAFileName(streetId))
 
         hood = hoodCtr(self, zoneId)
         hood.startup()
@@ -280,16 +270,9 @@ class ToontownAIRepository(ToontownInternalRepository):
 
         # Toontown Central
         self.zoneTable[ToontownGlobals.ToontownCentral] = (
-            (ToontownGlobals.ToontownCentral, 1, 0), (ToontownGlobals.SillyStreet, 1, 1),
-            (ToontownGlobals.LoopyLane, 1, 1),
-            (ToontownGlobals.PunchlinePlace, 1, 1)
+            (ToontownGlobals.ToontownCentral, 1, 0)
         )
         self.createHood(TTHoodDataAI, ToontownGlobals.ToontownCentral)
-
-        # Assign the initial suit buildings.
-        self.notify.info('Assigning initial Cog buildings and Field Offices...')
-        for suitPlanner in self.suitPlanners.values():
-            suitPlanner.assignInitialSuitBuildings()
 
     def incrementPopulation(self):
         self.districtStats.b_setAvatarCount(self.districtStats.getAvatarCount() + 1)

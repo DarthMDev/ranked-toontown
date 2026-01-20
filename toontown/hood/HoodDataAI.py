@@ -39,8 +39,24 @@ class HoodDataAI:
         return []
 
     def startup(self):
-        for zone in self.air.zoneTable[self.canonicalHoodId]:
-            zoneId = ZoneUtil.getTrueZoneId(zone[0], self.zoneId)
+        zones = self.air.zoneTable[self.canonicalHoodId]
+        # zones should be a tuple/list of zone entries: ((canonicalZoneId, hasBuildings, ...), ...)
+        # Check if it's a single zone tuple like (canonicalZoneId, hasBuildings, ...) vs tuple of tuples
+        if isinstance(zones, tuple) and len(zones) > 0:
+            # Check if first element is an integer (single zone tuple) or a tuple (tuple of zone tuples)
+            if isinstance(zones[0], int):
+                # This is a single zone tuple like (2000, 1, 0), wrap it
+                zones = (zones,)
+        elif not isinstance(zones, (tuple, list)):
+            zones = (zones,)
+        for zone in zones:
+            # zone should be a tuple: (canonicalZoneId, hasBuildings, ...)
+            # or just an integer (canonicalZoneId)
+            if isinstance(zone, (tuple, list)) and len(zone) > 0:
+                canonicalZoneId = zone[0]
+            else:
+                canonicalZoneId = zone
+            zoneId = ZoneUtil.getTrueZoneId(canonicalZoneId, self.zoneId)
             self.notify.info('Creating zone... %s' % self.getLocationName(zoneId))
 
         self.createFishingPonds()
@@ -81,8 +97,24 @@ class HoodDataAI:
     def createFishingPonds(self):
         self.fishingPonds = []
         fishingPondGroups = []
-        for zone in self.air.zoneTable[self.canonicalHoodId]:
-            zoneId = ZoneUtil.getTrueZoneId(zone[0], self.zoneId)
+        zones = self.air.zoneTable[self.canonicalHoodId]
+        # zones should be a tuple/list of zone entries: ((canonicalZoneId, hasBuildings, ...), ...)
+        # Check if it's a single zone tuple like (canonicalZoneId, hasBuildings, ...) vs tuple of tuples
+        if isinstance(zones, tuple) and len(zones) > 0:
+            # Check if first element is an integer (single zone tuple) or a tuple (tuple of zone tuples)
+            if isinstance(zones[0], int):
+                # This is a single zone tuple like (2000, 1, 0), wrap it
+                zones = (zones,)
+        elif not isinstance(zones, (tuple, list)):
+            zones = (zones,)
+        for zone in zones:
+            # zone should be a tuple: (canonicalZoneId, hasBuildings, ...)
+            # or just an integer (canonicalZoneId)
+            if isinstance(zone, (tuple, list)) and len(zone) > 0:
+                canonicalZoneId = zone[0]
+            else:
+                canonicalZoneId = zone
+            zoneId = ZoneUtil.getTrueZoneId(canonicalZoneId, self.zoneId)
             dnaData = self.air.dnaDataMap[self.zoneId]
             if dnaData.getName() == 'root':
                 area = ZoneUtil.getCanonicalZoneId(zoneId)
@@ -121,10 +153,39 @@ class HoodDataAI:
                 self.addDistObj(npc)
 
     def createBuildingManagers(self):
-        for zone in self.air.zoneTable[self.canonicalHoodId]:
-            if zone[1]:
-                zoneId = ZoneUtil.getTrueZoneId(zone[0], self.zoneId)
-                dnaStore = self.air.dnaStoreMap[zone[0]]
+        zones = self.air.zoneTable[self.canonicalHoodId]
+        # zones should be a tuple/list of zone entries: ((canonicalZoneId, hasBuildings, unused), ...)
+        # Zone tuple format: (canonicalZoneId, hasBuildings, unused)
+        #   - canonicalZoneId: The canonical zone ID (e.g., 2000 for ToontownCentral, 2100 for SillyStreet)
+        #   - hasBuildings: 1 = create building manager for this zone, 0 = skip building manager
+        #   - unused: Third element appears to be unused/legacy (not accessed anywhere in codebase)
+        # Check if it's a single zone tuple like (canonicalZoneId, hasBuildings, unused) vs tuple of tuples
+        if isinstance(zones, tuple) and len(zones) > 0:
+            # Check if first element is an integer (single zone tuple) or a tuple (tuple of zone tuples)
+            if isinstance(zones[0], int):
+                # This is a single zone tuple like (2000, 1, 0), wrap it
+                zones = (zones,)
+        elif not isinstance(zones, (tuple, list)):
+            zones = (zones,)
+        for zone in zones:
+            # zone is expected to be a tuple: (canonicalZoneId, hasBuildings, unused)
+            # or just an integer (canonicalZoneId)
+            if isinstance(zone, (tuple, list)) and len(zone) > 0:
+                canonicalZoneId = zone[0]
+                hasBuildings = zone[1] if len(zone) > 1 else True
+            else:
+                # If zone is just an integer, use it as the canonical zone ID
+                canonicalZoneId = zone
+                hasBuildings = True
+            
+            if hasBuildings:
+                # Get the actual zone ID for this instance
+                zoneId = ZoneUtil.getTrueZoneId(canonicalZoneId, self.zoneId)
+                # dnaStoreMap is keyed by canonical zone ID
+                if canonicalZoneId not in self.air.dnaStoreMap:
+                    self.notify.warning('dnaStoreMap missing canonical zone ID %d, skipping building manager' % canonicalZoneId)
+                    continue
+                dnaStore = self.air.dnaStoreMap[canonicalZoneId]
                 mgr = DistributedBuildingMgrAI.DistributedBuildingMgrAI(self.air, zoneId, dnaStore, self.air.trophyMgr)
                 self.buildingManagers.append(mgr)
                 self.air.buildingManagers[zoneId] = mgr
@@ -186,6 +247,18 @@ class HoodDataAI:
             lookupTable = TTLocalizer.GlobalStreetNames
 
         name = lookupTable.get(zoneId, '')
+        # Handle case where name is not found (empty string) or doesn't have expected structure
+        if not name or not isinstance(name, (tuple, list)) or len(name) < 3:
+            # Return a default location name if not found
+            defaultName = 'Zone %d' % zoneId
+            if isStreet:
+                locationName = '{0}, {1}'.format(self.getLocationName(self.zoneId, False), defaultName)
+            else:
+                locationName = defaultName
+            if isWelcomeValley and appendWelcomeValley:
+                locationName = locationName + ' (' + TTLocalizer.WelcomeValley[2] + ')'
+            return locationName
+
         if isStreet:
             locationName = '{0}, {1}'.format(self.getLocationName(self.zoneId, False), name[2])
             if isWelcomeValley and appendWelcomeValley:

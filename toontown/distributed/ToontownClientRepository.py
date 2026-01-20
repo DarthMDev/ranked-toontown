@@ -42,7 +42,6 @@ from .ToontownMsgTypes import *
 from . import HoodMgr
 from . import PlayGame
 from toontown.toontowngui import ToontownLoadingBlocker
-from toontown.hood import StreetSign
 from ..archipelago.distributed.DistributedArchipelagoManager import DistributedArchipelagoManager
 from ..friends.OnlinePlayerManager import OnlinePlayerManager
 from ..friends.OnlineToon import OnlineToon
@@ -93,7 +92,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         self.catalogManager = None
         self.welcomeValleyManager = None
         self.newsManager = None
-        self.streetSign = None
         self.distributedDistrict = None
         self.inGameNewsMgr = None
         self.whitelistMgr = None
@@ -114,7 +112,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         # Generated as a DO from the AI
         self.archipelagoManager: Union[DistributedArchipelagoManager, None] = None
 
-        self.streetSign = None
         self.furnitureManager = None
         self.objectManager = None
         self.friendsMap = {}
@@ -426,8 +423,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
          base.localAvatar.defaultZone,
          -1])
         self._userLoggingOut = False
-        if not self.streetSign:
-            self.streetSign = StreetSign.StreetSign()
         return
 
     def exitPlayingGame(self):

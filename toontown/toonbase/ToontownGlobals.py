@@ -204,13 +204,6 @@ OakStreet = 5300
 LullabyLane = 9100
 PajamaPlace = 9200
 ToonHall = 2513
-HoodHierarchy = {ToontownCentral: (SillyStreet, LoopyLane, PunchlinePlace),
- DonaldsDock: (BarnacleBoulevard, SeaweedStreet, LighthouseLane),
- TheBrrrgh: (WalrusWay, SleetStreet, PolarPlace),
- MinniesMelodyland: (AltoAvenue, BaritoneBoulevard, TenorTerrace),
- DaisyGardens: (ElmStreet, MapleStreet, OakStreet),
- DonaldsDreamland: (LullabyLane, PajamaPlace),
- GoofySpeedway: ()}
 WelcomeValleyToken = 0
 BossbotHQ = 10000
 BossbotLobby = 10100
@@ -520,113 +513,14 @@ MinigamePlayerMatrix = {1: (CannonGameId,
      EscapeId)}
 
 KeyboardTimeout = 300
-phaseMap = {Tutorial: 4,
- ToontownCentral: 4,
- MyEstate: 5.5,
- DonaldsDock: 6,
- MinniesMelodyland: 6,
- GoofySpeedway: 6,
- TheBrrrgh: 8,
- DaisyGardens: 8,
- FunnyFarm: 8,
- DonaldsDreamland: 8,
- OutdoorZone: 8,
- BossbotHQ: 12,
- SellbotHQ: 9,
- CashbotHQ: 10,
- LawbotHQ: 11,
- GolfZone: 8}
-streetPhaseMap = {ToontownCentral: 5,
- DonaldsDock: 6,
- MinniesMelodyland: 6,
- GoofySpeedway: 6,
- TheBrrrgh: 8,
- DaisyGardens: 8,
- FunnyFarm: 8,
- DonaldsDreamland: 8,
- OutdoorZone: 8,
- BossbotHQ: 12,
- SellbotHQ: 9,
- CashbotHQ: 10,
- LawbotHQ: 11}
-dnaMap = {Tutorial: 'toontown_central',
- ToontownCentral: 'toontown_central',
- DonaldsDock: 'donalds_dock',
- MinniesMelodyland: 'minnies_melody_land',
- GoofySpeedway: 'goofy_speedway',
- TheBrrrgh: 'the_burrrgh',
- DaisyGardens: 'daisys_garden',
- FunnyFarm: 'not done yet',
- DonaldsDreamland: 'donalds_dreamland',
- OutdoorZone: 'outdoor_zone',
- BossbotHQ: 'cog_hq_bossbot',
- SellbotHQ: 'cog_hq_sellbot',
- CashbotHQ: 'cog_hq_cashbot',
- LawbotHQ: 'cog_hq_lawbot',
- GolfZone: 'golf_zone'}
-dnaPGMap = {Tutorial: 'toontown_central',
- ToontownCentral: 'toontown_central',
- DonaldsDock: 'donalds_dock',
- MinniesMelodyland: 'minnies_melody_land',
- TheBrrrgh: 'the_burrrgh',
- DaisyGardens: 'daisys_garden',
- FunnyFarm: 'not done yet',
- DonaldsDreamland: 'donalds_dreamland'}
-hoodNameMap = {DonaldsDock: TTLocalizer.DonaldsDock,
- ToontownCentral: TTLocalizer.ToontownCentral,
- TheBrrrgh: TTLocalizer.TheBrrrgh,
- MinniesMelodyland: TTLocalizer.MinniesMelodyland,
- DaisyGardens: TTLocalizer.DaisyGardens,
- OutdoorZone: TTLocalizer.OutdoorZone,
- FunnyFarm: TTLocalizer.FunnyFarm,
- GoofySpeedway: TTLocalizer.GoofySpeedway,
- DonaldsDreamland: TTLocalizer.DonaldsDreamland,
- BossbotHQ: TTLocalizer.BossbotHQ,
- SellbotHQ: TTLocalizer.SellbotHQ,
- CashbotHQ: TTLocalizer.CashbotHQ,
- LawbotHQ: TTLocalizer.LawbotHQ,
- Tutorial: TTLocalizer.Tutorial,
- MyEstate: TTLocalizer.MyEstate,
- GolfZone: TTLocalizer.GolfZone}
-safeZoneCountMap = {MyEstate: 8,
- Tutorial: 6,
- ToontownCentral: 6,
- DonaldsDock: 10,
- MinniesMelodyland: 5,
- GoofySpeedway: 500,
- TheBrrrgh: 8,
- DaisyGardens: 9,
- FunnyFarm: 500,
- DonaldsDreamland: 5,
- OutdoorZone: 500,
- GolfZone: 500}
-townCountMap = {MyEstate: 8,
- Tutorial: 40,
- ToontownCentral: 37,
- DonaldsDock: 40,
- MinniesMelodyland: 40,
- GoofySpeedway: 40,
- TheBrrrgh: 40,
- DaisyGardens: 40,
- FunnyFarm: 40,
- DonaldsDreamland: 40,
- OutdoorZone: 40}
-hoodCountMap = {MyEstate: 2,
- Tutorial: 2,
- ToontownCentral: 2,
- DonaldsDock: 2,
- MinniesMelodyland: 2,
- GoofySpeedway: 2,
- TheBrrrgh: 2,
- DaisyGardens: 2,
- FunnyFarm: 2,
- DonaldsDreamland: 2,
- OutdoorZone: 2,
- BossbotHQ: 2,
- SellbotHQ: 43,
- CashbotHQ: 2,
- LawbotHQ: 2,
- GolfZone: 2}
+phaseMap = {ToontownCentral: 4}
+streetPhaseMap = {ToontownCentral: 5}
+dnaMap = {ToontownCentral: 'toontown_central'}
+dnaPGMap = {ToontownCentral: 'toontown_central'}
+hoodNameMap = {ToontownCentral: TTLocalizer.ToontownCentral}
+safeZoneCountMap = {ToontownCentral: 6}
+townCountMap = {ToontownCentral: 37}
+hoodCountMap = {ToontownCentral: 2,}
 TrophyStarLevels = (10,
  20,
  30,
@@ -1331,7 +1225,7 @@ LawbotBossBonusWaitTime = 30
 LawbotBossBonusDuration = 20
 LawbotBossBonusToonup = 10
 LawbotBossBonusWeightMultiplier = 2
-LawbotBossChanceToDoAreaAttack = 0
+LawbotBossChanceToDoAreaAttack = 11
 LOW_POP_JP = 0
 MID_POP_JP = 100
 HIGH_POP_JP = 200
@@ -1517,43 +1411,13 @@ BossbotTurnSpeedMax = 60
 BossbotTurnSpeedMin = 20
 BossbotTreadSpeedMax = 10.5
 BossbotTreadSpeedMin = 3.5
-CalendarFilterShowAll = 0
-CalendarFilterShowOnlyHolidays = 1
-CalendarFilterShowOnlyParties = 2
-TTC = 1
-DD = 2
-MM = 3
-GS = 4
-DG = 5
-BR = 6
-OZ = 7
-DL = 8
-DefaultWantNewsPageSetting = 1
-gmMagicWordList = ['restock',
- 'restockUber',
- 'autoRestock',
- 'resistanceRestock',
- 'restockSummons',
- 'uberDrop',
- 'rich',
- 'maxBankMoney',
- 'toonUp',
- 'rod',
- 'cogPageFull',
- 'pinkSlips',
- 'Tickets',
- 'newSummons',
- 'who',
- 'who all']
-NewsPageScaleAdjust = 0.85
+
 AnimPropTypes = IntEnum('AnimPropTypes',('Unknown',
  'Hydrant',
  'Mailbox',
  'Trashcan'), start=-1)
 EmblemTypes = IntEnum('EmblemTypes', ('Silver', 'Gold'), start=0)
-NumEmblemTypes = 2
 DefaultMaxBankMoney = 99999
-DefaultBankItemId = 1350
 ToonAnimStates = set(['off',
  'neutral',
  'victory',
@@ -1598,15 +1462,6 @@ ToonAnimStates = set(['off',
  'ScientistWork',
  'ScientistLessWork',
  'ScientistPlay'])
-AV_FLAG_REASON_TOUCH = 1
-AV_FLAG_HISTORY_LEN = 500
-AV_TOUCH_CHECK_DELAY_AI = 3.0
-AV_TOUCH_CHECK_DELAY_CL = 1.0
-AV_TOUCH_CHECK_DIST = 2.0
-AV_TOUCH_CHECK_DIST_Z = 5.0
-AV_TOUCH_CHECK_TIMELIMIT_CL = 0.002
-AV_TOUCH_COUNT_LIMIT = 5
-AV_TOUCH_COUNT_TIME = 300
 
 # A list of Zone IDs where we can passively heal that is not considered a safezone.
 NonSafePassiveHealingZones = (
@@ -1621,60 +1476,7 @@ for level in range(1,51):
     SuitLevels.append(level)
 
 GravityValue = 32.174
-hood2Id = [
-    ('TTC', (ToontownCentral,)),
-    ('DD', (DonaldsDock,)),
-    ('MML', (MinniesMelodyland,)),
-    ('DG', (DaisyGardens,)),
-    ('TB', (TheBrrrgh,)),
-    ('DDL', (DonaldsDreamland,)),
-    ('GZ', (GolfZone,)),
-    ('GSW', (GoofySpeedway,)),
-    ('GS', (GoofySpeedway,)),
-    ('OZ', (OutdoorZone,)),
-    ('CEO', (BossbotHQ,)),
-    ('CJ', (LawbotHQ,)),
-    ('CFO', (CashbotHQ,)),
-    ('VP', (SellbotHQ,)),
-    ('BBHQ', (BossbotHQ,)),
-    ('LBHQ', (LawbotHQ,)),
-    ('CBHQ', (CashbotHQ,)),
-    ('SBHQ', (SellbotHQ,)),
-    ('FACTORY', (SellbotHQ, SellbotFactoryExt)),
-    ('FRONTENTRY', (SellbotHQ, SellbotFactoryExt)),
-    ('SIDEENTRY', (SellbotHQ, SellbotFactoryExt)),
-    ('BULLION', (CashbotHQ,)),
-    ('DOLLAR', (CashbotHQ,)),
-    ('COIN', (CashbotHQ,)),
-    ('OFFICEA', (LawbotHQ, LawbotOfficeExt)),
-    ('OFFICEB', (LawbotHQ, LawbotOfficeExt)),
-    ('OFFICEC', (LawbotHQ, LawbotOfficeExt)),
-    ('OFFICED', (LawbotHQ, LawbotOfficeExt)),
-    ('BACK', (BossbotHQ,)),
-    ('MIDDLE', (BossbotHQ,)),
-    ('FRONT', (BossbotHQ,))]
-hood2Id = collections.OrderedDict(hood2Id)
-hood2Coords = {
- 'CEO': [(61.044, 119.014, 0.025, -4.680, 0, 0)],
- 'CJ': [(333.700, -179.869, -42.932, -807.174, 0, 0)],
- 'CFO': [(125.155, 546.084, 32.246, 360.056, 0, 0)],
- 'VP': [(25.512, -51.193, 10.095, 40.868, 0, 0)],
- 'FACTORY': [(62.204, -89.739, 0.025, -7.144, 0, 0)],
- 'FRONTENTRY': [(62.204, -89.739, 0.025, -7.144, 0, 0)],
- 'SIDEENTRY': [(-165.940, 26.804, 0.025, -97.144, 0, 0)],
- 'BULLION': [(-118.641, 64.131, -23.434, 449.182, 0, 0)],
- 'DOLLAR': [(178.612, -175.786, -63.244, 274.225, 0, 0)],
- 'COIN': [(-122.43, -428.856, -23.439, 450.141, 0, 0)],
- 'OFFICE': [(-170.371, -191.902, -16.280, -633.031, 0, 0)],
- 'OFFICEA': [(47.594, 78.874, 51.692, -35, 0, 0)],
- 'OFFICEB': [(94.816, 78.874, 51.692, -15, 0, 0)],
- 'OFFICEC': [(137.586, 78.874, 51.692, 15, 0, 0)],
- 'OFFICED': [(178.331, 78.874, 51.692, 35, 0, 0)],
- 'BACK': [(-73.911, 87.426, 11.803, 10.170, 0, 0)],
- 'MIDDLE': [(-98.805, 39.180, 11.364, -253.350, 0, 0)],
- 'FRONT': [(-105.626, -33.441, 9.777, -211.885, 0, 0)]}
 
 musicJsonFilePath = Filename('/content_pack/music.json')
 suitClothesJsonFilePath = Filename('/content_pack/suit_clothes.json')
 
-PUTTER_KEY = 38

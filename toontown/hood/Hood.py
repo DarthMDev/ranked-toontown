@@ -42,10 +42,6 @@ class Hood(StateData.StateData):
 
     def getHoodText(self, zoneId):
         hoodText = base.cr.hoodMgr.getFullnameFromId(self.id)
-        if self.id != Tutorial:
-            streetName = StreetNames.get(ZoneUtil.getCanonicalBranchZone(zoneId))
-            if streetName:
-                hoodText = hoodText + '\n' + streetName[-1]
         return hoodText
 
     def spawnTitleText(self, zoneId):
