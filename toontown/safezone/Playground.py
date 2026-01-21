@@ -407,12 +407,9 @@ class Playground(BattlePlace):
         self.hfa.exit()
         del self.hfa
         if doneStatus['mode'] == 'complete':
-            if requestStatus.get('partyHat', 0):
-                outHow = {'teleportIn': 'tunnelOut'}
-            else:
-                outHow = {'teleportIn': 'teleportOut',
-                 'tunnelIn': 'tunnelOut',
-                 'doorIn': 'doorOut'}
+            outHow = {'teleportIn': 'teleportOut',
+             'tunnelIn': 'tunnelOut',
+             'doorIn': 'doorOut'}
             self.fsm.request(outHow[requestStatus['how']], [requestStatus])
         elif doneStatus['mode'] == 'incomplete':
             self.fsm.request('HFAReject')
@@ -455,15 +452,15 @@ class Playground(BattlePlace):
             self.deathAckBox.cleanup()
             self.deathAckBox = None
         Place.Place.enterWalk(self, teleportIn)
-        if base.localAvatar.getGroupManager() is not None:
-            base.localAvatar.getGroupManager().updateStatus(GroupGlobals.STATUS_READY)
+        if base.cr.groupManager is not None:
+            base.cr.groupManager.updateStatus(GroupGlobals.STATUS_READY)
         return
 
     def exitWalk(self):
         super().exitWalk()
 
-        if base.localAvatar.getGroupManager() is not None:
-            base.localAvatar.getGroupManager().updateStatus(GroupGlobals.STATUS_UNREADY)
+        if base.cr.groupManager is not None:
+            base.cr.groupManager.updateStatus(GroupGlobals.STATUS_UNREADY)
 
     def enterDeathAck(self, requestStatus):
         self.deathAckBox = None

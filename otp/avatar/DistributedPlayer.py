@@ -359,16 +359,6 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
                 teleportNotify.debug('avatar ignored via ignoreList')
                 self.d_teleportResponse(self.doId, 2, 0, 0, 0, sendToId=requesterId)
                 return
-            if hasattr(base, 'distributedParty'):
-                if base.distributedParty.partyInfo.isPrivate:
-                    if requesterId not in base.distributedParty.inviteeIds:
-                        teleportNotify.debug('avatar not in inviteeIds')
-                        self.d_teleportResponse(self.doId, 0, 0, 0, 0, sendToId=requesterId)
-                        return
-                if base.distributedParty.isPartyEnding:
-                    teleportNotify.debug('party is ending')
-                    self.d_teleportResponse(self.doId, 0, 0, 0, 0, sendToId=requesterId)
-                    return
             if self.__teleportAvailable and not self.ghostMode and base.config.GetBool('can-be-teleported-to', 1):
                 teleportNotify.debug('teleport initiation successful')
                 self.setSystemMessage(requesterId, OTPLocalizer.WhisperComingToVisit % avatar.getName())

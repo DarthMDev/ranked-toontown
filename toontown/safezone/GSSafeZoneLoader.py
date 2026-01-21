@@ -5,7 +5,6 @@ from panda3d.core import *
 from toontown.hood import ZoneUtil
 from toontown.launcher import DownloadForceAcknowledge
 from toontown.safezone.SafeZoneLoader import SafeZoneLoader
-from toontown.safezone.GSPlayground import GSPlayground
 from toontown.effects.CarSmoke import CarSmoke
 from toontown.toonbase import ToontownGlobals
 import random

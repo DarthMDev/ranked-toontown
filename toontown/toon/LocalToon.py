@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import List, Tuple
+from typing import List
 
 from libotp import *
 from direct.interval.IntervalGlobal import *
@@ -27,19 +27,16 @@ from toontown.toonbase import TTLocalizer
 from toontown.chat import ToontownChatManager, ResistanceChat
 from toontown.chat import TTTalkAssistant
 from toontown.battle.BattleSounds import *
-from toontown.battle import Fanfare
-from toontown.parties import PartyGlobals
 from toontown.toon import ElevatorNotifier
 from toontown.shtiker import WordPage
 from . import DistributedToon
 from . import Toon
 from . import LaffMeter
-from toontown.quest import QuestMap
 from toontown.archipelago.gui.ArchipelagoOnscreenLog import ArchipelagoOnscreenLog
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
 from ..chat.ChatContainer import ChatContainer
-from ..groups.DistributedGroupManager import DistributedGroupManager
+from ..groups.GroupManager import GroupManager
 from ..shtiker.LeaderboardPage import LeaderboardPage
 from ..shtiker.ShtikerPage import ShtikerPage
 
@@ -132,14 +129,13 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                                                base.config.GetBool('accepting-non-friend-whispers-default', True))
             self.physControls.event.addAgainPattern('again%in')
             self.oldPos = None
-            self.questMap = None
             self.prevToonIdx = 0
             self.teleporting = False
             self.camStart = [0, 0, 0, 0, 0, 0]
             self.camPoints = []
             self.camera = camera
 
-            self.groupManager: DistributedGroupManager | None = None
+            self.groupManager: GroupManager | None = None
             self.archipelagoLog: ArchipelagoOnscreenLog = None
             self.chatbox: ChatContainer | None = None
             self.currentlyInHQ = False
@@ -149,12 +145,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.currentOnscreenInterface = None  # We can only exclusively show one hotkey interface at a time
 
             self.showPosInit()
-
-    def getGroupManager(self) -> DistributedGroupManager | None:
-        return self.groupManager
-
-    def setGroupManager(self, groupManager: DistributedGroupManager | None):
-        self.groupManager = groupManager
 
     def wantLegacyLifter(self):
         return True
@@ -232,8 +222,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.__cleanupPieFlyNodes(sequence)
         self.laffMeter.destroy()
         del self.laffMeter
-        self.questMap.destroy()
-        self.questMap = None
         if hasattr(self, 'purchaseButton'):
             self.purchaseButton.destroy()
             del self.purchaseButton
@@ -314,8 +302,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         else:
             self.laffMeter.setPos(0.133, 0.0, 0.13)
         self.laffMeter.stop()
-        self.questMap = QuestMap.QuestMap(self)
-        self.questMap.stop()
         if not base.cr.isPaid():
             guiButton = loader.loadModel('phase_3/models/gui/quit_button')
             self.purchaseButton = DirectButton(parent=aspect2d, relief=None, image=(guiButton.find('**/QuitBtn_UP'), guiButton.find('**/QuitBtn_DN'), guiButton.find('**/QuitBtn_RLVR')), image_scale=0.9, text=TTLocalizer.OptionsPagePurchase, text_scale=0.05, text_pos=(0, -0.01), textMayChange=0, pos=(0.885, 0, -0.94), sortOrder=100, command=self.__handlePurchase)
@@ -642,7 +628,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
 
     def __createTrajectoryLine(self, power):
         """Create a trajectory line showing where the pie will land - OPTIMIZED VERSION"""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, CollisionRay, CollisionNode, BitMask32, Vec3
+        from panda3d.core import LineSegs, TransparencyAttrib, Point3, CollisionTraverser, CollisionHandlerQueue, \
+            CollisionNode, BitMask32
         from direct.interval.ProjectileInterval import ProjectileInterval
         from otp.otpbase import OTPGlobals
         
@@ -665,7 +652,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         startVel = render.getRelativeVector(self, relVel)
         
         # Calculate trajectory points
-        from toontown.minigame import Trajectory
+        from ..minigame.utils import Trajectory
         startTime = globalClock.getFrameTime()
         # Use the same hand position offset as in getTossPieInterval (relative to toon)
         handOffset = render.getRelativePoint(self, Point3(0.52, 0.97, 2.24))
@@ -830,7 +817,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
     
     def __createTrajectoryTarget(self, landingPoint, surfaceNormal=None):
         """Create a target indicator (red circle with +) at the landing point, oriented to the surface"""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3, Vec3
+        from panda3d.core import LineSegs, TransparencyAttrib, Vec3
         import math
         
         # Remove existing target if any
@@ -1651,14 +1638,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
                  zoneId], sendToId)
         else:
             DistributedPlayer.DistributedPlayer.d_teleportResponse(self, avId, available, shardId, hoodId, zoneId, sendToId)
-
-    def startQuestMap(self):
-        if self.questMap:
-            self.questMap.start()
-
-    def stopQuestMap(self):
-        if self.questMap:
-            self.questMap.stop()
 
     def _startZombieCheck(self):
         pass

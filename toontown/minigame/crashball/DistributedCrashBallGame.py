@@ -14,7 +14,7 @@ from panda3d.core import NodePath, Vec4, CompassEffect, Texture, CardMaker, Quat
 from panda3d.ode import OdeGeom, OdeBody
 
 from toontown.hood import SkyUtil
-from toontown.minigame.ArrowKeys import ArrowKeys
+from toontown.minigame.controls.ArrowKeys import ArrowKeys
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.MinigameAvatarScorePanel import MinigameAvatarScorePanel
 from toontown.minigame.crashball.CrashBallConstants import CrashBallNPCChoices, CrashBallSkyFiles, InitialScore, \

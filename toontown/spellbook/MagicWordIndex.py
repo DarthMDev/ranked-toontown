@@ -31,7 +31,6 @@ import random
 import json
 
 from ..archipelago.definitions.death_reason import DeathReason
-from ..minigame.craning.CraneGamePracticeCheatAI import CraneGamePracticeCheatAI
 
 ImplementsMinigame = None
 if typing.TYPE_CHECKING:
@@ -1017,117 +1016,6 @@ class Aspect2D(MagicWord):
             aspect2d.hide()
 
 
-class InvasionStatus(MagicWord):
-    desc = "Returns the number of cogs remaining in an invasion."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        invasionMgr = simbase.air.suitInvasionManager
-
-        if not invasionMgr.getInvading():
-            return "There is no invasion in progress!"
-
-        invadingCog = invasionMgr.getInvadingCog()
-        simbase.air.newsManager.sendUpdateToAvatarId(invoker.getDoId(), 'setInvasionStatus', [
-            ToontownGlobals.SuitInvasionUpdate, invadingCog[0], invasionMgr.numSuits, invadingCog[1]])
-
-
-class RevealMap(MagicWord):
-    desc = "Reveals map in the Sellbot Field Office maze game."
-    execLocation = MagicWordConfig.EXEC_LOC_CLIENT
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        mazeGame = None
-        from toontown.cogdominium.DistCogdoMazeGame import DistCogdoMazeGame
-        for do in list(base.cr.doId2do.values()):
-            if isinstance(do, DistCogdoMazeGame):
-                if invoker.doId in do.getToonIds():
-                    mazeGame = do
-                    break
-
-        if mazeGame:
-            mazeGame.game.guiMgr.mazeMapGui.showExit()
-            mazeGame.game.guiMgr.mazeMapGui.revealAll()
-            return "Map revealed!"
-
-        return "You are not in a Maze Game!"
-
-
-class EndMaze(MagicWord):
-    desc = "Ends the maze game in a Sellbot Field Office."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        mazeGame = None
-        from toontown.cogdominium.DistCogdoMazeGameAI import DistCogdoMazeGameAI
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistCogdoMazeGameAI):
-                if invoker.doId in do.getToonIds():
-                    mazeGame = do
-                    break
-
-        if mazeGame:
-            mazeGame.openDoor()
-            return "Completed Maze Game"
-
-        return "You are not in a Maze Game!"
-
-
-class SpawnBuilding(MagicWord):
-    aliases = ["building", "spawnbldg", "bldg"]
-    desc = "Spawns a Cog Building with the given suit index."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("suitName", str, True)]
-    accessLevel = 'NO_ACCESS'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        suitName = args[0]
-
-        try:
-            suitIndex = SuitDNA.suitHeadTypes.index(suitName)
-        except:
-            return "Invalid Cog specified.".format(suitName)
-
-        returnCode = invoker.doBuildingTakeover(suitIndex)
-        if returnCode[0] == 'success':
-            return "Successfully spawned building with Cog '{0}'!".format(suitName)
-        return "Couldn't spawn building with Cog '{0}'.".format(suitName)
-
-
-class SpawnFO(MagicWord):
-    aliases = ["fo", "spawncogdo", "cogdo"]
-    desc = "Spawns a Field Office with the given type and difficulty."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("type", str, True), ("difficulty", int, False, 0)]
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.building import SuitBuildingGlobals
-        track = args[0]
-        difficulty = args[1]
-
-        tracks = ['s', 'l']
-        if track not in tracks:
-            return "Invalid Field Office type! Supported types are 's' and 'l'"
-        if not 0 <= difficulty < len(SuitBuildingGlobals.SuitBuildingInfo):
-            return "Difficulty out of bounds!"
-
-        try:
-            building = invoker.findClosestDoor()
-        except KeyError:
-            return "You\'re not on a street!"
-        if building is None:
-            return "Unable to spawn a %s Field Office with a difficulty of %d." % (
-                ToontownGlobals.Dept2Dept.get(track), difficulty)
-
-        building.cogdoTakeOver(track, difficulty, 2)
-        return "Successfully spawned a %s Field Office with a difficulty of %d!" % (
-            ToontownGlobals.Dept2Dept.get(track), difficulty)
-
-
 class SetCEIndex(MagicWord):
     aliases = ["setce", "ce", "cheesyeffect"]
     desc = "Set Cheesy Effect of the target."
@@ -1712,10 +1600,10 @@ class RestartPieRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedSellbotBossAI import DistributedSellbotBossAI
+        from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedSellbotBossAI):
+            if isinstance(do, DistributedSellbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -1831,243 +1719,11 @@ class RestartCraneRound(MagicWord):
         return f"Restart requested! All {numParticipants} players must confirm using ~rcr confirm. The requester can cancel with ~rcr cancel."
 
 
-class SpectateMinigame(MagicWord):
-    aliases = ['spec', 'spectate']
-    desc = "Toggles your toon in/out of spectator mode for this minigame."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from ..minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        craneGame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if craneGame is None:
-            return "You aren't in a crane round!"
-
-        if craneGame.isSpectating(avId):
-            without = [spec for spec in craneGame.getSpectators() if spec != avId]  # Filter them out.
-            craneGame.b_setSpectators(without)
-        else:
-            _with = craneGame.getSpectators()
-            _with.append(avId)
-            craneGame.b_setSpectators(_with)
-
-        return f"You are no{'w' if avId in craneGame.getSpectators() else ' longer'} spectating!"
-
-
-class SetCraneSpawn(MagicWord):
-    aliases = ['cranespawn', 'spawn']
-    desc = "Sets the craning spawn point of a certain toon"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("spawn", int, False, "next")]
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        spawn = args[0]
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        boss = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not boss:
-            return "You aren't in a CFO!"
-        if not (1 <= spawn <= 8):
-            return "Incorrect spawn position, please enter between 1 to 8!"
-
-        boss.setCraneSpawn(args[0] - 1, invoker.doId)
-
-        return ("Set your spawn position to #%s" % (spawn))
-
-
-class SafeRushMode(MagicWord):
-    aliases = ['saferush', 'rush']
-    desc = "Sets knockout damage in cfo to 2 for safe rush practice"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in a CFO!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantSafeRushPractice else f'ON'
-        message = f"Safe Rush Mode => {on_off}"
-
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.SAFE_RUSH_PRACTICE)
-        return message
-
-
-class GoonPracticeMode(MagicWord):
-    aliases = ['goonpractice', 'practicegoons', 'livegoon', 'lg']
-    desc = "Enters goon practice mode where goons continuously spawn from your side while the CFO is stunned"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in a CFO!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantGoonPractice else f'ON'
-        message = f"Safe Rush Mode => {on_off}"
-            
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.GOON_PRACTICE)
-        return "Toggled goon practice mode!"
-
-
-class RNGMode(MagicWord):
-    aliases = ['rng']
-    desc = "Sets sides to always open your side, and max goon size"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = "MODERATOR"
-    arguments = [
-        ("state", int, False, 1),
-        ("toonIndex", int, False, 0)
-    ]
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in a CFO!"
-
-        if args[1] >= len(minigame.getParticipantsNotSpectating()) or args[1] < 0:
-            return "Invalid toon index, please enter a valid toon index! (0-%s)" % str(len(minigame.getParticipantsNotSpectating()) - 1)
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantRNGMode else f'ON'
-        message = f"RNG Mode => {on_off}"
-
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.RNG_MODE)
-        return message
-
-
-class AimMode(MagicWord):
-    aliases = ['aim']
-    desc = "Resets the locations of the safes"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("safes", int, False, 5)]
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in the Crane Game!"
-
-        safes = args[0]
-        if not (0 <= safes <= 8):
-            return "Invalid # of safes, try a number between 0 and 8 :)"
-
-        if minigame.gameFSM.getCurrentState().getName() != "play":
-            return f"Crane game must be in state 'play', was '{minigame.gameFSM.getCurrentState().getName()}'!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantAimPractice else f'ON ({safes} safes)'
-        message = f"Safe Aim Practice => {on_off}"
-
-        minigame.practiceCheatHandler.numSafesWanted = safes
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.AIM_PRACTICE)
-        return message
-
-
-class AimRight(MagicWord):
-    aliases = ['ar']
-    desc = "Spawns a safe near you and goes further away as you drop an object. Optional: specify distance (default 10)"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("forwardDistance", int, False, 10)]
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in the Crane Game!"
-
-        forwardDistance = args[0]
-        if forwardDistance < -5 or forwardDistance > 15:
-            return "Distance must be between -5 and 15!"
-
-        if minigame.gameFSM.getCurrentState().getName() != "play":
-            return f"Crane game must be in state 'play', was '{minigame.gameFSM.getCurrentState().getName()}'!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantAimRightPractice else f'ON (distance: {forwardDistance})'
-        message = f"Safe Aim Practice => {on_off}"
-
-        minigame.practiceCheatHandler.forwardDistance = forwardDistance
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.A_R_PRACTICE)
-        return message
-
-
-class AimLeft(MagicWord):
-    aliases = ['al']
-    desc = "Spawns a safe near you and goes further left as you drop an object. Optional: specify distance (default 10)"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("forwardDistance", int, False, 10)]
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in the Crane Game!"
-
-        forwardDistance = args[0]
-        if forwardDistance < -5 or forwardDistance > 15:
-            return "distance must be between -5 and 15!"
-
-        if minigame.gameFSM.getCurrentState().getName() != "play":
-            return f"Crane game must be in state 'play', was '{minigame.gameFSM.getCurrentState().getName()}'!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantAimLeftPractice else f'ON (distance: {forwardDistance})'
-        message = f"Safe Aim Practice => {on_off}"
-
-        minigame.practiceCheatHandler.forwardDistance = forwardDistance
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.A_L_PRACTICE)
-        return message
-    
-class Alternate(MagicWord):
-    aliases = ['alt']
-    desc = "Spawns a safe near you and alternates between left and right as you drop objects. Optional: specify distance (default 10)"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("forwardDistance", int, False, 10)]
-    accessLevel = "MODERATOR"
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.minigame.craning.DistributedCraneGameAI import DistributedCraneGameAI
-        minigame = findToonInMinigame(DistributedCraneGameAI, invoker.doId)
-        if not minigame:
-            return "You aren't in the Crane Game!"
-
-        forwardDistance = args[0]
-        if forwardDistance < -5 or forwardDistance > 15:
-            return "distance must be between -5 and 15!"
-
-        if minigame.gameFSM.getCurrentState().getName() != "play":
-            return f"Crane game must be in state 'play', was '{minigame.gameFSM.getCurrentState().getName()}'!"
-
-        on_off = 'OFF' if minigame.practiceCheatHandler.wantAimAlternatePractice else f'ON (distance: {forwardDistance})'
-        message = f"Safe Alternating Practice => {on_off}"
-
-        minigame.practiceCheatHandler.forwardDistance = forwardDistance
-        minigame.practiceCheatHandler.isFirstAlternate = True  # Reset the alternating state
-        minigame.practiceCheatHandler.setPracticeParams(CraneGamePracticeCheatAI.A_ALT_PRACTICE)
-        return message
-
-
-class DisableGoons(MagicWord):
-    desc = "Stuns all of the goons in an area."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-
-    def handleWord(self, invoker, avId, toon, *args):
-        from toontown.suit.DistributedGoonAI import DistributedGoonAI
-        for goon in simbase.air.doFindAllInstances(DistributedGoonAI):
-            goon.requestStunned(0)
-        return "Disabled all Goons!"
-
-
 class SetCFOModifiers(MagicWord):
     aliases = ['cfomodifiers', 'cfomods']
     desc = "Dynamically tweak modifiers mid CFO"
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'USER'
+    accessLevel = 'ADMIN'
     VALID_SUBCOMMANDS = ['debug', 'amount', 'random', 'clear', 'add', 'remove', 'on', 'off']
     arguments = [
         ('subcommand', str, False, 'debug'),  # subcommand
@@ -2195,58 +1851,6 @@ class SetCFOModifiers(MagicWord):
             return s
 
 
-class SkipCJ(MagicWord):
-    desc = "Skips to the indicated round of the CJ."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("round", str, False, "next")]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        battle = args[0]
-        from toontown.suit.DistributedLawbotBossAI import DistributedLawbotBossAI
-        boss = None
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedLawbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a CJ!"
-
-        battle = battle.lower()
-
-        if battle == 'two':
-            if boss.state in ('RollToBattleTwo', 'PrepareBattleTwo', 'BattleTwo', 'PrepareBattleThree', 'BattleThree'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('RollToBattleTwo')
-                return "Skipping to second round..."
-
-        if battle == 'three':
-            if boss.state in ('PrepareBattleThree', 'BattleThree'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping to final round..."
-
-        if battle == 'next':
-            if boss.state in ('PrepareBattleOne', 'BattleOne'):
-                boss.exitIntroduction()
-                boss.b_setState('RollToBattleTwo')
-                return "Skipping current round..."
-            elif boss.state in ('RollToBattleTwo', 'PrepareBattleTwo', 'BattleTwo'):
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping current round..."
-            elif boss.state in ('PrepareBattleThree', 'BattleThree'):
-                boss.exitIntroduction()
-                boss.enterNearVictory()
-                boss.b_setState('Victory')
-                return "Skipping final round..."
-
-
 class StunLawyers(MagicWord):
     desc = "Stuns all the lawyers in the CJ Evidence round."
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
@@ -2254,9 +1858,9 @@ class StunLawyers(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         boss = None
-        from toontown.suit.DistributedLawbotBossAI import DistributedLawbotBossAI
+        from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedLawbotBossAI):
+            if isinstance(do, DistributedLawbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -2279,10 +1883,10 @@ class RestartScaleRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedLawbotBossAI import DistributedLawbotBossAI
+        from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedLawbotBossAI):
+            if isinstance(do, DistributedLawbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -2295,55 +1899,6 @@ class RestartScaleRound(MagicWord):
         return "Restarting Scale Round"
 
 
-class StartCannonRound(MagicWord):
-    aliases = ['cannons', 'startcannons']
-    desc = "Enters the cannon round"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("round", str, False, "next")]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        battle = args[0]
-        from toontown.suit.DistributedLawbotBossAI import DistributedLawbotBossAI
-        boss = None
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedLawbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a CJ!"
-
-        battle = battle.lower()
-        boss.exitIntroduction()
-        boss.b_setState('BattleOne')
-        boss.b_setState('PrepareBattleTwo')
-        return "Entering Cannon Round"
-
-
-class FillJury(MagicWord):
-    desc = "Fills all of the chairs in the CJ's Jury Round."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        boss = None
-        from toontown.suit.DistributedLawbotBossAI import DistributedLawbotBossAI
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedLawbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a CJ!"
-        if not boss.state == 'BattleTwo':
-            return "You aren't in the cannon round."
-        for i in range(len(boss.chairs)):
-            boss.chairs[i].b_setToonJurorIndex(0)
-            boss.chairs[i].requestToonJuror()
-        return "Filled chairs."
-
-
 class RestartSeltzerRound(MagicWord):
     aliases = ['rss', 'restartseltzer']
     desc = "Restarts the seltzer round"
@@ -2353,10 +1908,10 @@ class RestartSeltzerRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedBossbotBossAI import DistributedBossbotBossAI
+        from toontown.suit.DistributedBossbotBossStrippedAI import DistributedBossbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedBossbotBossAI):
+            if isinstance(do, DistributedBossbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -2368,65 +1923,16 @@ class RestartSeltzerRound(MagicWord):
         return "Restarting Seltzer Round"
 
 
-class SkipVP(MagicWord):
-    desc = "Skips to the indicated round of the VP."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("round", str, False, "next")]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        battle = args[0]
-        from toontown.suit.DistributedSellbotBossAI import DistributedSellbotBossAI
-        boss = None
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedSellbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a VP!"
-
-        battle = battle.lower()
-
-        if battle == 'one':
-            boss.b_setState("Introduction")
-            boss.b_setState('BattleOne')
-            return "Starting battle one!"
-
-        if battle == 'three':
-            if boss.state in ('PrepareBattleThree', 'BattleThree'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping to final round..."
-
-        if battle == 'next':
-            if boss.state in ('PrepareBattleOne', 'BattleOne'):
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping current round..."
-            elif boss.state in ('PrepareBattleThree', 'BattleThree'):
-                boss.exitIntroduction()
-                boss.b_setState('Victory')
-                return "Skipping final round..."
-            elif boss.state in ("Introduction", "Elevator"):
-                if boss.state in ("Elevator"):
-                    boss.b_setState("Introduction")
-                boss.b_setState('BattleOne')
-                return "Skipping introduction!"
-
-
 class StunVP(MagicWord):
     desc = "Stuns the VP in the final round of his battle."
     execLocation = MagicWordConfig.EXEC_LOC_SERVER
     accessLevel = 'USER'
 
     def handleWord(self, invoker, avId, toon, *args):
-        from toontown.suit.DistributedSellbotBossAI import DistributedSellbotBossAI
+        from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedSellbotBossAI):
+            if isinstance(do, DistributedSellbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -2437,217 +1943,6 @@ class StunVP(MagicWord):
             return "You aren't in the final round of a VP!"
         boss.b_setAttackCode(ToontownGlobals.BossCogDizzyNow)
         boss.b_setBossDamage(boss.getBossDamage(), 0, 0)
-
-
-class SkipCEO(MagicWord):
-    desc = "Skips to the indicated round of the CEO."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("round", str, False, "next")]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        battle = args[0]
-        from toontown.suit.DistributedBossbotBossAI import DistributedBossbotBossAI
-        boss = None
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedBossbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a CEO!"
-
-        battle = battle.lower()
-
-        if battle == 'two':
-            if boss.state in (
-                    'PrepareBattleFour', 'BattleFour', 'PrepareBattleThree', 'BattleThree', 'PrepareBattleTwo',
-                    'BattleTwo'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleTwo')
-                return "Skipping to second round..."
-
-        if battle == 'three':
-            if boss.state in ('PrepareBattleFour', 'BattleFour', 'PrepareBattleThree', 'BattleThree'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping to third round..."
-
-        if battle == 'four':
-            if boss.state in ('PrepareBattleFour', 'BattleFour'):
-                return "You can not return to previous rounds!"
-            else:
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleFour')
-                return "Skipping to last round..."
-
-        if battle == 'next':
-            if boss.state in ('PrepareBattleOne', 'BattleOne'):
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleTwo')
-                return "Skipping current round..."
-            elif boss.state in ('PrepareBattleTwo', 'BattleTwo'):
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleThree')
-                return "Skipping current round..."
-            elif boss.state in ('PrepareBattleThree', 'BattleThree'):
-                boss.exitIntroduction()
-                boss.b_setState('PrepareBattleFour')
-                return "Skipping current round..."
-            elif boss.state in ('PrepareBattleFour', 'BattleFour'):
-                boss.exitIntroduction()
-                boss.b_setState('Victory')
-                return "Skipping final round..."
-
-
-class FeedDiners(MagicWord):
-    desc = "Feed the diners in the CEO battle."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        boss = None
-        from toontown.suit.DistributedBossbotBossAI import DistributedBossbotBossAI
-        for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedBossbotBossAI):
-                if invoker.doId in do.involvedToons:
-                    boss = do
-                    break
-        if not boss:
-            return "You aren't in a CEO!"
-
-        if boss.state != 'BattleTwo':
-            return "You aren't in the waiter round!"
-
-        for table in boss.tables:
-            for chairIndex in list(table.dinerInfo.keys()):
-                dinerStatus = table.getDinerStatus(chairIndex)
-                if dinerStatus in (table.HUNGRY, table.ANGRY):
-                    table.foodServed(chairIndex)
-
-        return "All diners have been fed!"
-
-
-class AbortGame(MagicWord):
-    aliases = ["abortminigame", "leaveminigame"]
-    desc = "Abort any minigame you are currently in."
-    execLocation = MagicWordConfig.EXEC_LOC_CLIENT
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        messenger.send('minigameAbort')
-
-
-class RequestMinigame(MagicWord):
-    aliases = ['request', 'wantgame', 'requestgame']
-    desc = "Request a specific minigame for the trolley."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [('game', str, True)]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        requested_name = args[0].lower()
-        wanted_game_id = ToontownGlobals.MinigameNames.get(requested_name)
-
-        if wanted_game_id is None:
-            return f"There is no game registered with the name: {requested_name}\nValid choices are: {', '.join(ToontownGlobals.MinigameNames.keys())}"
-
-        self.air.minigameMgr.storeRequest(toon.doId, wanted_game_id)
-        return f"The next trolley game that {toon.getName()} plays will be {requested_name}!"
-
-
-class ToggleSuitPaths(MagicWord):
-    aliases = ['suitpaths']
-    desc = "Toggles visualization of suit paths if they exist in your current zone."
-    execLocation = MagicWordConfig.EXEC_LOC_CLIENT
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-
-        # Attempt to find a SuitPlanner in the zone.
-        from toontown.suit.DistributedSuitPlanner import DistributedSuitPlanner
-        suitPlanners: Dict[int, DistributedSuitPlanner] = base.cr.getObjectsOfClass(DistributedSuitPlanner)
-
-        # Are there none?
-        if len(suitPlanners) <= 0:
-            return "No suit planners found in your zone!"
-
-        # Are we turning it off?
-        if list(suitPlanners.values())[0].pathViz is not None:
-            for suitPlanner in suitPlanners.values():
-                suitPlanner.hidePaths()
-            return f"Now un-visualizing {len(suitPlanners)} suit planners!"
-
-        # Visualize them!
-        for suitPlanner in suitPlanners.values():
-            suitPlanner.showPaths()
-        return f"Now visualizing {len(suitPlanners)} suit planners!"
-
-
-class SpawnCog(MagicWord):
-    aliases = ["cog"]
-    desc = "Spawns a cog with the defined level"
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("suit", str, True), ("level", int, False, 1), ("specialSuit", int, False, 0)]
-    accessLevel = 'NO_ACCESS'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        name = args[0]
-        level = args[1]
-        specialSuit = args[2]
-        zoneId = invoker.getLocation()[1]
-        if name not in SuitDNA.suitHeadTypes:
-            return "Suit %s is not a valid suit!" % name
-        if level not in ToontownGlobals.SuitLevels:
-            return "Invalid Cog Level."
-
-        sp = simbase.air.suitPlanners.get(zoneId - (zoneId % 100))
-        if not sp:
-            return "Unable to spawn a level %d %s in current zone." % (level, name)
-        pointmap = sp.streetPointList
-        try:
-            sp.createNewSuit([], pointmap, suitName=name, suitLevel=level, skelecog=specialSuit)
-            return "Spawned a level %d %s in current zone." % (level, name)
-        except IndexError:
-            return "Level %d is out of range for %s." % (level, name)
-
-
-class SpawnInvasion(MagicWord):
-    aliases = ["invasion"]
-    desc = "Spawn an invasion on the current AI if one doesn't exist."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    arguments = [("command", str, True), ("suit", str, False, "f"), ("amount", int, False, 1000),
-                 ("skelecog", bool, False, False)]
-    accessLevel = 'USER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        cmd = args[0]
-        name = args[1]
-        num = args[2]
-        skeleton = args[3]
-
-        if not 10 <= num <= 25000:
-            return "Can't the invasion amount to {}! Specify a value between 10 and 25,000.".format(num)
-
-        invMgr = simbase.air.suitInvasionManager
-        if cmd == 'start':
-            if invMgr.getInvading():
-                return "There is already an invasion on the current AI!"
-            if not name in SuitDNA.suitHeadTypes:
-                return "This cog does not exist!"
-            invMgr.startInvasion(name, num, skeleton)
-        elif cmd == 'stop':
-            if not invMgr.getInvading():
-                return "There is no invasion on the current AI!"
-            # elif invMgr.undergoingMegaInvasion:
-            #    return "The current invasion is a mega invasion, you must stop the holiday to stop the invasion."
-            invMgr.stopInvasion()
-        else:
-            return "You didn't enter a valid command! Commands are ~invasion start or stop."
 
 
 class SetTrophyScore(MagicWord):

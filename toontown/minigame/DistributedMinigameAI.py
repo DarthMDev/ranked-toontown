@@ -533,6 +533,50 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
     def exitFrameworkCleanup(self):
         pass
 
+    def requestGroupDebug(self):
+        """Called from client to request group debug data to be printed on AI."""
+        avId = self.air.getAvatarIdFromSender()
+        self.notify.info('=' * 80)
+        self.notify.info(f'AI GROUP DEBUG DATA (requested by avatar {avId})')
+        self.notify.info('=' * 80)
+        
+        if not hasattr(self.air, 'groupManager') or self.air.groupManager is None:
+            self.notify.info('GroupManagerAI not found!')
+            return
+        
+        gm = self.air.groupManager
+        
+        # Find group for this avatar
+        toon = self.air.getDo(avId)
+        if toon is None:
+            self.notify.info(f'Avatar {avId} not found!')
+            return
+        
+        group = gm.getGroup(toon)
+        if group is None:
+            self.notify.info(f'Avatar {avId} is not in any group')
+            self.notify.info(f'Total groups: {len(gm.groups)}')
+            for idx, g in enumerate(gm.groups):
+                self.notify.info(f'  Group {idx}: groupId={g.groupId}, leader={g.getLeader()}, members={g.getMemberIds()}')
+            return
+        
+        self.notify.info(f'Group ID: {group.groupId}')
+        self.notify.info(f'Leader: {group.getLeader()}')
+        self.notify.info(f'Capacity: {group.getCapacity()}')
+        self.notify.info(f'Minigame Type: {group.desiredMinigame}')
+        self.notify.info(f'Member IDs: {group.getMemberIds()}')
+        self.notify.info(f'Member Count: {group.getMemberCount()}')
+        
+        members = group.getMembers()
+        self.notify.info(f'Members ({len(members)}):')
+        for member in members:
+            toon = self.air.getDo(member.avId)
+            toonName = toon.getName() if toon else 'Unknown'
+            self.notify.info(f'  - avId: {member.avId} ({toonName}), team: {member.team}, status: {member.status}, leader: {member.leader}')
+        
+        self.notify.info(f'Total groups in manager: {len(gm.groups)}')
+        self.notify.info('=' * 80)
+    
     def requestExit(self):
         self.notify.debug('BASE: requestExit: client has requested the game to end')
         self.setGameAbort()

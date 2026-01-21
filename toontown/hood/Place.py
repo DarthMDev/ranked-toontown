@@ -219,7 +219,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         base.localAvatar.setTeleportAvailable(1)
         # base.localAvatar.questPage.acceptOnscreenHooks()
         # base.localAvatar.invPage.acceptOnscreenHooks()
-        # base.localAvatar.questMap.acceptOnscreenHooks()
         # base.localAvatar.suitPage.acceptOnscreenHooks()
         self.walkStateData.fsm.request('walking')
         self.enablePeriodTimer()
@@ -241,8 +240,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         # base.localAvatar.invPage.hideInventoryOnscreen()
         # base.localAvatar.suitPage.hideGalleryOnscreen()
         # base.localAvatar.suitPage.ignoreOnscreenHooks()
-        # base.localAvatar.questMap.hide()
-        # base.localAvatar.questMap.ignoreOnscreenHooks()
         return
 
     def handleWalkDone(self, doneStatus):
@@ -377,11 +374,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
             zoneId = bookStatus['hood']
             base.localAvatar.collisionsOff()
             base.localAvatar.b_setAnimState('CloseBook', 1, callback=self.goHomeNow, extraArgs=[zoneId])
-        elif bookStatus['mode'] == 'startparty':
-            firstStart = bookStatus['firstStart']
-            hostId = bookStatus['hostId']
-            base.localAvatar.collisionsOff()
-            base.localAvatar.b_setAnimState('CloseBook', 1, callback=self.startPartyNow, extraArgs=[firstStart, hostId])
 
     def handleBookCloseTeleport(self, hoodId, zoneId):
         if localAvatar.hasActiveBoardingGroup():
@@ -405,58 +397,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
             base.cr.timeManager.setDisconnectReason(ToontownGlobals.DisconnectBookExit)
         base.transitions.fadeScreen(1.0)
         base.cr.gameFSM.request(self.exitTo)
-
-    def goHomeNow(self, curZoneId):
-        return  # todo: fix estates
-        if localAvatar.hasActiveBoardingGroup():
-            rejectText = TTLocalizer.BoardingCannotLeaveZone
-            localAvatar.elevatorNotifier.showMe(rejectText)
-            return
-        hoodId = ToontownGlobals.MyEstate
-        self.requestLeave({'loader': 'safeZoneLoader',
-         'where': 'estate',
-         'how': 'teleportIn',
-         'hoodId': hoodId,
-         'zoneId': -1,
-         'shardId': None,
-         'avId': -1})
-        return
-
-    def startPartyNow(self, firstStart, hostId):
-        if localAvatar.hasActiveBoardingGroup():
-            rejectText = TTLocalizer.BoardingCannotLeaveZone
-            localAvatar.elevatorNotifier.showMe(rejectText)
-            return
-        base.localAvatar.creatingNewPartyWithMagicWord = False
-        base.localAvatar.aboutToPlanParty = False
-        hoodId = ToontownGlobals.PartyHood
-        if firstStart:
-            zoneId = 0
-            ToontownDistrictStats.refresh('shardInfoUpdated')
-            curShardTuples = base.cr.listActiveShards()
-            lowestPop = 100000000000000000
-            shardId = None
-            for shardInfo in curShardTuples:
-                pop = shardInfo[2]
-                if pop < lowestPop:
-                    lowestPop = pop
-                    shardId = shardInfo[0]
-
-            if shardId == base.localAvatar.defaultShard:
-                shardId = None
-            base.cr.playGame.getPlace().requestLeave({'loader': 'safeZoneLoader',
-             'where': 'party',
-             'how': 'teleportIn',
-             'hoodId': hoodId,
-             'zoneId': zoneId,
-             'shardId': shardId,
-             'avId': -1})
-        else:
-            if hostId is None:
-                hostId = base.localAvatar.doId
-            base.cr.partyManager.sendAvatarToParty(hostId)
-            return
-        return
 
     def handleBookClose(self):
         if hasattr(self, 'fsm'):
@@ -555,7 +495,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         door = base.cr.doId2do.get(requestStatus['doorDoId'])
         door.readyToExit()
         base.localAvatar.obscureMoveFurnitureButton(1)
-        base.localAvatar.startQuestMap()
 
     def exitDoorIn(self):
         NametagGlobals.setMasterArrowsOn(1)
@@ -566,7 +505,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
 
     def exitDoorOut(self):
         base.localAvatar.obscureMoveFurnitureButton(-1)
-        base.localAvatar.stopQuestMap()
 
     def handleDoorDoneEvent(self, requestStatus):
         self.doneStatus = requestStatus
@@ -584,7 +522,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         self.accept('tunnelInMovieDone', self.__tunnelInMovieDone)
         base.localAvatar.reconsiderCheesyEffect()
         base.localAvatar.tunnelIn(tunnelOrigin)
-        base.localAvatar.startQuestMap()
 
     def __tunnelInMovieDone(self):
         self.ignore('tunnelInMovieDone')
@@ -611,7 +548,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
          'tunnelName': tunnelName}
         self.accept('tunnelOutMovieDone', self.__tunnelOutMovieDone)
         base.localAvatar.tunnelOut(tunnelOrigin)
-        base.localAvatar.stopQuestMap()
         return
 
     def __tunnelOutMovieDone(self):
@@ -629,7 +565,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
 
     def exitTeleportOut(self):
         base.localAvatar.laffMeter.stop()
-        base.localAvatar.stopQuestMap()
         base.localAvatar.obscureMoveFurnitureButton(-1)
         base.localAvatar.setTeleporting(False)
 
@@ -735,7 +670,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         teleportDebug(requestStatus, '_placeTeleportInPostZoneComplete(%s)' % (requestStatus,))
         NametagGlobals.setMasterArrowsOn(0)
         base.localAvatar.laffMeter.start()
-        base.localAvatar.startQuestMap()
         base.localAvatar.reconsiderCheesyEffect()
         base.localAvatar.obscureMoveFurnitureButton(1)
         avId = requestStatus.get('avId', -1)
@@ -830,9 +764,6 @@ class Place(StateData.StateData, FriendsListManager.FriendsListManager):
         if hoodId == ToontownGlobals.MyEstate:
             loaderId = 'safeZoneLoader'
             whereId = 'estate'
-        if hoodId == ToontownGlobals.PartyHood:
-            loaderId = 'safeZoneLoader'
-            whereId = 'party'
         self.requestLeave({'loader': loaderId,
          'where': whereId,
          'how': 'teleportIn',

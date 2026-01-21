@@ -36,6 +36,10 @@ uberdogs:
       id: 4684
       anonymous: false
 
+    - class: GroupManager
+      id: 4685
+      anonymous: false
+
     - class: TTCodeRedemptionMgr
       id: 4695
       anonymous: false

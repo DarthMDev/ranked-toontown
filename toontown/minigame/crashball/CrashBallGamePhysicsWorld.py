@@ -5,7 +5,7 @@ from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import BitMask32, Vec4, Point3, Vec3, deg2Rad
 from panda3d.ode import OdePlaneGeom, OdeUtil, OdeBody, OdeMass, OdeSphereGeom, OdeCylinderGeom
 
-from toontown.minigame import IceGameGlobals
+from toontown.minigame.ice import IceGameGlobals
 from toontown.minigame.MinigamePhysicsWorldBase import MinigamePhysicsWorldBase
 from toontown.minigame.crashball.CrashBallConstants import MetersToFeet, GolfBallInitialForce
 

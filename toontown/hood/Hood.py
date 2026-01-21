@@ -7,7 +7,6 @@ from direct.fsm import StateData
 from direct.task.Task import Task
 from toontown.minigame import Purchase
 from direct.gui import OnscreenText
-from toontown.building import SuitInterior
 from . import QuietZoneState
 from . import ZoneUtil
 from toontown.toonbase import TTLocalizer
@@ -43,10 +42,6 @@ class Hood(StateData.StateData):
 
     def getHoodText(self, zoneId):
         hoodText = base.cr.hoodMgr.getFullnameFromId(self.id)
-        if self.id != Tutorial:
-            streetName = StreetNames.get(ZoneUtil.getCanonicalBranchZone(zoneId))
-            if streetName:
-                hoodText = hoodText + '\n' + streetName[-1]
         return hoodText
 
     def spawnTitleText(self, zoneId):
@@ -208,7 +203,7 @@ class Hood(StateData.StateData):
     def handleSafeZoneLoaderDone(self):
         doneStatus = self.loader.getDoneStatus()
         teleportDebug(doneStatus, 'handleSafeZoneLoaderDone, doneStatus=%s' % doneStatus)
-        if self.isSameHood(doneStatus) and doneStatus['where'] != 'party' or doneStatus['loader'] == 'minigame':
+        if self.isSameHood(doneStatus) or doneStatus['loader'] == 'minigame':
             teleportDebug(doneStatus, 'same hood')
             self.fsm.request('quietZone', [doneStatus])
         else:

@@ -4,7 +4,7 @@ from ..minigame.craning import CraneGameGlobals
 from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
 from . import DistributedCashbotBossObjectAI
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SYNERGY_EFFECTS, STATUS_EFFECT_DURATIONS
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, SYNERGY_EFFECTS, STATUS_EFFECT_DURATIONS
 import math
 import time
 
@@ -153,7 +153,7 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
             return
 
         # Get duration from globals instead of hardcoded 5.0
-        from toontown.minigame.statuseffects.StatusEffectGlobals import STATUS_EFFECT_DURATIONS
+        from toontown.minigame.utils.statuseffects.StatusEffectGlobals import STATUS_EFFECT_DURATIONS
         duration = STATUS_EFFECT_DURATIONS.get(effect, 5.0)
         
         # Create and track the task
@@ -366,8 +366,6 @@ class DistributedCashbotBossSafeAI(DistributedCashbotBossObjectAI.DistributedCas
         
     def enterDropped(self, avId, craneId):
         super().enterDropped(avId, craneId)
-        if self.index != 0:  # Only trigger for non-helmet safes during aim mode
-            self.boss.practiceCheatHandler.handleSafeDropped(self)
 
     def move(self, x, y, z, rotation):
         # Update the safe's position and heading

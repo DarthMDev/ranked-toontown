@@ -8,8 +8,6 @@ from toontown.safezone import TTTreasurePlannerAI
 from toontown.safezone import ButterflyGlobals
 from direct.task import Task
 
-from ..groups.DistributedGroupManagerAI import DistributedGroupManagerAI
-
 
 class TTHoodDataAI(HoodDataAI.HoodDataAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('TTHoodDataAI')
@@ -19,9 +17,6 @@ class TTHoodDataAI(HoodDataAI.HoodDataAI):
         if zoneId == None:
             zoneId = hoodId
         HoodDataAI.HoodDataAI.__init__(self, air, zoneId, hoodId)
-
-        self.groupManager: DistributedGroupManagerAI = None
-
         return
 
     def startup(self):
@@ -30,9 +25,6 @@ class TTHoodDataAI(HoodDataAI.HoodDataAI):
         trolley.generateWithRequired(self.zoneId)
         trolley.start()
         self.addDistObj(trolley)
-        self.groupManager = DistributedGroupManagerAI(self.air)
-        self.groupManager.generateWithRequired(self.zoneId)
-        self.addDistObj(self.groupManager)
         self.trolley = trolley
         self.treasurePlanner = [
                                 TTTreasurePlannerAI.TTTreasurePlannerAI(self.zoneId)
@@ -60,9 +52,3 @@ class TTHoodDataAI(HoodDataAI.HoodDataAI):
         self.trolley = trolley
         taskMgr.doMethodLater(0.5, self._deleteTrolley, 'deleteTrolley')
         return Task.done
-
-    def getStreetClerkZoneIds(self) -> List[int]:
-        return [2114, 2218, 2326]  # Silly, Loopy, Punchline
-
-    def getFishingZoneIds(self) -> List[int]:
-        return [2156, 2236, 2341]  # Silly, Loopy, Punchline

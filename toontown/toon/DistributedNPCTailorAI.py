@@ -4,7 +4,6 @@ from .DistributedNPCToonBaseAI import *
 from . import ToonDNA
 from direct.task.Task import Task
 from toontown.ai import DatabaseObject
-from toontown.estate import ClosetGlobals
 
 class DistributedNPCTailorAI(DistributedNPCToonBaseAI):
     freeClothes = simbase.config.GetBool('free-clothes', 0)
@@ -123,12 +122,12 @@ class DistributedNPCTailorAI(DistributedNPCToonBaseAI):
             if finished == 2 and which > 0:
                 if self.air.questManager.removeClothingTicket(av, self) == 1 or self.freeClothes:
                     av.b_setDNAString(blob)
-                    if which & ClosetGlobals.SHIRT:
+                    if which & ToonDNA.SHIRT:
                         if av.addToClothesTopsList(self.customerDNA.topTex, self.customerDNA.topTexColor, self.customerDNA.sleeveTex, self.customerDNA.sleeveTexColor) == 1:
                             av.b_setClothesTopsList(av.getClothesTopsList())
                         else:
                             self.notify.warning('NPCTailor: setDNA() - unable to save old tops - we exceeded the tops list length')
-                    if which & ClosetGlobals.SHORTS:
+                    if which & ToonDNA.SHORTS:
                         if av.addToClothesBottomsList(self.customerDNA.botTex, self.customerDNA.botTexColor) == 1:
                             av.b_setClothesBottomsList(av.getClothesBottomsList())
                         else:

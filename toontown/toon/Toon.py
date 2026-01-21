@@ -2027,12 +2027,6 @@ class Toon(Avatar.Avatar, ToonHead):
         track.append(ActorInterval(self, 'teleport', duration=3.4))
         return track
 
-    def startQuestMap(self):
-        pass
-
-    def stopQuestMap(self):
-        pass
-
     def enterTeleportOut(self, animMultiplier = 1, ts = 0, callback = None, extraArgs = []):
         name = self.name
         if hasattr(self, 'doId'):

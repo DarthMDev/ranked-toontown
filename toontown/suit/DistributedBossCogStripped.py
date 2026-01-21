@@ -11,7 +11,6 @@ from panda3d.core import *
 
 from otp.avatar import DistributedAvatar
 from toontown.battle import BattleBase
-from toontown.building import ElevatorConstants
 from toontown.coghq import BossHealthBar
 from toontown.coghq import CogDisguiseGlobals
 from toontown.distributed import DelayDelete
@@ -49,7 +48,6 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
         self.e3 = None
         self.activeIntervals = {}
         self.flashInterval = None
-        self.elevatorType = ElevatorConstants.ELEVATOR_VP
         self.cutsceneSpeed = 1.0
         fileSystem = VirtualFileSystem.getGlobalPtr()
         self.musicJson = json.loads(fileSystem.readFile(ToontownGlobals.musicJsonFilePath, True))
@@ -378,14 +376,6 @@ class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.Bo
             deptIndex = SuitDNA.suitDepts.index(self.style.dept)
             toon.setCogIndex(deptIndex)
         toon.getGeomNode().hide()
-
-    def placeToonInElevator(self, toon):
-        self.putToonInCogSuit(toon)
-        toonIndex = self.involvedToons.index(toon.doId)
-        toon.reparentTo(self.elevatorModel)
-        toon.setPos(*ElevatorConstants.BigElevatorPoints[toonIndex])
-        toon.setHpr(180, 0, 0)
-        toon.suit.loop('neutral')
 
     def toonNormalEyes(self, toons, bArrayOfObjs=False):
         if bArrayOfObjs:

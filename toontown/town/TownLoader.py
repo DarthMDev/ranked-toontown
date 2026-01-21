@@ -29,10 +29,9 @@ class TownLoader(StateData.StateData):
         StateData.StateData.__init__(self, doneEvent)
         self.hood = hood
         self.parentFSMState = parentFSMState
-        self.fsm = ClassicFSM.ClassicFSM('TownLoader', [State.State('start', self.enterStart, self.exitStart, ['quietZone', 'street', 'toonInterior']),
-         State.State('street', self.enterStreet, self.exitStreet, ['quietZone']),
+        self.fsm = ClassicFSM.ClassicFSM('TownLoader', [State.State('start', self.enterStart, self.exitStart, ['quietZone', 'toonInterior']),
          State.State('toonInterior', self.enterToonInterior, self.exitToonInterior, ['quietZone']),
-         State.State('quietZone', self.enterQuietZone, self.exitQuietZone, ['street', 'toonInterior']),
+         State.State('quietZone', self.enterQuietZone, self.exitQuietZone, ['toonInterior']),
          State.State('final', self.enterFinal, self.exitFinal, ['start'])], 'start', 'final')
         self.branchZone = None
         self.canonicalBranchZone = None
@@ -75,7 +74,6 @@ class TownLoader(StateData.StateData):
         self.parentFSMState.removeChild(self.fsm)
         del self.parentFSMState
         del self.fsm
-        del self.streetClass
         self.landmarkBlocks.removeNode()
         del self.landmarkBlocks
         self.hood.dnaStore.resetSuitPoints()
@@ -119,31 +117,6 @@ class TownLoader(StateData.StateData):
 
     def exitStart(self):
         pass
-
-    def enterStreet(self, requestStatus):
-        teleportDebug(requestStatus, 'enterStreet(%s)' % requestStatus)
-        self.acceptOnce(self.placeDoneEvent, self.streetDone)
-        self.place = self.streetClass(self, self.fsm, self.placeDoneEvent)
-        self.place.load()
-        base.cr.playGame.setPlace(self.place)
-        self.place.enter(requestStatus)
-
-    def exitStreet(self):
-        self.place.exit()
-        self.place.unload()
-        self.place = None
-        base.cr.playGame.setPlace(self.place)
-        return
-
-    def streetDone(self):
-        self.requestStatus = self.place.doneStatus
-        status = self.place.doneStatus
-        if status['loader'] == 'townLoader' and ZoneUtil.getBranchZone(status['zoneId']) == self.branchZone and status['shardId'] == None:
-            self.fsm.request('quietZone', [status])
-        else:
-            self.doneStatus = status
-            messenger.send(self.doneEvent)
-        return
 
     def enterToonInterior(self, requestStatus):
         self.acceptOnce(self.placeDoneEvent, self.handleToonInteriorDone)

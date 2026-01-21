@@ -5,6 +5,16 @@ import random
 from direct.distributed.PyDatagram import PyDatagram
 from direct.distributed.PyDatagramIterator import PyDatagramIterator
 from otp.avatar import AvatarDNA
+
+SHIRT = 1
+SHORTS = 2
+CLOSET_MOVIE_COMPLETE = 1
+CLOSET_MOVIE_CLEAR = 2
+CLOSET_MOVIE_TIMEOUT = 3
+CLOSED = 0
+OPEN = 1
+TIMEOUT_TIME = 200
+
 notify = directNotify.newCategory('ToonDNA')
 toonSpeciesTypes = ['d',    # Dog
                     'c',    # Cat

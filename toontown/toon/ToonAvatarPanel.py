@@ -15,7 +15,7 @@ from . import ToonAvatarDetailPanel
 from . import AvatarPanelBase
 from toontown.toontowngui import TTDialog
 from otp.otpbase import OTPGlobals
-from ..groups.DistributedGroupManager import DistributedGroupManager
+from ..groups.GroupManager import GroupManager
 
 
 class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
@@ -485,19 +485,19 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         """
         Called when we attempt to invite a toon to our current group.
         """
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        base.localAvatar.getGroupManager().attemptInvite(self.avId)
+        base.cr.groupManager.attemptInvite(self.avId)
 
     def handleKick(self):
         """
         Called when we attempt to kick a toon from our current group.
         """
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        base.localAvatar.getGroupManager().attemptKick(self.avId)
+        base.cr.groupManager.attemptKick(self.avId)
 
     def __confirmKickOutCallback(self, value):
         if self.confirmKickOutDialog:
@@ -521,16 +521,13 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
             return
 
         # Is there a group manager currently present?
-        if base.localAvatar.getGroupManager() is None:
+        if base.cr.groupManager is None:
             return
 
-        # We have a group manager! :D
-        groupManager: DistributedGroupManager = base.localAvatar.getGroupManager()
-
         # Decide how we want to render the state of this button depending on our status.
-        localToonIsInGroup = groupManager.getCurrentGroup() is not None
-        localToonLeadsGroup = localToonIsInGroup and groupManager.getCurrentGroup().getLeader() == base.localAvatar.doId
-        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in groupManager.getCurrentGroup().getMemberIds()
+        localToonIsInGroup = base.cr.groupManager.isInGroup()
+        localToonLeadsGroup = localToonIsInGroup and base.cr.groupManager.getLeader() == base.localAvatar.doId
+        viewingToonIsInSameGroup = localToonIsInGroup and self.avId in base.cr.groupManager.getMemberIds()
 
         print(f"[ToonAvatarPanel] Group state: Local toon in group: {localToonIsInGroup} Local toon is leader: {localToonLeadsGroup} In same group: {viewingToonIsInSameGroup}")
 
@@ -559,7 +556,7 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         self.boardingInfoButton['state'] = DGG.DISABLED
         if self.boardingInfoText:
             self.boardingInfoText.destroy()
-        self.boardingInfoText = TTDialog.TTDialog(style=TTDialog.Acknowledge, text=TTLocalizer.BoardingPartyInform % localAvatar.boardingParty.maxSize, command=self.handleCloseInfo)
+        self.boardingInfoText = TTDialog.TTDialog(style=TTDialog.Acknowledge, text="" % localAvatar.boardingParty.maxSize, command=self.handleCloseInfo)
 
     def handleCloseInfo(self, *extraArgs):
         self.boardingInfoButton['state'] = DGG.NORMAL
@@ -586,7 +583,7 @@ class ToonAvatarPanel(AvatarPanelBase.AvatarPanelBase):
         self.confirmKickOutDialog = None
         groupAvatarBgGui = loader.loadModel('phase_3.5/models/gui/tt_m_gui_brd_avatarPanelBg')
         boardingGroupBGImage = groupAvatarBgGui.find('**/tt_t_gui_brd_avatar_panel_party')
-        self.groupFrame = DirectFrame(parent=self.frame, relief=None, image=boardingGroupBGImage, image_scale=(0.5, 1, 0.5), textMayChange=1, text=TTLocalizer.BoardingPartyTitle, text_wordwrap=16, text_scale=TTLocalizer.TAPgroupFrame, text_pos=(0.01, 0.08), pos=(0, 0, -0.61))
+        self.groupFrame = DirectFrame(parent=self.frame, relief=None, image=boardingGroupBGImage, image_scale=(0.5, 1, 0.5), textMayChange=1, text="", text_wordwrap=16, text_scale=TTLocalizer.TAPgroupFrame, text_pos=(0.01, 0.08), pos=(0, 0, -0.61))
         groupInviteGui = loader.loadModel('phase_3.5/models/gui/tt_m_gui_brd_inviteButton')
         self.inviteImageList = (groupInviteGui.find('**/tt_t_gui_brd_inviteUp'),
          groupInviteGui.find('**/tt_t_gui_brd_inviteDown'),

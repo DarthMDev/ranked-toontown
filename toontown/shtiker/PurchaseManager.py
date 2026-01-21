@@ -3,7 +3,6 @@ from .PurchaseManagerConstants import *
 from direct.distributed.ClockDelta import *
 from direct.distributed import DistributedObject
 from direct.directnotify import DirectNotifyGlobal
-from toontown.minigame import TravelGameGlobals
 from ..archipelago.definitions import color_profile
 from ..matchmaking.player_skill_profile import PlayerSkillProfile
 

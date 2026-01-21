@@ -3,6 +3,7 @@ from direct.directnotify import DirectNotifyGlobal
 from otp.distributed.DistributedDirectoryAI import DistributedDirectoryAI
 from otp.distributed.OtpDoGlobals import *
 from toontown.distributed.ToontownInternalRepository import ToontownInternalRepository
+from toontown.groups.GroupManagerUD import GroupManagerUD
 from toontown.matchmaking.LeaderboardManagerUD import LeaderboardManagerUD
 from toontown.api.ApiManagerUD import ApiManagerUD
 
@@ -19,6 +20,8 @@ class ToontownUberRepository(ToontownInternalRepository):
         self.deliveryManager = None
 
         self.apiManager: ApiManagerUD | None = None
+
+        self.groupManager: GroupManagerUD | None = None
 
     def handleConnected(self):
         ToontownInternalRepository.handleConnected(self)
@@ -40,3 +43,5 @@ class ToontownUberRepository(ToontownInternalRepository):
                                                          'DistributedDeliveryManager')
 
         self.apiManager = self.generateGlobalObject(OTP_DO_ID_API_MANAGER, 'ApiManager')
+
+        self.groupManager = self.generateGlobalObject(OTP_DO_ID_GROUP_MANAGER, "GroupManager")

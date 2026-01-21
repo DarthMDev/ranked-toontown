@@ -62,7 +62,6 @@ if (__debug__):
 
 class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, DistributedSmoothNode.DistributedSmoothNode, DelayDeletable):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedToon')
-    partyNotify = DirectNotifyGlobal.directNotify.newCategory('DistributedToon_Party')
     chatGarbler = ToonChatGarbler.ToonChatGarbler()
     gmNameTag = None
 
@@ -143,13 +142,9 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.gardenSpecials = []
         self.unlimitedSwing = 0
         self.soundSequenceList = []
-        self.boardingParty = None
         self.__currentDialogue = None
         self.mail = None
         self.invites = []
-        self.hostedParties = []
-        self.partiesInvitedTo = []
-        self.partyReplyInfoBases = []
         self.gmState = 0
         self.gmNameTagEnabled = 0
         self.gmNameTagColor = 'whiteGM'
@@ -187,9 +182,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
 
         self.soundSequenceList = []
         self._stopZombieCheck()
-        if self.boardingParty:
-            self.boardingParty.demandDrop()
-            self.boardingParty = None
         self.ignore('clientCleanup')
         self.stopAnimations()
         self.clearCheesyEffect()
@@ -2194,22 +2186,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.gmIcon.reparentTo(self.nametag.getNameIcon())
         self.setTrophyScore(self.trophyScore)
         self.gmIcon.setZ(-2.5)
-        self.gmIcon.setY(0.0)
-        self.gmIcon.setColor(Vec4(1.0, 1.0, 1.0, 1.0))
-        self.gmIcon.setTransparency(1)
-        self.gmIconInterval = LerpHprInterval(self.gmIcon, 3.0, Point3(0, 0, 0), Point3(-360, 0, 0))
-        self.gmIconInterval.loop()
-
-    def setGMPartyIcon(self):
-        gmType = self._gmType
-        iconInfo = ('phase_3.5/models/gui/tt_m_gui_gm_toonResistance_fist', 'phase_3.5/models/gui/tt_m_gui_gm_toontroop_whistle', 'phase_3.5/models/gui/tt_m_gui_gm_toonResistance_fist', 'phase_3.5/models/gui/tt_m_gui_gm_toontroop_getConnected')
-        if gmType > len(iconInfo) - 1:
-            return
-        self.gmIcon = loader.loadModel(iconInfo[gmType])
-        self.gmIcon.reparentTo(self.nametag.getNameIcon())
-        self.gmIcon.setScale(3.25)
-        self.setTrophyScore(self.trophyScore)
-        self.gmIcon.setZ(1.0)
         self.gmIcon.setY(0.0)
         self.gmIcon.setColor(Vec4(1.0, 1.0, 1.0, 1.0))
         self.gmIcon.setTransparency(1)

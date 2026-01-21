@@ -6,24 +6,22 @@ from dataclasses import dataclass
 
 from toontown.toonbase import ToontownGlobals
 from . import DistributedMinigameTemplateAI
-from . import DistributedRaceGameAI
-from . import DistributedCannonGameAI
-from . import DistributedTagGameAI
-from . import DistributedPatternGameAI
-from . import DistributedRingGameAI
-from . import DistributedMazeGameAI
-from . import DistributedTugOfWarGameAI
-from . import DistributedCatchGameAI
-from . import DistributedDivingGameAI
-from . import DistributedTargetGameAI
-from . import DistributedPairingGameAI
-from . import DistributedPhotoGameAI
-from . import DistributedVineGameAI
-from . import DistributedIceGameAI
-from . import DistributedCogThiefGameAI
-from . import DistributedTwoDGameAI
-from . import DistributedTravelGameAI
-from . import TravelGameGlobals
+from .race import DistributedRaceGameAI
+from .cannon import DistributedCannonGameAI
+from .tag import DistributedTagGameAI
+from .pattern import DistributedPatternGameAI
+from .ring import DistributedRingGameAI
+from .maze import DistributedMazeGameAI
+from .tugowar import DistributedTugOfWarGameAI
+from .catch import DistributedCatchGameAI
+from .diving import DistributedDivingGameAI
+from .target import DistributedTargetGameAI
+from .pairing import DistributedPairingGameAI
+from .photo import DistributedPhotoGameAI
+from .vine import DistributedVineGameAI
+from .ice import DistributedIceGameAI
+from .cogthief import DistributedCogThiefGameAI
+from .escape import DistributedEscapeGameAI
 from toontown.minigame.crashball.DistributedCrashBallGameAI import DistributedCrashBallGameAI
 from .DistributedMinigameAI import DistributedMinigameAI
 from .craning.DistributedCraneGameAI import DistributedCraneGameAI
@@ -58,8 +56,7 @@ class MinigameCreatorAI:
         ToontownGlobals.VineGameId: DistributedVineGameAI.DistributedVineGameAI,
         ToontownGlobals.IceGameId: DistributedIceGameAI.DistributedIceGameAI,
         ToontownGlobals.CogThiefGameId: DistributedCogThiefGameAI.DistributedCogThiefGameAI,
-        ToontownGlobals.TwoDGameId: DistributedTwoDGameAI.DistributedTwoDGameAI,
-        ToontownGlobals.TravelGameId: DistributedTravelGameAI.DistributedTravelGameAI,
+        ToontownGlobals.EscapeId: DistributedEscapeGameAI.DistributedEscapeGameAI,
         ToontownGlobals.PhotoGameId: DistributedPhotoGameAI.DistributedPhotoGameAI,
         ToontownGlobals.CrashBallGameId: DistributedCrashBallGameAI,
         ToontownGlobals.CraneGameId: DistributedCraneGameAI,
@@ -91,10 +88,6 @@ class MinigameCreatorAI:
 
     def getMinigameChoices(self, numPlayers: int, previousGameId=ToontownGlobals.NoPreviousGameId, allowTrolleyTracks=False) -> list[int]:
         choices = list(ToontownGlobals.MinigameIDs)
-
-        # Remove trolley tracks if we don't want to consider it
-        if not allowTrolleyTracks and ToontownGlobals.TravelGameId in choices:
-            choices.remove(ToontownGlobals.TravelGameId)
 
         # Remove previous game from the pool
         if previousGameId in choices:

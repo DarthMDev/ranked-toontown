@@ -6,7 +6,6 @@ from direct.fsm import StateData
 from direct.gui.DirectGui import *
 from toontown.toonbase import TTLocalizer
 from toontown.effects import DistributedFireworkShow
-from toontown.parties import DistributedPartyFireworksActivity
 from direct.directnotify import DirectNotifyGlobal
 
 class ShtikerBook(DirectFrame, StateData.StateData):
@@ -75,9 +74,6 @@ class ShtikerBook(DirectFrame, StateData.StateData):
         base.playSfx(self.closeSound)
         self.pages[self.currPageIndex].exit()
         setBlackBackground = 1
-        for obj in list(base.cr.doId2do.values()):
-            if isinstance(obj, DistributedFireworkShow.DistributedFireworkShow) or isinstance(obj, DistributedPartyFireworksActivity.DistributedPartyFireworksActivity):
-                setBlackBackground = 1
 
         if setBlackBackground:
             base.setBackgroundColor(Vec4(0, 0, 0, 1))

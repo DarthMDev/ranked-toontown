@@ -6,7 +6,6 @@ from direct.fsm import State
 from otp.otpbase.PythonUtil import clamp
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
-from toontown.minigame.craning import CraneGameGlobals
 from toontown.coghq.CashbotBossComboTracker import CashbotBossComboTracker
 from toontown.minigame.craning.CraneGameGlobals import ScoreReason
 from toontown.coghq.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
@@ -19,16 +18,13 @@ from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlat
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.CraneGamePracticeCheatAI import CraneGamePracticeCheatAI
 from toontown.suit.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
 from toontown.suit.DistributedCashbotBossStrippedAI import DistributedCashbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
-from toontown.minigame.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
-from toontown.minigame.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
-from toontown.minigame.tournament import TournamentManagerAI, TournamentType
-from toontown.minigame.tournament.TournamentGlobals import MATCH_READY_TIMEOUT
-from toontown.ai.ToonBarrier import ToonBarrier
+from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
+
 
 class DistributedCraneGameAI(DistributedMinigameAI):
     DESPERATION_MODE_ACTIVATE_THRESHOLD = 1800
@@ -115,9 +111,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.currentlyInOvertime = False  # Only true when the game is currently in overtime.
         self.currentWinners: list[int] = []  # Keeps track of who's in the lead so we know when to trigger overtime.
 
-        # Instances of "cheats" that can be interacted with to make the crane round behave a certain way.
-        self.practiceCheatHandler: CraneGamePracticeCheatAI = CraneGamePracticeCheatAI(self)
-
         self.statusEffectSystem: DistributedStatusEffectSystemAI | None = None
         self.droneCooldowns = {}  # Track drone deployment cooldowns per player per slot {avId: {slotIndex: nextAvailableTime}}
         self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
@@ -131,18 +124,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.forfeitConsents = set()  # Set of avIds who have consented to forfeit
         self.pendingRestartRequest = None  # avId of player who requested restart, or None if no pending request
         self.restartConsents = set()  # Set of avIds who have consented to restart
-        
-        # Tournament system
-        self.tournamentManager = TournamentManagerAI(self)
-        
-        # Tournament match ready-up system (distinct from framework ready-up)
-        self.matchReadyBarrier = None
 
     def isRanked(self) -> bool:
-        # Tournaments are NEVER ranked
-        if self.tournamentManager.isTournamentActive():
-            return False
-        
         # Use base class check (skillProfileKey is not None) AND player count check
         # This ensures we don't try to adjust ratings if skillProfileKey is None
         return super().isRanked()
@@ -241,18 +224,10 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         if self.scene is not None:
             self.scene.removeNode()
             self.scene = None
-        
-        # Break circular references
-        if hasattr(self, 'practiceCheatHandler'):
-            self.practiceCheatHandler = None
 
     def delete(self):
         self.notify.debug("delete")
         # Clean up all resources
-        
-        # Clean up tournament if one was active
-        if self.tournamentManager.isTournamentActive():
-            self.tournamentManager.cleanup()
         
         self.cleanup()
         del self.gameFSM
@@ -409,9 +384,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.notify.debug("gameOver")
         # call this when the game is done
         # clean things up in this class
-        
-        # NOTE: Don't cleanup tournament here - it needs to persist through handleRegularPurchaseManager()
-        # so that isRanked() check works properly. Tournament cleanup happens in exitFrameworkCleanup()
         
         self.gameFSM.request('cleanup')
         # tell the base class to wrap things up
@@ -772,16 +744,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         To limit the amount of RNG present, we prevent goons from spawning from the same side over and over in a row.
         """
 
-        if self.practiceCheatHandler.wantOpeningModifications:
-            # Controlled goon spawning logic, activated through commands.
-            # Evaluate the toon position and spawn a goon based on it.
-            avId = self.avIdList[self.practiceCheatHandler.openingModificationsToonIndex]
-            toon = self.air.doId2do.get(avId)
-            pos = toon.getPos()
-            if pos[1] < -315:
-                return 'EmergeB'
-            return 'EmergeA'
-
         # Default goon spawning logic.
         # Is it okay to pick a random side?
         if self.goonCache[1] < 2:
@@ -830,9 +792,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             #If we are in OT and we roll a falling goon and it's not a forced normal spawn
             if self.currentlyInOvertime and falling and not forceNormalSpawn:
                 pass
-            #Or if we are in live goon practice mode
-            elif self.practiceCheatHandler.wantGoonPractice:
-                pass
             else:
                 return
 
@@ -859,7 +818,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             goon_hfov = self.progressRandomValue(70, 80)
             goon_attack_radius = self.progressRandomValue(6, 15)
             goon_strength = int(self.progressRandomValue(self.ruleset.MIN_GOON_DAMAGE, self.ruleset.MAX_GOON_DAMAGE))
-            goon_scale = self.progressRandomValue(self.goonMinScale, self.goonMaxScale, noRandom=self.practiceCheatHandler.wantMaxSizeGoons)
+            goon_scale = self.progressRandomValue(self.goonMinScale, self.goonMaxScale)
 
         # Apply multipliers if necessary
         goon_velocity *= self.ruleset.GOON_SPEED_MULTIPLIER
@@ -920,8 +879,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.makeGoon()
         # How long to wait for the next goon?
         delayTime = self.progressValue(10, 2)
-        if self.practiceCheatHandler.wantFasterGoonSpawns:
-            delayTime = 4
         self.waitForNextGoon(delayTime)
 
     def progressValue(self, fromValue, toValue):
@@ -1381,30 +1338,17 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             skillKey = SkillProfileKey.CRANING_FFA
         else:
             skillKey = None
-        
-        # Tournaments are NEVER ranked - they don't affect SR
-        # Set skillProfileKey to None on AI side only (so isRanked() returns False)
-        # But still broadcast the skill key to clients (so they see their ranks)
-        if self.tournamentManager.isTournamentActive():
-            self.setProfileSkillKey(None)  # AI-side only - prevents SR changes
-            # Send to clients - they see ranks (convert enum to string with .value)
-            if skillKey is not None:
-                self.sendUpdate('setSkillProfileKey', [skillKey.value])
-            else:
-                self.sendUpdate('setSkillProfileKey', [''])
-        else:
-            # Normal ranked game - set on both AI and clients
-            self.b_setProfileSkillKey(skillKey)
+
+        # Normal ranked game - set on both AI and clients
+        self.b_setProfileSkillKey(skillKey)
 
     def enterPrepare(self):
         self.notify.debug("enterPrepare")
-        print(f"[DistributedCraneGameAI] enterPrepare called - tournament active: {self.tournamentManager.isTournamentActive()}, barrier exists: {self.matchReadyBarrier is not None}")
-        
+
         # CRITICAL: Remove any existing play transition tasks to prevent double-scheduling
         # This ensures we don't have leftover tasks from previous prepare calls
         taskMgr.remove(self.uniqueName('start-game-task'))
-        print(f"[DistributedCraneGameAI] Cleaned up any existing start-game-task")
-        
+
         # Clear all status effects from any existing objects before recreating them
         if self.statusEffectSystem:
             # Clear from boss if it exists
@@ -1430,62 +1374,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Note: roundWins should persist across restarts (don't reset on restart)
         if self.bestOfValue > 1:
             self.d_setRoundInfo()
-
-        # Check if this is a tournament match that requires ready-up
-        # Skip ready-up for the first match - start immediately
-        if self.tournamentManager.isTournamentActive():
-            currentMatch = self.tournamentManager.getCurrentMatch()
-            print(f"[DistributedCraneGameAI] Tournament active, currentMatch: {currentMatch}")
-            if currentMatch:
-                # Check if this is the first match (skip ready-up for first match)
-                progress = self.tournamentManager.getProgress()
-                isFirstMatch = False
-                if progress:
-                    # currentMatchIndex is 0-based, so 0 means first match
-                    isFirstMatch = (progress['currentMatchIndex'] == 0)
-                    print(f"[DistributedCraneGameAI] Current match index: {progress['currentMatchIndex']}, isFirstMatch: {isFirstMatch}")
-                
-                # Get only the players in this match (not spectators)
-                matchPlayers = []
-                if currentMatch.player1 is not None:
-                    matchPlayers.append(currentMatch.player1)
-                if currentMatch.player2 is not None:
-                    matchPlayers.append(currentMatch.player2)
-                
-                print(f"[DistributedCraneGameAI] Match players: {matchPlayers}")
-                if matchPlayers and not isFirstMatch:
-                    # Set up ready-up barrier for match players (but NOT for first match)
-                    # Send ready-up request to clients FIRST (before restart)
-                    # This will also trigger prepare state on clients
-                    currentMatch = self.tournamentManager.getCurrentMatch()
-                    print(f"[DistributedCraneGameAI] Setting up match ready barrier, calling d_requestMatchReady")
-                    self.d_requestMatchReady(matchPlayers, currentMatch.player1 if currentMatch else None, 
-                                             currentMatch.player2 if currentMatch else None)
-                    # Then set up the barrier
-                    self._setupMatchReadyBarrier(matchPlayers)
-                    # Call d_restart() for game setup, but DO NOT schedule play transition
-                    # The play transition will only happen when all players ready up (via barrier callback)
-                    print(f"[DistributedCraneGameAI] Calling d_restart() and returning early - NO play transition scheduled")
-                    self.d_restart()
-                    # IMPORTANT: Return early to prevent normal flow from scheduling play transition
-                    return
-                elif isFirstMatch:
-                    print(f"[DistributedCraneGameAI] First match - skipping ready-up, proceeding with normal flow")
-                else:
-                    print(f"[DistributedCraneGameAI] No match players found, falling through to normal flow")
-            else:
-                print(f"[DistributedCraneGameAI] Tournament active but no current match, falling through to normal flow")
-        else:
-            print(f"[DistributedCraneGameAI] Not a tournament, falling through to normal flow")
-        
-        # Normal flow (non-tournament or tournament setup): schedule play transition immediately
-        # BUT: Only if we don't have a match ready barrier active (safety check)
-        print(f"[DistributedCraneGameAI] Reached normal flow - barrier exists: {self.matchReadyBarrier is not None}")
-        if self.matchReadyBarrier is not None:
-            print("[DistributedCraneGameAI] WARNING: Normal flow attempted to schedule play transition but match ready barrier exists! Skipping.")
-            # Don't schedule play transition - barrier will handle it when all players ready
-            self.d_restart()
-            return
         
         # Calculate how long we should wait to actually start the game.
         # If more than 1 player is present, we want to have a delay present for a cutscene to play.
@@ -1500,61 +1388,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.notify.debug("exitPrepare")
         taskMgr.remove(self.uniqueName('start-game-task'))
         # Clean up match ready barrier if it exists
-        if self.matchReadyBarrier is not None:
-            self.matchReadyBarrier.cleanup()
-            self.matchReadyBarrier = None
-
-    def _setupMatchReadyBarrier(self, matchPlayers):
-        """
-        Set up ready-up barrier for tournament match players.
-        This is distinct from the framework ready-up system.
-        
-        Args:
-            matchPlayers: List of avatar IDs who need to ready up for this match
-        """
-        self.notify.info(f"Setting up match ready barrier for players: {matchPlayers}")
-        print(f"[DistributedCraneGameAI] _setupMatchReadyBarrier called for players: {matchPlayers}")
-        
-        # CRITICAL: Clean up any existing barrier first to prevent conflicts
-        if self.matchReadyBarrier is not None:
-            print(f"[DistributedCraneGameAI] WARNING: Existing match ready barrier found, cleaning it up first")
-            self.matchReadyBarrier.cleanup()
-            self.matchReadyBarrier = None
-        
-        def allPlayersReady():
-            """Called when all match players have readied up"""
-            self.notify.info("All match players ready, starting countdown")
-            print("[DistributedCraneGameAI] allPlayersReady callback called - scheduling play transition")
-            # Now schedule the play transition
-            delayTime = CraneGameGlobals.PREPARE_LATENCY_FACTOR
-            if len(matchPlayers) > 1:
-                delayTime += CraneGameGlobals.PREPARE_DELAY
-            print(f"[DistributedCraneGameAI] Scheduling play transition in {delayTime} seconds from allPlayersReady")
-            taskMgr.doMethodLater(delayTime, self.gameFSM.request,
-                                 self.uniqueName('start-game-task'), extraArgs=['play'])
-            # Notify clients to start countdown
-            self.d_startMatchCountdown()
-            # Clean up barrier
-            if self.matchReadyBarrier is not None:
-                self.matchReadyBarrier.cleanup()
-                self.matchReadyBarrier = None
-        
-        def handleTimeout(avIds):
-            """Called when ready-up times out"""
-            print(f"[DistributedCraneGameAI] WARNING: Match ready timeout for players: {avIds}")
-            # Force ready and start anyway
-            allPlayersReady()
-        
-        # Create barrier for match players only
-        self.matchReadyBarrier = ToonBarrier(
-            'matchReady',
-            self.uniqueName('matchReady'),
-            matchPlayers,
-            MATCH_READY_TIMEOUT,
-            allPlayersReady,
-            handleTimeout
-        )
-        # Note: d_requestMatchReady() is called before this function, so clients receive it first
     
     def setMatchReady(self):
         """
@@ -1563,13 +1396,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         """
         avId = self.air.getAvatarIdFromSender()
         self.notify.debug(f"Player {avId} is ready for match")
-        
-        if self.matchReadyBarrier is not None:
-            self.matchReadyBarrier.clear(avId)
-            # Broadcast ready status to all clients
-            self.d_setPlayerReadyStatus(avId, True)
-        else:
-            print(f"[DistributedCraneGameAI] WARNING: Received setMatchReady from {avId} but no barrier exists")
     
     def d_setPlayerReadyStatus(self, avId, isReady):
         """Broadcast player ready status to all clients"""
@@ -1632,14 +1458,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Laff drain?
         if self.ruleset.WANT_LAFF_DRAIN:
             self.startDrainingLaff(self.ruleset.LAFF_DRAIN_FREQUENCY)
-
-        # Check for special logic if we are restarting the round with cheats enabled previously.
-        self.practiceCheatHandler.checkCheatModifier()
-        if self.practiceCheatHandler.wantAimPractice or self.practiceCheatHandler.wantAimRightPractice or self.practiceCheatHandler.wantAimLeftPractice or self.practiceCheatHandler.wantAimAlternatePractice or self.practiceCheatHandler.wantGoonPractice:
-            self.practiceCheatHandler.setupAimMode()
-        if self.practiceCheatHandler.cheatIsEnabled():
-            taskMgr.remove(self.uniqueName('times-up-task'))
-            self.d_updateTimer()
 
         if self.ruleset.WANT_ELEMENTAL_MASTERY_MODE:
             self.startSafeEffectTask()
@@ -1892,8 +1710,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.sendUpdate('setOvertime', [flag])
 
     def enterVictory(self):
-
-
         highest_scorers = self.getHighestScorers()
 
         # If nobody is in the lead, check if this is a single-player forfeit
@@ -1916,12 +1732,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         victorId = highest_scorers[0]
         self.getScoringContext().get_round(self.currentRound).set_winners(highest_scorers)
 
-        # Check if we're in tournament mode
-        if self.tournamentManager.isTournamentActive():
-            self._handleTournamentVictory(victorId)
-            return
-
-        # Handle best-of matches (non-tournament)
+        # Handle best-of matches
         if self.bestOfValue > 1:
             # Track round wins
             self.roundWins[victorId] = self.roundWins.get(victorId, 0) + 1
@@ -1944,6 +1755,31 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             # Single round match
             self.sendUpdate("declareVictor", [victorId])
             taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
+
+        # Clean up all status effects from boss and safes before cleanup
+        if self.statusEffectSystem:
+            # Clear all status effects from the boss
+            if self.boss:
+                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
+
+            # Clear all status effects from all safes
+            for safe in self.safes:
+                if safe:
+                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
+
+        # Clean up all drones before cleaning up other objects
+        if self.boss and hasattr(self.boss, 'drones'):
+            for drone in list(self.boss.drones):
+                if drone:
+                    drone.vanishWithPoof()
+            self.boss.drones = []
+
+        # Reset drone cooldowns for all players and broadcast the reset
+        self.droneCooldowns.clear()
+        self.sendUpdate('clearAllDroneCooldowns', [])
+
+        self.__deleteCraningObjects()
+        self.__deleteBoss()
 
     def getWinners(self):
 
@@ -1968,31 +1804,6 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
     def enterCleanup(self):
         self.notify.debug("enterCleanup")
-        
-        # Clean up all status effects from boss and safes before cleanup
-        if self.statusEffectSystem:
-            # Clear all status effects from the boss
-            if self.boss:
-                self.statusEffectSystem.removeAllStatusEffects(self.boss.doId)
-            
-            # Clear all status effects from all safes
-            for safe in self.safes:
-                if safe:
-                    self.statusEffectSystem.removeAllStatusEffects(safe.doId)
-        
-        # Clean up all drones before cleaning up other objects
-        if self.boss and hasattr(self.boss, 'drones'):
-            for drone in list(self.boss.drones):
-                if drone:
-                    drone.vanishWithPoof()
-            self.boss.drones = []
-        
-        # Reset drone cooldowns for all players and broadcast the reset
-        self.droneCooldowns.clear()
-        self.sendUpdate('clearAllDroneCooldowns', [])
-        
-        self.__deleteCraningObjects()
-        self.__deleteBoss()
         self.gameFSM.request('inactive')
 
     def exitCleanup(self):
@@ -2429,245 +2240,3 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def d_cleanupRestartDialogs(self):
         """Clean up restart dialogs without showing cancellation message (used when restart is executed)"""
         self.sendUpdate('setCleanupRestartDialogs', [])
-    
-    # ============================================
-    # Tournament System Methods
-    # ============================================
-    
-    def startTournament(self, tournamentType, stageConfig, stage2Type, participants):
-        """
-        Start a tournament with the specified type.
-        Called by the host during ruleset phase.
-        
-        Args:
-            tournamentType: Type from TournamentType enum
-            stageConfig: TournamentStage enum (ONE_STAGE or TWO_STAGE)
-            stage2Type: TournamentType for stage 2 (if two-stage)
-            participants: List of avatar IDs to participate in tournament
-        """
-        # Verify sender is the host
-        senderId = self.air.getAvatarIdFromSender()
-        if not self.hasHost() or senderId != self.getHost():
-            self.notify.warning(f"Non-leader {senderId} tried to start tournament")
-            return
-            
-        # Validate tournament type
-        if tournamentType not in [TournamentType.ROUND_ROBIN, TournamentType.SINGLE_ELIMINATION, TournamentType.DOUBLE_ELIMINATION]:
-            self.notify.warning(f"Invalid tournament type: {tournamentType}")
-            return
-        
-        # Validate participants list
-        if not participants or len(participants) < 2:
-            self.notify.warning("Cannot start tournament with less than 2 participants")
-            return
-        
-        # Validate all participants are actually in the game
-        # getParticipants() returns avatar IDs directly
-        allParticipantIds = self.getParticipants()
-        for avId in participants:
-            if avId not in allParticipantIds:
-                self.notify.warning(f"Invalid participant {avId} not in game")
-                return
-        
-        # Set non-participants as spectators
-        nonParticipants = [avId for avId in allParticipantIds if avId not in participants]
-        if nonParticipants:
-            currentSpectators = list(self.getSpectators())
-            for avId in nonParticipants:
-                if avId not in currentSpectators:
-                    currentSpectators.append(avId)
-            self.b_setSpectators(currentSpectators)
-            
-        # Start the tournament with selected participants
-        success = self.tournamentManager.startTournament(tournamentType, stageConfig, stage2Type, participants)
-        
-        if success:
-            # Notify clients that tournament has started
-            self.d_setTournamentActive(tournamentType)
-            # Update skill profile to None (tournaments are unranked)
-            self.__updateSkillProfile()
-            # Setup first match
-            self.tournamentManager.setupNextMatch()
-            # Send initial progress and standings (before match starts, so it shows Match 1/X)
-            self.d_setTournamentProgress()
-            self.d_setTournamentStandings()
-        else:
-            self.notify.warning("Failed to start tournament")
-    
-    def cancelTournament(self):
-        """
-        Cancel the active tournament.
-        Called by the host.
-        """
-        # Verify sender is the host
-        senderId = self.air.getAvatarIdFromSender()
-        if not self.hasHost() or senderId != self.getHost():
-            self.notify.warning(f"Non-leader {senderId} tried to cancel tournament")
-            return
-            
-        if self.tournamentManager.isTournamentActive():
-            self.tournamentManager.cleanup()
-            # Notify clients
-            self.d_setTournamentActive(TournamentType.NONE)
-    
-    def d_setTournamentActive(self, tournamentType, tournamentStages=None, participants=None):
-        """
-        Notify clients about tournament state.
-        
-        Args:
-            tournamentType: TournamentType.NONE if inactive, or active type
-            tournamentStages: TournamentStage enum (if active)
-            participants: List of participant avatar IDs (if active)
-        """
-        if tournamentType == TournamentType.NONE:
-            self.sendUpdate('setTournamentActive', [tournamentType])
-        else:
-            # For active tournaments, send additional info
-            # Note: DC field only supports tournamentType, so we'll use setTournamentProgress for participants
-            self.sendUpdate('setTournamentActive', [tournamentType])
-    
-    def d_setTournamentProgress(self):
-        """Send tournament progress to clients"""
-        if not self.tournamentManager.isTournamentActive():
-            return
-            
-        progress = self.tournamentManager.getProgress()
-        if progress:
-            # Convert 0-based currentMatchIndex to 1-based for display
-            currentMatch = progress['currentMatchIndex'] + 1
-            # Send progress update
-            self.sendUpdate('setTournamentProgress', [
-                progress['currentStage'],
-                progress['totalStages'],
-                currentMatch,  # 1-based match number
-                progress['totalMatches']
-            ])
-    
-    def d_setTournamentStandings(self):
-        """Send tournament standings to clients"""
-        if not self.tournamentManager.isTournamentActive():
-            return
-        
-        bracket = self.tournamentManager.bracket
-        if not bracket:
-            return
-        
-        standings = bracket.getStandings()
-        if not standings:
-            return
-        
-        # Get current match players
-        currentMatch = self.tournamentManager.getCurrentMatch()
-        currentMatchPlayers = []
-        if currentMatch:
-            # Ensure player IDs are valid positive integers
-            if hasattr(currentMatch, 'player1') and currentMatch.player1 is not None:
-                player1 = int(currentMatch.player1)
-                if player1 > 0:
-                    currentMatchPlayers.append(player1)
-            if hasattr(currentMatch, 'player2') and currentMatch.player2 is not None:
-                player2 = int(currentMatch.player2)
-                if player2 > 0:
-                    currentMatchPlayers.append(player2)
-        
-        # Sort participants for consistent ordering
-        participantIds = sorted(standings.keys())
-        
-        # Validate we have participants
-        if not participantIds:
-            self.notify.warning("No participants in tournament standings")
-            return
-        
-        # Build parallel lists with proper type conversion and validation
-        matchWins = []
-        totalPoints = []
-        
-        for avId in participantIds:
-            standing = standings.get(avId, {})
-            # Ensure values are non-negative and properly typed
-            # Clamp wins to uint8 range (0-255)
-            wins = max(0, min(255, int(standing.get('matchWins', 0))))
-            points = max(0, int(standing.get('totalPoints', 0)))
-            matchWins.append(wins)
-            totalPoints.append(points)
-        
-        # Ensure all lists have the same length
-        if len(participantIds) != len(matchWins) or len(participantIds) != len(totalPoints):
-            self.notify.warning(f"Mismatched list lengths: {len(participantIds)} participants, {len(matchWins)} wins, {len(totalPoints)} points")
-            return
-        
-        # Send to clients
-        self.sendUpdate('setTournamentStandings', [
-            participantIds,
-            matchWins,
-            totalPoints,
-            currentMatchPlayers
-        ])
-    
-    def _handleTournamentVictory(self, victorId):
-        """
-        Handle victory in tournament mode.
-        Records match result and determines next steps.
-        
-        Args:
-            victorId: Avatar ID of the match winner
-        """
-        # Get scores from this match
-        scores = self.getScoringContext().get_round(self.currentRound).get_all_scores()
-        
-        # Record match result (this advances currentMatchIndex)
-        hasMoreMatches = self.tournamentManager.recordMatchResult(victorId, scores)
-        
-        # Declare this match's victor
-        self.sendUpdate("declareVictor", [victorId])
-        
-        # Send updated standings (but NOT progress - progress will be sent when next match starts)
-        self.d_setTournamentStandings()
-        
-        if hasMoreMatches:
-            # More matches to play
-            taskMgr.doMethodLater(3, self._startNextTournamentMatch, 
-                                  self.uniqueName("nextTournamentMatch"))
-        else:
-            # Tournament complete!
-            tournamentWinner = self.tournamentManager.getTournamentWinner()
-            self.notify.info(f"Tournament complete! Winner: {tournamentWinner}")
-            
-            # Send final tournament results
-            self.sendUpdate("declareTournamentWinner", [tournamentWinner])
-            
-            # End the minigame
-            taskMgr.doMethodLater(5, lambda task: self.gameOver(), self.uniqueName("craneGameVictory"))
-    
-    def _startNextTournamentMatch(self, task=None):
-        """
-        Setup and start the next match in the tournament.
-        
-        Args:
-            task: Task object (if called as a task)
-        """
-        # Setup participants for next match
-        hasNextMatch = self.tournamentManager.setupNextMatch()
-        
-        if not hasNextMatch:
-            # This shouldn't happen, but handle gracefully
-            self.notify.warning("No next match available, ending tournament")
-            self.gameOver()
-            return
-        
-        # Get the match we're about to play
-        currentMatch = self.tournamentManager.getCurrentMatch()
-        if currentMatch:
-            self.notify.info(f"Starting tournament match: {currentMatch.player1} vs {currentMatch.player2}")
-        
-        # Reset game state for new match
-        self.currentRound = 1
-        self.roundWins.clear()
-        
-        # Send tournament progress NOW (when match starts) and standings
-        self.d_setTournamentProgress()
-        self.d_setTournamentStandings()
-        
-        # Restart the game (cleanup then prepare)
-        self.gameFSM.request("cleanup")
-        self.gameFSM.request('prepare')

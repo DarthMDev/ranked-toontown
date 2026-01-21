@@ -3,7 +3,6 @@ from direct.distributed.ClockDelta import *
 from direct.interval.IntervalGlobal import *
 from toontown.toonbase.ToontownGlobals import *
 from toontown.toonbase import TTLocalizer
-from toontown.parties import PartyGlobals
 from toontown.hood import *
 from . import Fireworks
 from . import FireworkShows
@@ -31,9 +30,6 @@ class FireworkShowMixin:
                 ivalMgr.finishIntervalsMatching('shootFirework*')
             else:
                 self.destroyFireworkShow()
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.8, 0.8, 0.8, 1)
         self.restoreCameraLens()
         if hasattr(self.getHood(), 'loader'):
             self.getGeom().clearColorScale()
@@ -87,11 +83,6 @@ class FireworkShowMixin:
             startMessage = TTLocalizer.FireworksNewYearsEveBeginning
             endMessage = TTLocalizer.FireworksNewYearsEveEnding
             musicFile = 'phase_4/audio/bgm/tt_s_ara_gen_fireworks_auldLangSyne.ogg'
-        elif eventId == PartyGlobals.FireworkShows.Summer:
-            instructionMessage = TTLocalizer.FireworksActivityInstructions
-            startMessage = TTLocalizer.FireworksActivityBeginning
-            endMessage = TTLocalizer.FireworksActivityEnding
-            musicFile = 'phase_4/audio/bgm/tt_summer.ogg'
         elif eventId == COMBO_FIREWORKS:
             instructionMessage = TTLocalizer.FireworksInstructions
             startMessage = TTLocalizer.FireworksComboBeginning
@@ -147,8 +138,6 @@ class FireworkShowMixin:
             endMessage = TTLocalizer.FireworksJuly4Ending
         elif eventId == NEWYEARS_FIREWORKS:
             endMessage = TTLocalizer.FireworksNewYearsEveEnding
-        elif eventId == PartyGlobals.FireworkShows.Summer:
-            endMessage = TTLocalizer.FireworksActivityEnding
         elif eventId == COMBO_FIREWORKS:
             endMessage = TTLocalizer.FireworksComboEnding
         else:
@@ -200,10 +189,6 @@ class FireworkShowMixin:
             elif isinstance(hood, OZHood.OZHood):
                 self.fireworkShow.setPos(-450, -80, 140)
                 self.fireworkShow.setHpr(300, 0, 0)
-            elif isinstance(hood, PartyHood.PartyHood):
-                self.fireworkShow.setPos(0, -400, 120)
-                self.fireworkShow.lookAt(0, 0, 0)
-                self.fireworkShow.setScale(1.8)
 
     def getFireworkShowIval(self, eventId, index, startT):
         show = FireworkShows.getShow(eventId, index)
@@ -251,22 +236,6 @@ class FireworkShowMixin:
         if hood:
             return hood.sky
         return None
-
-    def __checkDDFog(self):
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.2, 0.2, 0.2, 1)
-            if hasattr(base.cr.playGame.getPlace(), 'cameraSubmerged'):
-                if not base.cr.playGame.getPlace().cameraSubmerged:
-                    self.getHood().setWhiteFog()
-
-    def __restoreDDFog(self):
-        from toontown.hood import DDHood
-        if isinstance(self.getHood(), DDHood.DDHood):
-            self.getHood().whiteFogColor = Vec4(0.8, 0.8, 0.8, 1)
-            if hasattr(base.cr.playGame.getPlace(), 'cameraSubmerged'):
-                if not base.cr.playGame.getPlace().cameraSubmerged:
-                    self.getHood().setWhiteFog()
 
     def __checkStreetValidity(self):
         if hasattr(base.cr.playGame, 'getPlace') and base.cr.playGame.getPlace() and hasattr(base.cr.playGame.getPlace(), 'loader') and base.cr.playGame.getPlace().loader and hasattr(base.cr.playGame.getPlace().loader, 'geom') and base.cr.playGame.getPlace().loader.geom:

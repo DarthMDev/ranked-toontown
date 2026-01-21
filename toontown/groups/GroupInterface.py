@@ -11,7 +11,7 @@ from toontown.toonbase import ToontownGlobals
 from toontown.ui.UIHelpers import coords_to_pos, px_to_scale, fontpx_to_scale
 
 if typing.TYPE_CHECKING:
-    from toontown.groups.DistributedGroup import DistributedGroup
+    from toontown.groups.GroupManager import GroupManager
 
 
 class GroupInterface(DirectFrame):
@@ -32,9 +32,9 @@ class GroupInterface(DirectFrame):
 
     MEMBER_ROWS = 16
 
-    def __init__(self, group: "DistributedGroup", **kw):
+    def __init__(self, groupManager: "GroupManager", **kw):
 
-        self.group: "DistributedGroup" = group
+        self.groupManager: "GroupManager" = groupManager
 
         # Load in the elements we need.
         model = loader.loadModel(GroupInterface.GUI_MODEL_PATH)
@@ -83,7 +83,7 @@ class GroupInterface(DirectFrame):
         # Cleanup.
         model.removeNode()
 
-        self.accept(self.group.uniqueName('minigame-updated'), self.__updateMinigameLabel)
+        self.accept('group-minigame-updated', self.__updateMinigameLabel)
 
     def updateMembers(self, members: list[GroupMemberStruct]):
         self.clearMembers()
@@ -93,19 +93,19 @@ class GroupInterface(DirectFrame):
             row = self.rows[index]
             row.setAvatar(member)
             row.updateStatus(member.status)
-            row.updateStateFromGroup(self.group)
+            row.updateStateFromGroup(self.groupManager)
 
     def clearMembers(self):
         for row in self.rows:
             row.clearAvatar()
-            row.updateStateFromGroup(self.group)
+            row.updateStateFromGroup(self.groupManager)
 
     """
     Button Handlers
     """
 
     def __updateMinigameLabel(self):
-        self.gameSettingsButton.setText(ToontownGlobals.MinigameId2Name.get(self.group.minigameType, "???"))
+        self.gameSettingsButton.setText(ToontownGlobals.MinigameId2Name.get(self.groupManager.minigameType, "???"))
 
         if "\n" in self.gameSettingsButton['text']:
             self.gameSettingsButton['text_scale'] = (0.055, 0.055, 1)
@@ -116,26 +116,26 @@ class GroupInterface(DirectFrame):
 
     def __onGameSettingsClicked(self):
         try:
-            _index = ToontownGlobals.ValidMinigameIds.index(self.group.minigameType)
+            _index = ToontownGlobals.ValidMinigameIds.index(self.groupManager.minigameType)
         except ValueError:
             _index = -1
         _index += 1
         if _index >= len(ToontownGlobals.ValidMinigameIds):
             _index = 0
-        base.localAvatar.getGroupManager().requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
+        self.groupManager.requestGameSwitch(ToontownGlobals.ValidMinigameIds[_index])
 
     def __onLeaveClicked(self):
         """
         Called via a button press when the leave group button is pressed.
         When this button is clicked, we are essentially trying to kick ourselves from the group.
         """
-        base.localAvatar.getGroupManager().attemptKick(base.localAvatar.getDoId())
+        self.groupManager.attemptKick(base.localAvatar.getDoId())
 
     def __onPlayClicked(self):
         """
         Called via a button press when the start game button is pressed.
         """
-        base.localAvatar.getGroupManager().attemptStart()
+        self.groupManager.attemptStart()
 
     def __onHoverRow(self, row, event=None):
         # Hide every single row.
@@ -325,15 +325,15 @@ class GroupInterfaceMemberButton(DirectButton):
 
     def __onPromoteClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptPromote(self.avatarID)
+            base.cr.groupManager.attemptPromote(self.avatarID)
 
     def __onSwitchClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptSwitch(self.avatarID)
+            base.cr.groupManager.attemptSwitch(self.avatarID)
 
     def __onKickClicked(self):
         if self.avatar is not None:
-            base.localAvatar.getGroupManager().attemptKick(self.avatarID)
+            base.cr.groupManager.attemptKick(self.avatarID)
 
     def __addTooltip(self, button, tooltip):
         def __show(_):

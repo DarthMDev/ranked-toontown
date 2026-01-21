@@ -8,7 +8,6 @@ from direct.distributed.DistributedObjectAI import DistributedObjectAI
 from direct.distributed.DistributedObjectGlobalAI import DistributedObjectGlobalAI
 from direct.task import Task
 
-from toontown.groups.DistributedGroupManagerAI import DistributedGroupManagerAI
 from toontown.matchmaking.player_skill_profile import STARTING_MMR
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.MinigameCreatorAI import GeneratedMinigame
@@ -157,11 +156,7 @@ class DistributedMatchmakerAI(DistributedObjectGlobalAI):
         return found
 
     def __isPlayerInGroup(self, av: DistributedToonAI) -> bool:
-        for groupManager in self.air.doFindAllInstances(DistributedGroupManagerAI):
-            group = groupManager.getGroup(av)
-            if group is not None:
-                return True
-        return False
+        return self.air.groupManager.getGroup(av) is not None
 
     """
     Astron methods
