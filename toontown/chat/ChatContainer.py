@@ -113,7 +113,7 @@ class ChatContainer(DirectScrolledFrame):
 
     FRAME_COLOR = (0.1, 0.1, 0.1, .5)
     FRAME_SIZE = (-0.0035, .803, 0, .5)
-    FRAME_POS = (0.05, 0, -0.45)
+    FRAME_POS = (0.05, 0, -0.55)
     INPUT_HEIGHT = .06
     INPUT_COLOR = (0.1, 0.1, 0.1, .75)
 
@@ -172,10 +172,16 @@ class ChatContainer(DirectScrolledFrame):
         self._speedchat = DirectButton(
             parent=self._input,
             pos=(26, 0, 0.38),
-            scale=7.5,
+            text='...',
+            text_scale=1,
+            text_pos=(0, -.075),
+            text_fg=(.9, .9, .9, 1),
+            text_shadow=(0, 0, 0, 1),
+            frameSize=(-.75, .75, -.8, .75),
             frameColor=self.INPUT_COLOR,
             relief=DirectGuiGlobals.TEXTUREBORDER,
-            command=self.__handle_send_clicked
+            command=self.__handle_speedchat_clicked,
+            clickSound=None
         )
 
         self._messages: list[ChatContainerMessage] = []
@@ -220,8 +226,8 @@ class ChatContainer(DirectScrolledFrame):
         self.verticalScroll['value'] = 1
         base.talkAssistant.sendOpenTalk(text)
 
-    def __handle_send_clicked(self):
-        self.__handle_input_sent(self._input['text'])
+    def __handle_speedchat_clicked(self):
+        base.localAvatar.chatMgr.toggleSpeedChatMenu()
 
     def _reposition_messages(self):
         height_offset = 0

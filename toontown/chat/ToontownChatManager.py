@@ -3,7 +3,7 @@ from direct.showbase import DirectObject
 from direct.showbase.MessengerGlobal import messenger
 from otp.otpbase import OTPGlobals
 from otp.otpbase import OTPLocalizer
-from toontown.toonbase import TTLocalizer
+from toontown.toonbase import TTLocalizer, ToontownGlobals
 from toontown.toontowngui import TeaserPanel
 from direct.directnotify import DirectNotifyGlobal
 from direct.gui.DirectGui import *
@@ -32,12 +32,8 @@ class ToontownChatManager(ChatManager.ChatManager):
 
     def __init__(self, cr, localAvatar):
         gui = loader.loadModel('phase_3.5/models/gui/chat_input_gui')
-        self.normalButton = DirectButton(image=(gui.find('**/ChtBx_ChtBtn_UP'), gui.find('**/ChtBx_ChtBtn_DN'), gui.find('**/ChtBx_ChtBtn_RLVR')), pos=(0.0683, 0, -0.072), parent=base.a2dTopLeft, scale=1.179, relief=None, image_color=Vec4(1, 1, 1, 1), text=('', OTPLocalizer.ChatManagerChat, OTPLocalizer.ChatManagerChat), text_align=TextNode.ALeft, text_scale=TTLocalizer.TCMnormalButton, text_fg=Vec4(1, 1, 1, 1), text_shadow=Vec4(0, 0, 0, 1), text_pos=(-0.0525, -0.09), textMayChange=0, sortOrder=DGG.FOREGROUND_SORT_INDEX, command=self.__normalButtonPressed)
-        self.normalButton.hide()
         self.openScSfx = loader.loadSfx('phase_3.5/audio/sfx/GUI_quicktalker.ogg')
         self.openScSfx.setVolume(0.6)
-        self.scButton = DirectButton(image=(gui.find('**/ChtBx_ChtBtn_UP'), gui.find('**/ChtBx_ChtBtn_DN'), gui.find('**/ChtBx_ChtBtn_RLVR')), pos=TTLocalizer.TCMscButtonPos, parent=base.a2dTopLeft, scale=1.179, relief=None, image_color=Vec4(0.75, 1, 0.6, 1), text=('', OTPLocalizer.GlobalSpeedChatName, OTPLocalizer.GlobalSpeedChatName), text_scale=TTLocalizer.TCMscButton, text_fg=Vec4(1, 1, 1, 1), text_shadow=Vec4(0, 0, 0, 1), text_pos=(0, -0.09), textMayChange=0, sortOrder=DGG.FOREGROUND_SORT_INDEX, command=self.__scButtonPressed, clickSound=self.openScSfx)
-        self.scButton.hide()
         self.whisperFrame = DirectFrame(parent=base.a2dTopLeft, relief=None, image=DGG.getDefaultDialogGeom(), image_scale=(0.45, 0.45, 0.45), image_color=OTPGlobals.GlobalDialogColor, pos=(0.933333, 0, -0.246), text=OTPLocalizer.ChatManagerWhisperTo, text_wordwrap=7.0, text_scale=TTLocalizer.TCMwhisperFrame, text_fg=Vec4(0, 0, 0, 1), text_pos=(0, 0.14), textMayChange=1, sortOrder=DGG.FOREGROUND_SORT_INDEX)
         self.whisperFrame.hide()
         self.whisperButton = DirectButton(parent=self.whisperFrame, image=(gui.find('**/ChtBx_ChtBtn_UP'), gui.find('**/ChtBx_ChtBtn_DN'), gui.find('**/ChtBx_ChtBtn_RLVR')), pos=(-0.125, 0, -0.1), scale=1.179, relief=None, image_color=Vec4(1, 1, 1, 1), text=('',
@@ -68,13 +64,13 @@ class ToontownChatManager(ChatManager.ChatManager):
         self.chatInputWhiteList.desc = 'chatInputWhiteList'
         return
 
+    def start(self):
+        super().start()
+        self.accept(ToontownGlobals.SpeedchatHotkey, self.toggleSpeedChatMenu)
+
     def delete(self):
         ChatManager.ChatManager.delete(self)
         loader.unloadModel('phase_3.5/models/gui/chat_input_gui')
-        self.normalButton.destroy()
-        del self.normalButton
-        self.scButton.destroy()
-        del self.scButton
         del self.openScSfx
         self.whisperFrame.destroy()
         del self.whisperFrame
@@ -123,11 +119,6 @@ class ToontownChatManager(ChatManager.ChatManager):
             DirectButton(self.openChatWarning, image=buttonImage, relief=None, text=OTPLocalizer.OpenChatWarningOK, text_scale=0.05, text_pos=(0.0, -0.1), textMayChange=0, pos=(0.0, 0.0, -0.55), command=self.__handleOpenChatWarningOK)
             buttons.removeNode()
         self.openChatWarning.show()
-        normObs, scObs = self.isObscured()
-        if not scObs:
-            self.scButton.show()
-        if not normObs:
-            self.normalButton.show()
         return
 
     def enterMainMenu(self):
@@ -142,7 +133,6 @@ class ToontownChatManager(ChatManager.ChatManager):
 
     def exitOpenChatWarning(self):
         self.openChatWarning.hide()
-        self.scButton.hide()
 
     def enterUnpaidChatWarning(self):
         self.forceHidePayButton = False
@@ -185,17 +175,11 @@ class ToontownChatManager(ChatManager.ChatManager):
             self.teaser = TeaserPanel.TeaserPanel('secretChat', self.__handleUnpaidChatWarningDone)
             if base.localAvatar.inTutorial:
                 self.teaser.hidePay()
-        normObs, scObs = self.isObscured()
-        if not scObs:
-            self.scButton.show()
-        if not normObs:
-            self.normalButton.show()
         return
 
     def exitUnpaidChatWarning(self):
         if self.unpaidChatWarning:
             self.unpaidChatWarning.hide()
-        self.scButton.hide()
 
     def enterNoSecretChatAtAll(self):
         if self.noSecretChatAtAll == None:
@@ -350,6 +334,10 @@ class ToontownChatManager(ChatManager.ChatManager):
         self.secretChatActivated.show()
         return
 
+    def enterSpeedChat(self):
+        super().enterSpeedChat()
+        self.openScSfx.play()
+
     def exitSecretChatActivated(self):
         self.secretChatActivated.hide()
 
@@ -367,8 +355,6 @@ class ToontownChatManager(ChatManager.ChatManager):
         self.problemActivatingChat.hide()
 
     def __normalButtonPressed(self):
-        if base.config.GetBool('want-qa-regression', 0):
-            self.notify.info('QA-REGRESSION: CHAT: Speedchat Plus')
         messenger.send('wakeup')
         if base.cr.productName in ['DisneyOnline-US', 'ES']:
             if base.cr.whiteListChatEnabled:
@@ -409,9 +395,7 @@ class ToontownChatManager(ChatManager.ChatManager):
         else:
             print('ChatManager: productName: %s not recognized' % base.cr.productName)
 
-    def __scButtonPressed(self):
-        if base.config.GetBool('want-qa-regression', 0):
-            self.notify.info('QA-REGRESSION: CHAT: Speedchat')
+    def toggleSpeedChatMenu(self):
         messenger.send('wakeup')
         if self.fsm.getCurrentState().getName() == 'speedChat':
             self.fsm.request('mainMenu')
@@ -498,8 +482,6 @@ class ToontownChatManager(ChatManager.ChatManager):
         self.fsm.request('mainMenu')
 
     def __whisperScButtonPressed(self, avatarName, avatarId, playerId):
-        if base.config.GetBool('want-qa-regression', 0):
-            self.notify.info('QA-REGRESSION: CHAT: Whisper')
         messenger.send('wakeup')
         hasManager = hasattr(base.cr, 'playerFriendsManager')
         transientFriend = 0

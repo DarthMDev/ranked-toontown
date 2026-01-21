@@ -579,7 +579,8 @@ class ToonBase(OTPBase.OTPBase):
         
         # Accept CHAT_HOTKEY (both binds)
         self._acceptControlBinds("CHAT_HOTKEY", messenger.send, extraArgs=["enterNormalChat"])
-        
+        self._acceptControlBinds("SPEEDCHAT_HOTKEY", messenger.send, extraArgs=[ToontownGlobals.SpeedchatHotkey])
+
         # Accept MOVE_LEFT (both binds)
         self._acceptControlBinds("MOVE_LEFT", messenger.send, extraArgs=[ToontownGlobals.StickerBookPageLeft])
         
@@ -596,6 +597,7 @@ class ToonBase(OTPBase.OTPBase):
         self._ignoreControlBinds("QUEST_HOTKEY")
         self._ignoreControlBinds("GALLERY_HOTKEY")
         self._ignoreControlBinds("CHAT_HOTKEY")
+        self._ignoreControlBinds("SPEEDCHAT_HOTKEY")
         self._ignoreControlBinds("MOVE_LEFT")
         self._ignoreControlBinds("MOVE_RIGHT")
 

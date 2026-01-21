@@ -47,8 +47,6 @@ def init():
      'book': base.localAvatar.book,
      'bookOpenButton': base.localAvatar.book.bookOpenButton,
      'bookCloseButton': base.localAvatar.book.bookCloseButton,
-     'chatNormalButton': base.localAvatar.chatMgr.normalButton,
-     'chatScButton': base.localAvatar.chatMgr.scButton,
      'arrows': BlinkingArrows.BlinkingArrows()})
 
 

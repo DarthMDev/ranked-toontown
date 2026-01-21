@@ -10007,6 +10007,7 @@ OptionNames = {
     "ACTION_BUTTON": "Action Button",
     "SECONDARY_ACTION": "Secondary Action Button",
     "CHAT_HOTKEY": "Chat Button",
+    "SPEEDCHAT_HOTKEY": "Speedchat Menu",
 
     # Video
     "borderless": "Borderless Window",

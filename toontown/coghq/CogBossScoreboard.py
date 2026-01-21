@@ -326,7 +326,7 @@ class CogBossScoreboard(DirectObject):
     def __init__(self):
         DirectObject.__init__(self)
         self.frame = DirectFrame(parent=base.a2dLeftCenter)
-        self.frame.setPos(.2, 0, .5)
+        self.frame.setPos(.2, 0, .65)
 
         self.default_row, self.default_row_path = getScoreboardTextRow(self.frame, 'master-row', default_text='%-10s %-7s\0' % ('Toon', 'Pts'))
         self.default_row_path.setScale(.06)

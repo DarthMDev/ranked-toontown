@@ -39,7 +39,8 @@ class ControlSettings:
     ACTION_BUTTON: List[str] = field(default_factory=lambda: ["delete", ""])
     SECONDARY_ACTION: List[str] = field(default_factory=lambda: ["insert", ""])
     CHAT_HOTKEY: List[str] = field(default_factory=lambda: ["t", ""])
-    
+    SPEEDCHAT_HOTKEY: List[str] = field(default_factory=lambda: ["y", ""])
+
     def __getattribute__(self, name: str) -> Any:
         """Override to provide backward compatibility: return first bind as string when accessed as attribute"""
         value = super().__getattribute__(name)

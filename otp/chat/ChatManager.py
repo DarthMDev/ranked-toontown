@@ -16,6 +16,7 @@ from panda3d.core import *
 
 from otp.speedchat import SCDecoders
 from toontown.archipelago.util.global_text_properties import get_colored_string
+from toontown.toonbase import ToontownGlobals
 
 ChatEvent = 'ChatEvent'
 NormalChatEvent = 'NormalChatEvent'
@@ -148,11 +149,7 @@ class ChatManager(DirectObject.DirectObject):
 
     def obscure(self, normal, sc):
         self.__scObscured = sc
-        if self.__scObscured:
-            self.scButton.hide()
         self.__normalObscured = normal
-        if self.__normalObscured:
-            self.normalButton.hide()
 
     def isObscured(self):
         return (self.__normalObscured, self.__scObscured)
@@ -214,8 +211,6 @@ class ChatManager(DirectObject.DirectObject):
             base.talkAssistant.sendAvatarWhisperSpeedChat(2, emoteId, whisperAvatarId)
 
     def enterOff(self):
-        self.scButton.hide()
-        self.normalButton.hide()
         self.ignoreAll()
 
     def exitOff(self):
@@ -228,14 +223,9 @@ class ChatManager(DirectObject.DirectObject):
             self.acceptOnce('enterNormalChat', self.fsm.request, ['normalChat'])
 
     def checkObscurred(self):
-        if not self.__scObscured:
-            self.scButton.show()
-        if not self.__normalObscured:
-            self.normalButton.show()
+        pass
 
     def exitMainMenu(self):
-        self.scButton.hide()
-        self.normalButton.hide()
         self.ignore('enterNormalChat')
 
     def whisperTo(self, avatarName, avatarId, playerId = None):
@@ -376,15 +366,9 @@ class ChatManager(DirectObject.DirectObject):
 
     def enterSpeedChat(self):
         messenger.send('enterSpeedChat')
-        if not self.__scObscured:
-            self.scButton.show()
-        if not self.__normalObscured:
-            self.normalButton.show()
         self.chatInputSpeedChat.show()
 
     def exitSpeedChat(self):
-        self.scButton.hide()
-        self.normalButton.hide()
         self.chatInputSpeedChat.hide()
 
     def enterNormalChat(self) -> None:

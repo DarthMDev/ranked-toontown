@@ -257,8 +257,8 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
         if base.config.GetBool('want-sc-auto-hide', 1):
             self.accept(self.terminalSelectedEvent, selectionMade)
         self.speedChat.reparentTo(base.a2dpTopLeft, DGG.FOREGROUND_SORT_INDEX)
-        scZ = -0.04
-        self.speedChat.setPos(0.283, 0, scZ)
+        scZ = -0.67
+        self.speedChat.setPos(0.86, 0, scZ)
         self.speedChat.setWhisperMode(self.whisperAvatarId != None)
         self.speedChat.enter()
         return
@@ -325,7 +325,7 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
 
     def handleSpeedChatStyleChange(self):
         nameKey, arrowColor, rolloverColor, frameColor = speedChatStyles[base.localAvatar.getSpeedChatStyleIndex()]
-        newSCColorScheme = SCColorScheme(arrowColor=arrowColor, rolloverColor=rolloverColor, frameColor=frameColor)
+        newSCColorScheme = SCColorScheme(arrowColor=arrowColor, rolloverColor=rolloverColor, frameColor=list(x / 1.5 for x in frameColor))
         self.speedChat.setColorScheme(newSCColorScheme)
 
     def createSpeedChatObject(self, structure):
