@@ -165,9 +165,6 @@ class NewsManager(DistributedObject.DistributedObject):
             elif holidayId == ToontownGlobals.SILLY_CHATTER_FIVE:
                 if hasattr(base, 'localAvatar') and base.localAvatar and hasattr(base.localAvatar, 'chatMgr') and base.localAvatar.chatMgr:
                     base.localAvatar.chatMgr.chatInputSpeedChat.addSillyPhaseFiveMenu()
-            elif holidayId == ToontownGlobals.VICTORY_PARTY_HOLIDAY:
-                if hasattr(base, 'localAvatar') and base.localAvatar and hasattr(base.localAvatar, 'chatMgr') and base.localAvatar.chatMgr:
-                    base.localAvatar.chatMgr.chatInputSpeedChat.addVictoryPartiesMenu()
             elif holidayId == ToontownGlobals.SELLBOT_NERF_HOLIDAY:
                 if hasattr(base, 'localAvatar') and base.localAvatar and hasattr(base.localAvatar, 'chatMgr') and base.localAvatar.chatMgr:
                     self.setSellbotNerfHolidayStart()
