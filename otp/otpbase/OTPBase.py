@@ -260,12 +260,12 @@ class OTPBase(ShowBase):
                 # Create a closure that captures the isPanda311CullTraverserError method
                 is_panda311_error = self.isPanda311CullTraverserError
                 
-                def safeSendUpdate(self, fieldName, args=[]):
+                def safeSendUpdate(self, fieldName, args=[], sendToId=None):
                     """
                     Wrapper for sendUpdate that catches Panda3D 1.11.0 cull traverser errors.
                     """
                     try:
-                        return DistributedObject._original_sendUpdate(self, fieldName, args)
+                        return DistributedObject._original_sendUpdate(self, fieldName, args, sendToId)
                     except AssertionError as e:
                         if is_panda311_error(e):
                             # Log the error but don't crash

@@ -148,7 +148,6 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
 
     def __init__(self, chatMgr):
         self.chatMgr = chatMgr
-        self.whisperAvatarId = None
         self.toPlayer = 0
         buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
         okButtonImage = (
@@ -228,6 +227,9 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
     def hide(self):
         self.fsm.request('off')
 
+    def isHidden(self):
+        return self.fsm.getCurrentState().getName() == 'off'
+
     def createSpeedChat(self):
         structure = [
             [SCEmoteMenu, OTPLocalizer.SCMenuEmotions],
@@ -271,37 +273,42 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
         self.emoteNoAccessPanel.reparentTo(hidden)
 
     def handleLinkedEmote(self, emoteId, displayType=0):
-        if self.whisperAvatarId is None and displayType != 2:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None and displayType != 2:
             lt = base.localAvatar
             lt.b_setEmoteState(emoteId, animMultiplier=lt.animMultiplier)
         return
 
     def handleStaticTextMsg(self, textId, displayType=0):
-        if self.whisperAvatarId is None:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None:
             self.chatMgr.sendSCChatMessage(textId, displayType)
         else:
-            self.chatMgr.sendSCWhisperMessage(textId, self.whisperAvatarId, self.toPlayer)
+            self.chatMgr.sendSCWhisperMessage(textId, target.avId, self.toPlayer)
         self.toPlayer = 0
         return
 
     def handleCustomMsg(self, textId):
-        if self.whisperAvatarId is None:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None:
             self.chatMgr.sendSCCustomChatMessage(textId)
         else:
-            self.chatMgr.sendSCCustomWhisperMessage(textId, self.whisperAvatarId, self.toPlayer)
+            self.chatMgr.sendSCCustomWhisperMessage(textId, target.avId, self.toPlayer)
         self.toPlayer = 0
         return
 
     def handleEmoteMsg(self, emoteId):
-        if self.whisperAvatarId is None:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None:
             self.chatMgr.sendSCEmoteChatMessage(emoteId)
         else:
-            self.chatMgr.sendSCEmoteWhisperMessage(emoteId, self.whisperAvatarId, self.toPlayer)
+            self.chatMgr.sendSCEmoteWhisperMessage(emoteId, target.avId, self.toPlayer)
         self.toPlayer = 0
         return
 
     def handleEmoteNoAccess(self):
-        if self.whisperAvatarId is None:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None:
             self.emoteNoAccessPanel.setPos(0, 0, 0)
         else:
             self.emoteNoAccessPanel.setPos(0.37, 0, 0)
@@ -312,10 +319,11 @@ class TTChatInputSpeedChat(DirectObject.DirectObject):
         self.emoteNoAccessPanel.reparentTo(hidden)
 
     def handleToontaskMsg(self, taskId, toNpcId, toonProgress, msgIndex):
-        if self.whisperAvatarId is None:
+        target = base.localAvatar.chatbox.getWhisperTarget()
+        if target is None:
             self.chatMgr.sendSCToontaskChatMessage(taskId, toNpcId, toonProgress, msgIndex)
         else:
-            self.chatMgr.sendSCToontaskWhisperMessage(taskId, toNpcId, toonProgress, msgIndex, self.whisperAvatarId,
+            self.chatMgr.sendSCToontaskWhisperMessage(taskId, toNpcId, toonProgress, msgIndex, target.avId,
                                                       self.toPlayer)
         self.toPlayer = 0
         return

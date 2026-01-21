@@ -886,7 +886,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         # We need to add the other toon's version of the emote to the chat log since when we receive it here it's only from other toons.
         chatString = SCDecoders.decodeSCEmoteWhisperMsg(animIndex, self.getName())
         text = global_text_properties.create_text_with_undefined_color(chatString, color=self.getCurrentColorProfile().getPrimaryColor())
-        base.localAvatar.chatbox.add_entry(self.getDoId(), text)
+        base.localAvatar.chatbox.addRawMessage(self.getDoId(), text)
         return
 
     def playEmote(self, emoteIndex, animMultiplier, timestamp):
@@ -2043,21 +2043,17 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def sendLogMessage(self, message):
         self.sendUpdate('logMessage', [message])
 
-    def __getChatLogMessage(self, content: str, isSpeedchat: bool) -> ChatContainerMessage:
-        author_name = self.getName() if self.getDoId() != base.localAvatar.getDoId() else 'You'
-        author_color = self.getCurrentColorProfile().getPrimaryColor() if self.getDoId() != base.localAvatar.getDoId() else color_profile.YELLOW.getPrimaryColor()
-        name = global_text_properties.create_text_with_undefined_color(author_name + ": ", color=author_color)
-        text = content if not isSpeedchat else get_raw_formatted_string([MinimalJsonMessagePart(content, color='bold')])
-        return ChatContainerMessage(
-            ChatMessageAuthor(self.getDoId(), name),
-            text
-        )
+    def __getChatLogColor(self) -> tuple | str:
+        if self.getDoId() != base.localAvatar.getDoId():
+            return self.getCurrentColorProfile().getPrimaryColor()
+        else:
+            return 'yellow'
 
     def setChatAbsolute(self, chatString, chatFlags, dialogue = None, interrupt = 1, quiet = 0):
         DistributedAvatar.DistributedAvatar.setChatAbsolute(self, chatString, chatFlags, dialogue, interrupt)
 
         if self.isPlayerControlled():
-            localAvatar.chatbox.add_message(self.__getChatLogMessage(chatString, True))
+            localAvatar.chatbox.addDefaultMessage(ChatMessageAuthor(self.getDoId(), self.getName()), chatString, nameColor=self.__getChatLogColor(), italicize=True)
 
     def setChatMuted(self, chatString, chatFlags, dialogue = None, interrupt = 1, quiet = 0):
         self.nametag.setChat(chatString, chatFlags)
@@ -2071,8 +2067,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.nametag.setChat(chatString, flags)
         if base.toonChatSounds:
             self.playCurrentDialogue(None, flags, interrupt=1)
-        localAvatar.chatbox.add_message(self.__getChatLogMessage(chatString, False))
-        return
+        localAvatar.chatbox.addDefaultMessage(ChatMessageAuthor(self.getDoId(), self.getName()), chatString, nameColor=self.__getChatLogColor())
 
     def scrubTalk(self, message, mods):
         return message, 0
