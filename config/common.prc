@@ -1,5 +1,5 @@
 # Server settings
-version v0.5.0 Alpha
+version v1.0.0 Pre-Beta
 
 server-version tt-ranked-edition
 
