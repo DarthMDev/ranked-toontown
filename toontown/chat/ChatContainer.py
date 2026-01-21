@@ -131,7 +131,7 @@ class ChatContainer(DirectScrolledFrame):
     # Change this to set the sfx for when a message is added.
     MESSAGE_SFX_PATH = 'phase_3/audio/sfx/GUI_balloon_popup.ogg'
 
-    INPUT_PREFIX = global_text_properties.get_colored_string(' All: ', color='blue')
+    INITIAL_PREFIX = global_text_properties.get_colored_string(' All: ', color='blue')
 
     def __init__(self, **kwargs):
         if 'frameColor' not in kwargs:
@@ -161,6 +161,7 @@ class ChatContainer(DirectScrolledFrame):
         super().__init__(**kwargs)
         self.initialiseoptions(ChatContainer)
 
+        self._input_prefix = self.INITIAL_PREFIX
         self._input = DirectEntry(
             parent=self,
             scale=.03,
@@ -170,7 +171,7 @@ class ChatContainer(DirectScrolledFrame):
             text_fg=(.9, .9, .9, 1),
             width=25,
             overflow=True,
-            initialText=self.INPUT_PREFIX,
+            initialText=self.INITIAL_PREFIX,
             textMayChange=True,
             command=self.__handle_input_sent
         )
@@ -205,7 +206,7 @@ class ChatContainer(DirectScrolledFrame):
 
     def __onErase(self, mw: PGMouseWatcherParameter):
         if self._input.getCursorPosition() <= self._starting_cursor_position:
-            self._input.set(self.INPUT_PREFIX)
+            self._input.set(self._input_prefix)
             self._input.setCursorPosition(self._starting_cursor_position)
 
     def activate(self):
@@ -234,9 +235,19 @@ class ChatContainer(DirectScrolledFrame):
         self.ignore('escape')
         self.isActive = False
 
+    def setPrefix(self, prefix: str):
+        old_input = self._input.get()
+        old_input_clean = self._input.get(plain=True)
+        old_cursor_position = self._input.getCursorPosition()
+        self._input.set(f"{prefix}{old_input.replace(self._input_prefix, '')}")
+        self._input_prefix = prefix
+        cursor_diff = len(self._input.get(plain=True)) - len(old_input_clean)
+        self._input.setCursorPosition(old_cursor_position + cursor_diff)
+        self._starting_cursor_position += cursor_diff
+
     def __handle_input_sent(self, text):
-        text = text.replace(self.INPUT_PREFIX, '')
-        self._input.enterText(self.INPUT_PREFIX)
+        text = text.replace(self._input_prefix, '')
+        self._input.enterText(self._input_prefix)
         base.localAvatar.chatMgr.fsm.request('mainMenu')
         base.localAvatar.chatMgr.lastSendTime = time.time()
         if text is None or len(text) == 0:
