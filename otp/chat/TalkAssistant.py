@@ -174,26 +174,20 @@ class TalkAssistant(DirectObject.DirectObject):
     def whiteListFilterMessage(self, text):
         if not self.useWhiteListFilter:
             return text
-        elif not base.whiteList:
-            return 'no list'
         words = text.split(' ')
         newwords = []
         for word in words:
-            if word == '' or base.whiteList.isWord(word):
+            if word == '':
                 newwords.append(word)
-            else:
-                newwords.append(base.whiteList.defaultWord)
 
         newText = ' '.join(newwords)
         return newText
 
     def colorMessageByWhiteListFilter(self, text):
-        if not base.whiteList:
-            return text
         words = text.split(' ')
         newwords = []
         for word in words:
-            if word == '' or base.whiteList.isWord(word):
+            if word == '':
                 newwords.append(word)
             else:
                 newwords.append('\x01WLRed\x01' + word + '\x02')

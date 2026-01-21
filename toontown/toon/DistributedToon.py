@@ -2080,8 +2080,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
                 newwords.append(word)
             elif word[0] == '\x07':
                 newwords.append('\x01WLRed\x01' + self.chatGarbler.garbleSingle(self, word) + '\x02')
-            elif base.whiteList.isWord(word):
-                newwords.append(word)
             else:
                 newwords.append('\x01WLRed\x01' + word + '\x02')
 

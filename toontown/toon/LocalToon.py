@@ -227,7 +227,6 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         if hasattr(self, 'purchaseButton'):
             self.purchaseButton.destroy()
             del self.purchaseButton
-        base.whiteList.unload()
         self.book.unload()
         del self.optionsPage
         del self.nametagPage
