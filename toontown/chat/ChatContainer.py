@@ -1,5 +1,6 @@
 import dataclasses
 import random
+import time
 
 from direct.gui import DirectGuiGlobals
 from direct.gui.DirectEntry import DirectEntry
@@ -22,6 +23,7 @@ class ChatContainerMessage(DirectButton):
 
     TEXT_HORIZONTAL_OFFSET = -.4
     TEXT_SCALE = 0.3
+    VERTICAL_PADDING_PER_LINE = .3
 
     def __init__(self, author: ChatMessageAuthor, content: str, **kwargs):
         kwargs['text'] = f"{author.name}{content}"
@@ -33,8 +35,10 @@ class ChatContainerMessage(DirectButton):
         kwargs['relief'] = DirectGuiGlobals.TEXTUREBORDER
         kwargs['text_fg'] = (.9, .9, .9, 1)
         kwargs['text_shadow'] = (0, 0, 0, 1)
+        kwargs['frameSize'] = (-0.1, 7.75, -.55, -.1)
         super().__init__(**kwargs)
         self.initialiseoptions(ChatContainerMessage)
+        self['frameSize'] = (-0.1, 7.75, -.3 - self.VERTICAL_PADDING_PER_LINE * self.getNumLines(), -.1)
         self.fadeSeq = None
         self.addBackground()
         self.fadeOutLater()
@@ -92,9 +96,6 @@ class ChatContainer(DirectScrolledFrame):
 
     TOP_MESSAGE_ANCHOR = 0.0
     MESSAGE_HORIZONTAL_PADDING = 0.01
-
-    MESSAGE_VERTICAL_PADDING_PER_LINE = .02
-    MESSAGE_VERTICAL_PADDING_PER_MESSAGE = .025
 
     # Change this to update how often we should hold on to messages.
     MESSAGE_CACHE_LIMIT = 100
@@ -185,6 +186,7 @@ class ChatContainer(DirectScrolledFrame):
     def __handle_input_sent(self, text):
         self._input.enterText('')
         base.localAvatar.chatMgr.fsm.request('mainMenu')
+        base.localAvatar.chatMgr.lastSendTime = time.time()
         if text is None or len(text) == 0:
             return
         self.verticalScroll['value'] = 1
@@ -195,9 +197,9 @@ class ChatContainer(DirectScrolledFrame):
 
     def _reposition_messages(self):
         height_offset = 0
-        height_offset += self.MESSAGE_VERTICAL_PADDING_PER_MESSAGE / 4
+        height_offset += .015
         for message in reversed(self._messages):
-            height_offset += (message.getNumLines() * self.MESSAGE_VERTICAL_PADDING_PER_LINE + self.MESSAGE_VERTICAL_PADDING_PER_MESSAGE) + message.getHeight() / 25
+            height_offset += abs(message.bounds[2] - message.bounds[3]) * message.getScale()[2]
             message.setPos(self.MESSAGE_HORIZONTAL_PADDING, 0, height_offset)
 
         self['canvasSize'] = (self.FRAME_SIZE[0], self.FRAME_SIZE[1]-self.SCROLLBAR_WIDTH, 0, max(self.FRAME_SIZE[3], height_offset))
