@@ -1,40 +1,32 @@
-import math
 import random
 
 from direct.fsm import ClassicFSM
 from direct.fsm import State
-from otp.otpbase.PythonUtil import clamp
 from direct.task.TaskManagerGlobal import taskMgr
-from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
-from toontown.minigame.craning.boss.CashbotBossComboTracker import CashbotBossComboTracker
-from toontown.minigame.craning.CraneGameGlobals import ScoreReason
+from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath
 from toontown.minigame.craning.objects.DistributedCashbotCraneAI import DistributedCashbotCraneAI
 from toontown.minigame.craning.objects.DistributedCashbotHeavyCraneAI import DistributedCashbotHeavyCraneAI
 from toontown.minigame.craning.objects.DistributedCashbotSafeAI import DistributedCashbotSafeAI
 from toontown.minigame.craning.objects.DistributedCashbotSideCraneAI import DistributedCashbotSideCraneAI
-from toontown.minigame.craning.objects.DistributedCashbotTreasureAI import DistributedCashbotTreasureAI
 from toontown.minigame.craning.objects.DistributedCashbotBoomBarrowAI import DistributedCashbotBoomBarrowAI
 from toontown.minigame.craning.objects.DistributedCashbotFloatingPlatformAI import DistributedCashbotFloatingPlatformAI
-from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.objects.DistributedCashbotGoonAI import DistributedCashbotGoonAI
 from toontown.minigame.craning.boss.DistributedCashbotBossAI import DistributedCashbotBossAI
-from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
-from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, SAFE_ALLOWED_EFFECTS
-from toontown.minigame.craning.managers.PlayerManagerAI import PlayerManagerAI
-from toontown.minigame.craning.managers.ModifierManagerAI import ModifierManagerAI
-from toontown.minigame.craning.managers.DroneManagerAI import DroneManagerAI
-from toontown.minigame.craning.managers.StatusEffectManagerAI import StatusEffectManagerAI
-from toontown.minigame.craning.managers.ComboManagerAI import ComboManagerAI
-from toontown.minigame.craning.managers.TreasureManagerAI import TreasureManagerAI
-from toontown.minigame.craning.managers.GoonManagerAI import GoonManagerAI
-from toontown.minigame.craning.managers.OvertimeManagerAI import OvertimeManagerAI
-from toontown.minigame.craning.managers.ForfeitRestartManagerAI import ForfeitRestartManagerAI
-from toontown.minigame.craning.managers.ScoreManagerAI import ScoreManagerAI
-from toontown.minigame.craning.managers.RoundManagerAI import RoundManagerAI
+from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect
+from toontown.minigame.craning.managers.server.PlayerManagerAI import PlayerManagerAI
+from toontown.minigame.craning.managers.server.ModifierManagerAI import ModifierManagerAI
+from toontown.minigame.craning.managers.server.DroneManagerAI import DroneManagerAI
+from toontown.minigame.craning.managers.server.StatusEffectManagerAI import StatusEffectManagerAI
+from toontown.minigame.craning.managers.server.ComboManagerAI import ComboManagerAI
+from toontown.minigame.craning.managers.server.TreasureManagerAI import TreasureManagerAI
+from toontown.minigame.craning.managers.server.GoonManagerAI import GoonManagerAI
+from toontown.minigame.craning.managers.server.OvertimeManagerAI import OvertimeManagerAI
+from toontown.minigame.craning.managers.server.ForfeitRestartManagerAI import ForfeitRestartManagerAI
+from toontown.minigame.craning.managers.server.ScoreManagerAI import ScoreManagerAI
+from toontown.minigame.craning.managers.server.RoundManagerAI import RoundManagerAI
 
 
 class DistributedCraneGameAI(DistributedMinigameAI):
