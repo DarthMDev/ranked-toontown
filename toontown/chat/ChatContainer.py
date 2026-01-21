@@ -177,7 +177,7 @@ class ChatContainer(DirectScrolledFrame):
             text_pos=(0, -.075),
             text_fg=(.9, .9, .9, 1),
             text_shadow=(0, 0, 0, 1),
-            frameSize=(-.75, .75, -.8, .75),
+            frameSize=(-.76, .76, -.76, .76),
             frameColor=self.INPUT_COLOR,
             relief=DirectGuiGlobals.TEXTUREBORDER,
             command=self.__handle_speedchat_clicked,
