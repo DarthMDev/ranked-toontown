@@ -1,5 +1,7 @@
 import string
 import sys
+import time
+
 from direct.showbase import DirectObject
 from otp.otpbase import OTPGlobals
 from direct.fsm import ClassicFSM
@@ -41,9 +43,13 @@ class ChatManager(DirectObject.DirectObject):
     notify = DirectNotifyGlobal.directNotify.newCategory('ChatManager')
     execChat = base.config.GetBool('exec-chat', 0)
 
+    # How long to wait before allowed to re-open the chatbox again
+    CHATBOX_REOPEN_DELAY = .25
+
     def __init__(self, cr, localAvatar):
         self.cr = cr
         self.localAvatar = localAvatar
+        self.lastSendTime = time.time()
         self.__scObscured = 0
         self.__normalObscured = 0
         self.openChatWarning = None
@@ -213,6 +219,7 @@ class ChatManager(DirectObject.DirectObject):
 
     def enterMainMenu(self):
         self.checkObscurred()
+        base.localAvatar.chatbox.deactivate()
         if self.localAvatar.canChat() or self.cr.wantMagicWords:
             self.acceptOnce('enterNormalChat', self.fsm.request, ['normalChat'])
 
@@ -377,16 +384,21 @@ class ChatManager(DirectObject.DirectObject):
         self.chatInputSpeedChat.hide()
 
     def enterNormalChat(self) -> None:
-        result = self.chatInputNormal.activateByData()
 
+        # Prevent spamming the chatbox too fast
+        if self.lastSendTime + self.CHATBOX_REOPEN_DELAY > time.time():
+            # Hack to allow the chatbox to still function when this fires, only really happens if chat is bound
+            # to enter
+            self.acceptOnce('enterNormalChat', self.fsm.request, ['normalChat'])
+            return False
+
+        base.localAvatar.chatbox.activate()
         base.localAvatar.disableControls()
         messenger.send("disable-hotkeys")
-
-        return result
+        return True
 
     def exitNormalChat(self) -> None:
-        self.chatInputNormal.deactivate()
-
+        base.localAvatar.chatbox.deactivate()
         base.localAvatar.enableControls()
         messenger.send("enable-hotkeys")
 

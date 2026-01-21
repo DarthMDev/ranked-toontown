@@ -38,6 +38,7 @@ from toontown.quest import QuestMap
 from toontown.archipelago.gui.ArchipelagoOnscreenLog import ArchipelagoOnscreenLog
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
+from ..chat.ChatContainer import ChatContainer
 from ..groups.DistributedGroupManager import DistributedGroupManager
 from ..shtiker.LeaderboardPage import LeaderboardPage
 from ..shtiker.ShtikerPage import ShtikerPage
@@ -140,6 +141,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
 
             self.groupManager: DistributedGroupManager | None = None
             self.archipelagoLog: ArchipelagoOnscreenLog = None
+            self.chatbox: ChatContainer | None = None
             self.currentlyInHQ = False
             self.wantCompetitiveBossScoring = base.settings.get('competitive-boss-scoring')
             self.accept("disableControls", self.disableControls)
@@ -245,6 +247,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         if base.wantNametags:
             self.nametag.unmanage(base.marginManager)
         taskMgr.removeTasksMatching('*ioorrd234*')
+        self.chatbox.destroy()
+        del self.chatbox
         self.archipelagoLog.destroy()
         del self.archipelagoLog
         self.ignoreAll()
@@ -318,6 +322,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             base.setCellsAvailable([base.bottomCells[4]], 0)
 
         self.archipelagoLog = ArchipelagoOnscreenLog()
+        self.chatbox = ChatContainer(parent=base.a2dLeftCenter)
 
         controls = base.controls
         # Accept both binds for SECONDARY_ACTION

@@ -47,6 +47,10 @@ import copy
 from ..archipelago.definitions import color_profile
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
+from ..archipelago.util import global_text_properties
+from ..archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart
+from ..archipelago.util.net_utils import JSONMessagePart
+from ..chat.ChatContainer import ChatContainerMessage, ChatMessageAuthor
 from ..matchmaking.player_skill_profile import PlayerSkillProfile
 from ..util.astron.AstronDict import AstronDict
 
@@ -1974,8 +1978,6 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         elif chatFlags & CFSpeech != 0:
             if self.nametag.getNumChatPages() > 0:
                 self.playDialogueForString(self.nametag.getChat())
-                if self.soundChatBubble != None:
-                    base.playSfx(self.soundChatBubble, node=self)
             elif self.nametag.getChatStomp() > 0:
                 self.playDialogueForString(self.nametag.getStompText(), self.nametag.getStompDelay())
         return
@@ -2044,8 +2046,22 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def sendLogMessage(self, message):
         self.sendUpdate('logMessage', [message])
 
+    def __getChatLogMessage(self, content: str, isSpeedchat: bool) -> ChatContainerMessage:
+        author_name = self.getName() if self.getDoId() != base.localAvatar.getDoId() else 'You'
+        author_color = self.getCurrentColorProfile().getPrimaryColor() if self.getDoId() != base.localAvatar.getDoId() else color_profile.YELLOW.getPrimaryColor()
+        name = get_raw_formatted_string(
+            [global_text_properties.create_text_with_undefined_color(author_name + ": ", color=author_color)])
+        text = content if not isSpeedchat else get_raw_formatted_string([MinimalJsonMessagePart(content, color='bold')])
+        return ChatContainerMessage(
+            ChatMessageAuthor(self.getDoId(), name),
+            text
+        )
+
     def setChatAbsolute(self, chatString, chatFlags, dialogue = None, interrupt = 1, quiet = 0):
         DistributedAvatar.DistributedAvatar.setChatAbsolute(self, chatString, chatFlags, dialogue, interrupt)
+
+        if self.isPlayerControlled():
+            localAvatar.chatbox.add_message(self.__getChatLogMessage(chatString, True))
 
     def setChatMuted(self, chatString, chatFlags, dialogue = None, interrupt = 1, quiet = 0):
         self.nametag.setChat(chatString, chatFlags)
@@ -2059,6 +2075,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.nametag.setChat(chatString, flags)
         if base.toonChatSounds:
             self.playCurrentDialogue(None, flags, interrupt=1)
+        localAvatar.chatbox.add_message(self.__getChatLogMessage(chatString, False))
         return
 
     def scrubTalk(self, message, mods):

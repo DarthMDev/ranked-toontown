@@ -636,6 +636,7 @@ class TalkAssistant(DirectObject.DirectObject):
             if self.isThought(message):
                 chatFlags = CFThought
             base.cr.chatManager.sendChatMessage(message)
+            base.localAvatar.chatMgr.lastSendTime = time.time()
             messenger.send('chatUpdate', [message, chatFlags])
         return error
 
