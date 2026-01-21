@@ -308,7 +308,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             base.setCellsAvailable([base.bottomCells[4]], 0)
 
         self.archipelagoLog = ArchipelagoOnscreenLog()
-        self.chatbox = ChatContainer(parent=base.a2dLeftCenter)
+        self.chatbox = ChatContainer(parent=base.a2dLeftCenter, scale=1.1)
 
         controls = base.controls
         # Accept both binds for SECONDARY_ACTION

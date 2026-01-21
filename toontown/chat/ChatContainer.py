@@ -10,7 +10,9 @@ from direct.gui.DirectButton import DirectButton
 from direct.interval.FunctionInterval import Wait, Func
 from direct.interval.LerpInterval import LerpColorScaleInterval
 from direct.interval.MetaInterval import Sequence
-from panda3d.core import TextNode, PGButton, MouseButton
+from panda3d.core import TextNode, PGButton, MouseButton, PGMouseWatcherParameter
+
+from toontown.archipelago.util import global_text_properties
 
 
 @dataclasses.dataclass
@@ -112,7 +114,7 @@ class ChatContainerMessage(DirectButton):
 class ChatContainer(DirectScrolledFrame):
 
     FRAME_COLOR = (0.1, 0.1, 0.1, .5)
-    FRAME_SIZE = (-0.0035, .803, 0, .5)
+    FRAME_SIZE = (-0.003, .803, 0, .5)
     FRAME_POS = (0.05, 0, -0.55)
     INPUT_HEIGHT = .06
     INPUT_COLOR = (0.1, 0.1, 0.1, .75)
@@ -128,6 +130,8 @@ class ChatContainer(DirectScrolledFrame):
 
     # Change this to set the sfx for when a message is added.
     MESSAGE_SFX_PATH = 'phase_3/audio/sfx/GUI_balloon_popup.ogg'
+
+    INPUT_PREFIX = global_text_properties.get_colored_string(' All: ', color='blue')
 
     def __init__(self, **kwargs):
         if 'frameColor' not in kwargs:
@@ -162,12 +166,17 @@ class ChatContainer(DirectScrolledFrame):
             scale=.03,
             frameColor=self.INPUT_COLOR,
             pos=(0, 0, -.04),
-            text_pos=(0.01, 0.02),
+            text_pos=(0.01, 0.024),
             text_fg=(.9, .9, .9, 1),
             width=25,
             overflow=True,
+            initialText=self.INPUT_PREFIX,
+            textMayChange=True,
             command=self.__handle_input_sent
         )
+        self._starting_cursor_position = self._input.getCursorPosition()
+        self._input.bind(DirectGuiGlobals.TYPE, self.__onType)
+        self._input.bind(DirectGuiGlobals.ERASE, self.__onErase)
 
         self._speedchat = DirectButton(
             parent=self._input,
@@ -177,7 +186,7 @@ class ChatContainer(DirectScrolledFrame):
             text_pos=(0, -.075),
             text_fg=(.9, .9, .9, 1),
             text_shadow=(0, 0, 0, 1),
-            frameSize=(-.76, .76, -.76, .76),
+            frameSize=(-.7525, .7525, -.7525, .7525),
             frameColor=self.INPUT_COLOR,
             relief=DirectGuiGlobals.TEXTUREBORDER,
             command=self.__handle_speedchat_clicked,
@@ -190,6 +199,14 @@ class ChatContainer(DirectScrolledFrame):
 
         self.isActive = True
         self.deactivate()
+
+    def __onType(self, mw: PGMouseWatcherParameter):
+        pass
+
+    def __onErase(self, mw: PGMouseWatcherParameter):
+        if self._input.getCursorPosition() <= self._starting_cursor_position:
+            self._input.set(self.INPUT_PREFIX)
+            self._input.setCursorPosition(self._starting_cursor_position)
 
     def activate(self):
         self['frameColor'] = self.FRAME_COLOR
@@ -218,7 +235,8 @@ class ChatContainer(DirectScrolledFrame):
         self.isActive = False
 
     def __handle_input_sent(self, text):
-        self._input.enterText('')
+        text = text.replace(self.INPUT_PREFIX, '')
+        self._input.enterText(self.INPUT_PREFIX)
         base.localAvatar.chatMgr.fsm.request('mainMenu')
         base.localAvatar.chatMgr.lastSendTime = time.time()
         if text is None or len(text) == 0:
@@ -286,8 +304,9 @@ if __name__ == "__main__":
             self.test_button.reparentTo(self.aspect2d)
 
             # Test code goes here
-            self.chatbox = ChatContainer()
+            self.chatbox = ChatContainer(scale=1.25)
             self.chatbox.reparentTo(self.a2dLeftCenter)
+            self.chatbox.activate()
 
 
         def __test_action(self):
