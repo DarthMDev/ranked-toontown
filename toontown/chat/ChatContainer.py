@@ -340,6 +340,7 @@ class ChatContainer(DirectScrolledFrame):
         if italicize:
             message = global_text_properties.get_colored_string(message, color='bold')
         self.addRawMessage(f"{text}{message}", _from)
+        base.playSfx(base.localAvatar.soundWhisper)
 
     def scrollFunc(self, multiplier):
         """

@@ -1,6 +1,6 @@
 INCOMING_CHAT_MESSAGE_NAME = 'magicWord'
-PREFIX_DEFAULT = '~'
-PREFIX_ALLOWED = ['~', '?', '/', '<', ':', ';']
+PREFIX_DEFAULT = '/'
+PREFIX_ALLOWED = ['/', '?', '~', '<', ':', ';']
 if config.GetBool('exec-chat', False):
     PREFIX_ALLOWED.append('>')
 WIZARD_DEFAULT = 'Magic Minnie'

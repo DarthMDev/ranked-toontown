@@ -583,7 +583,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
                 self.sendUpdate('setSleepAutoReply', [base.localAvatar.doId], fromId)
         chatString = SCDecoders.decodeSCEmoteWhisperMsg(emoteId, handle.getName())
         if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTEmote)
+            # self.displayWhisper(fromId, chatString, WhisperType.WTEmote)
             base.talkAssistant.receiveAvatarWhisperSpeedChat(TalkAssistant.SPEEDCHAT_EMOTE, emoteId, fromId)
         return
 
@@ -608,7 +608,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
                 self.sendUpdate('setSleepAutoReply', [base.localAvatar.doId], fromId)
         chatString = SCDecoders.decodeSCStaticTextMsg(msgIndex)
         if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
+            # self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
             base.talkAssistant.receiveAvatarWhisperSpeedChat(TalkAssistant.SPEEDCHAT_NORMAL, msgIndex, fromId)
         return
 
@@ -639,8 +639,8 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         if fromId in self.ignoreList:
             self.d_setWhisperIgnored(fromId)
         chatString = TTSCDecoders.decodeTTSCToontaskMsg(taskId, toNpcId, toonProgress, msgIndex)
-        if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
+        # if chatString:
+        #     self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
         return
 
     def setMaxAccessories(self, max):

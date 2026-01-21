@@ -43,6 +43,8 @@ from . import HoodMgr
 from . import PlayGame
 from toontown.toontowngui import ToontownLoadingBlocker
 from ..archipelago.distributed.DistributedArchipelagoManager import DistributedArchipelagoManager
+from ..archipelago.util import global_text_properties
+from ..chat.ChatContainer import ChatMessageAuthor
 from ..friends.OnlinePlayerManager import OnlinePlayerManager
 from ..friends.OnlineToon import OnlineToon
 from ..groups.GroupManager import GroupManager
@@ -1004,14 +1006,14 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         if self.archipelagoManager is not None:
             color = self.archipelagoManager.getToonColorProfile(onlineToon.avId)
 
-        base.localAvatar.displayWhisper(onlineToon.avId, OTPLocalizer.WhisperFriendComingOnline % onlineToon.name, WhisperType.WTSystem, colorProfileOverride=color)
+        base.localAvatar.chatbox.addRawMessage(
+            global_text_properties.create_text_with_undefined_color(OTPLocalizer.WhisperFriendComingOnline % onlineToon.name, color=(.4, .9, .4, 1)),
+            author=ChatMessageAuthor(onlineToon.avId, onlineToon.name)
+        )
 
     def onToonWentOffline(self, offlineToon: OnlineToon):
         # Send our local toon a message.
-        color = None
-
-        # If our AP manager is running, try and find a color for them :3
-        if self.archipelagoManager is not None:
-            color = self.archipelagoManager.getToonColorProfile(offlineToon.avId)
-
-        base.localAvatar.displayWhisper(0, OTPLocalizer.WhisperFriendLoggedOut % offlineToon.name, WhisperType.WTSystem, colorProfileOverride=color)
+        base.localAvatar.chatbox.addRawMessage(
+            global_text_properties.create_text_with_undefined_color(
+                OTPLocalizer.WhisperFriendLoggedOut % offlineToon.name, color=(.9, .4, .4, 1)),
+        )

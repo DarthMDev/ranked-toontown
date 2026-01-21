@@ -1,6 +1,7 @@
 from panda3d.core import *
 from libotp import WhisperPopup
 from libotp import CFQuicktalker, CFPageButton, CFQuitButton, CFSpeech, CFThought, CFTimeout
+from libotp.nametag import WhisperGlobals
 from libotp.nametag.WhisperGlobals import WhisperType
 from otp.chat import ChatGarbler
 import string
@@ -16,6 +17,8 @@ from otp.otpbase import OTPGlobals
 from otp.avatar.Avatar import teleportNotify
 from otp.distributed.TelemetryLimited import TelemetryLimited
 from toontown.archipelago.definitions.color_profile import ColorProfile
+from toontown.archipelago.util import global_text_properties
+from toontown.spellbook import MagicWordConfig
 
 if base.config.GetBool('want-chatfilter-hacks', 0):
     from otp.switchboard import badwordpy
@@ -137,7 +140,7 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
         self.accountName = accountName
 
     def setSystemMessage(self, aboutId: int, chatString: str, whisperType: WhisperType = WhisperType.WTSystem):
-        self.displayWhisper(aboutId, chatString, whisperType)
+        pass
 
     def displayWhisper(self, fromId, chatString, whisperType, colorProfileOverride: ColorProfile = None):
         print('Whisper type %s from %s: %s' % (whisperType, fromId, chatString))
@@ -164,7 +167,6 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
             return
         chatString = SCDecoders.decodeSCStaticTextMsg(msgIndex)
         if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
             base.talkAssistant.receiveAvatarWhisperSpeedChat(TalkAssistant.SPEEDCHAT_NORMAL, msgIndex, fromId)
         return
 
@@ -193,7 +195,6 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
             return
         chatString = SCDecoders.decodeSCCustomMsg(msgIndex)
         if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTQuickTalker)
             base.talkAssistant.receiveAvatarWhisperSpeedChat(TalkAssistant.SPEEDCHAT_CUSTOM, msgIndex, fromId)
         return
 
@@ -214,7 +215,6 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
             return
         chatString = SCDecoders.decodeSCEmoteWhisperMsg(emoteId, handle.getName())
         if chatString:
-            self.displayWhisper(fromId, chatString, WhisperType.WTEmote)
             base.talkAssistant.receiveAvatarWhisperSpeedChat(TalkAssistant.SPEEDCHAT_EMOTE, emoteId, fromId)
         return
 
@@ -227,9 +227,9 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
             pass
 
     def b_setChat(self, chatString, chatFlags):
-        magicWordPrefix = '~'
+        magicWordPrefix = '/'
         magicWordActivatorIndex = base.settings.get('magic-word-activator')
-        MW_PREFIX_ALLOWED = ['~', '?', '/', '<', ':', ';']
+        MW_PREFIX_ALLOWED = MagicWordConfig.PREFIX_ALLOWED
         if not config.GetBool('exec-chat', 0):
             MW_PREFIX_ALLOWED.append('>')
         if 0 <= magicWordActivatorIndex <= (len(MW_PREFIX_ALLOWED) - 1):

@@ -13,6 +13,7 @@ from otp.chat.TalkGlobals import *
 from otp.chat.ChatGlobals import *
 from libotp import CFSpeech, CFTimeout, CFThought
 from toontown.chat.ChatContainer import ChatMessageAuthor
+from toontown.spellbook import MagicWordConfig
 
 ThoughtPrefix = '.'
 
@@ -607,9 +608,9 @@ class TalkAssistant(DirectObject.DirectObject):
 
     def sendOpenTalk(self, message):
         error = None
-        magicWordPrefix = '~'
+        magicWordPrefix = '/'
         magicWordActivatorIndex = base.settings.get('magic-word-activator')
-        MW_PREFIX_ALLOWED = ['~', '?', '/', '<', ':', ';']
+        MW_PREFIX_ALLOWED = MagicWordConfig.PREFIX_ALLOWED
         if not config.GetBool('exec-chat', 0):
             MW_PREFIX_ALLOWED.append('>')
         if 0 <= magicWordActivatorIndex <= (len(MW_PREFIX_ALLOWED) - 1):

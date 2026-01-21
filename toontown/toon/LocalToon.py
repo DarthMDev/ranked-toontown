@@ -10,6 +10,7 @@ from direct.showbase.PythonUtil import *
 from direct.gui.DirectGui import *
 from direct.task import Task
 
+from libotp.nametag import WhisperGlobals
 from libotp.nametag.WhisperGlobals import WhisperType
 from otp.avatar import LocalAvatar
 from otp.login import LeaveToPayDialog
@@ -35,6 +36,7 @@ from . import LaffMeter
 from toontown.archipelago.gui.ArchipelagoOnscreenLog import ArchipelagoOnscreenLog
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
+from ..archipelago.util import global_text_properties
 from ..chat.ChatContainer import ChatContainer
 from ..groups.GroupManager import GroupManager
 from ..shtiker.LeaderboardPage import LeaderboardPage
@@ -1250,6 +1252,11 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         # When we have our battle ID set, we should determine if we should have unites enabled
         disableUnitesFlag: bool = self.isBattling()
         messenger.send(ResistanceChat.RESISTANCE_TOGGLE_EVENT, [disableUnitesFlag])
+
+    def setSystemMessage(self, aboutId: int, chatString: str, whisperType: WhisperType = WhisperType.WTSystem):
+        prefix = global_text_properties.create_text_with_undefined_color('System: ', WhisperGlobals.WHISPER_COLORS.get(whisperType)[1].getPrimaryColor())
+        base.localAvatar.chatbox.addRawMessage(f"{prefix}{chatString}")
+        base.playSfx(self.soundSystemMessage)
 
     def displayWhisper(self, fromId, chatString, whisperType, colorProfileOverride: ColorProfile = None):
         sender = None
