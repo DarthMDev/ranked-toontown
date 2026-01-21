@@ -151,6 +151,14 @@ def update_ttap_dc(file_path, mappings):
         old_dclass_spaced = f"dclass {old_class} :"
         new_dclass_spaced = f"dclass {new_class} :"
         content = content.replace(old_dclass_spaced, new_dclass_spaced)
+        
+        # Update inheritance relationships: dclass SomeClass : OldClass -> dclass SomeClass : NewClass
+        # Pattern: : OldClass { or : OldClass (with optional whitespace and opening brace)
+        # Use regex to be more precise and avoid false matches
+        # Match: colon, optional whitespace, old class name, optional whitespace, optional opening brace or end of line
+        inheritance_pattern = re.compile(r':\s*' + re.escape(old_class) + r'(\s*\{|\s|$)')
+        replacement = f': {new_class}\\1'
+        content = inheritance_pattern.sub(replacement, content)
     
     # Only write if changes were made
     if content != original_content:

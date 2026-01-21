@@ -7,7 +7,7 @@ from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import Point3
 
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.objects import DistributedCashbotBossSideCraneAI
+from toontown.minigame.craning.objects import DistributedCashbotSideCraneAI
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, STATUS_EFFECT_DURATIONS
@@ -294,7 +294,7 @@ class DistributedCashbotBossAI(DistributedBossCogAI, FSM.FSM):
             return False
 
         damage_stuns = damage >= self.ruleset.CFO_STUN_THRESHOLD
-        is_sidecrane = isinstance(crane, DistributedCashbotBossSideCraneAI.DistributedCashbotBossSideCraneAI)
+        is_sidecrane = isinstance(crane, DistributedCashbotSideCraneAI.DistributedCashbotSideCraneAI)
         hard_hit = impact >= self.ruleset.SIDECRANE_IMPACT_STUN_THRESHOLD
 
         # Is the damage enough?
@@ -1153,27 +1153,27 @@ class DistributedCashbotBossAI(DistributedBossCogAI, FSM.FSM):
         # Create the drone with specified type - use specialized classes
         # Select the appropriate drone class based on type
         if droneType == CraneGameGlobals.DroneType.LASER:
-            from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
-            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneLaserAI import DistributedCashbotDroneLaserAI
+            drone = DistributedCashbotDroneLaserAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.HEAL:
-            from toontown.minigame.craning.objects.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
-            drone = DistributedGoonDroneHealAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneHealAI import DistributedCashbotDroneHealAI
+            drone = DistributedCashbotDroneHealAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.EXPLODEY:
-            from toontown.minigame.craning.objects.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
-            drone = DistributedGoonDroneExplodeyAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneExplodeyAI import DistributedCashbotDroneExplodeyAI
+            drone = DistributedCashbotDroneExplodeyAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.STUN:
-            from toontown.minigame.craning.objects.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
-            drone = DistributedGoonDroneStunAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneStunAI import DistributedCashbotDroneStunAI
+            drone = DistributedCashbotDroneStunAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.SHIELD:
-            from toontown.minigame.craning.objects.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
-            drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneShieldAI import DistributedCashbotDroneShieldAI
+            drone = DistributedCashbotDroneShieldAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.GHOSTY:
-            from toontown.minigame.craning.objects.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
-            drone = DistributedGoonDroneGhostyAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneGhostyAI import DistributedCashbotDroneGhostyAI
+            drone = DistributedCashbotDroneGhostyAI(self.air, self, toonId)
         else:
             self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
-            from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
-            drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
+            from toontown.minigame.craning.objects.DistributedCashbotDroneLaserAI import DistributedCashbotDroneLaserAI
+            drone = DistributedCashbotDroneLaserAI(self.air, self, toonId)
         
         drone.generateWithRequired(self.zoneId)
         # Use b_setPosition for AI objects that inherit from DistributedCrushableEntityAI

@@ -96,7 +96,7 @@ class CustomGravityWalker(GravityWalker):
                 # MovingPlatform sets a flag on localAvatar when entering/exiting the platform
                 isFloatingPlatform = False
                 if hasattr(base, 'localAvatar') and base.localAvatar:
-                    # Check if the flag is set (set by DistributedFloatingPlatform.onToonEnter)
+                    # Check if the flag is set (set by DistributedCashbotFloatingPlatform.onToonEnter)
                     if hasattr(base.localAvatar, '_onFloatingPlatform') and base.localAvatar._onFloatingPlatform:
                         isFloatingPlatform = True
                 

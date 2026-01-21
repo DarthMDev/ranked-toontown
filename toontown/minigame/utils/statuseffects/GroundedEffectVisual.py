@@ -50,8 +50,8 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                 self.notify.info("Detected CFO boss - applying larger, wider earth effect")
             else:
                 # Check if this is a safe (not CFO)
-                from ...craning.objects import DistributedCashbotBossSafe
-                if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
+                from ...craning.objects import DistributedCashbotSafe
+                if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe):
                     isSafe = True
                     self.notify.info("Detected safe - will apply brown/tan glow color")
         except:
@@ -508,10 +508,10 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 if hasattr(self.obj, '_groundedGlowColor'):
                     # Use centralized color management system
                     if hasattr(self.obj, 'registerColorModification'):
@@ -540,10 +540,10 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):
                     self.obj.unregisterColorModification('grounded', priority='elemental')
@@ -572,10 +572,10 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):
                     self.obj.unregisterColorModification('grounded', priority='elemental')

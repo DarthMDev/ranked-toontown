@@ -43,13 +43,13 @@ from toontown.minigame.pie.boss import DistributedSellbotBossStripped/AI
 from toontown.minigame.craning.boss import DistributedCashbotBoss/AI
 from toontown.minigame.scale.boss import DistributedLawbotBossStripped/AI
 from toontown.minigame.seltzer.boss import DistributedBossbotBoss/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossSafe/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossCrane/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossSideCrane/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossHeavyCrane/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossBoomBarrow/AI
-from toontown.minigame.craning.objects import DistributedFloatingPlatform/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossGoon/AI
+from toontown.minigame.craning.objects import DistributedCashbotSafe/AI
+from toontown.minigame.craning.objects import DistributedCashbotCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotSideCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotHeavyCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotBoomBarrow/AI
+from toontown.minigame.craning.objects import DistributedCashbotFloatingPlatform/AI
+from toontown.minigame.craning.objects import DistributedCashbotGoon/AI
 from toontown.battle import DistributedBattleBase/AI
 from toontown.battle import DistributedBattle/AI
 from toontown.coghq import DistributedBattleFactory/AI
@@ -94,7 +94,7 @@ from toontown.safezone import DistributedOZTreasure/AI
 from toontown.safezone import DistributedETreasure/AI
 from toontown.safezone import DistributedEFlyingTreasure/AI
 from toontown.minigame.tag import DistributedTagTreasure/AI
-from toontown.minigame.craning.objects import DistributedCashbotBossTreasure/AI
+from toontown.minigame.craning.objects import DistributedCashbotTreasure/AI
 from toontown.building import DistributedTrophyMgr/AI
 from toontown.building import DistributedBuilding/AI
 from toontown.building import DistributedAnimBuilding/AI
@@ -149,13 +149,13 @@ from toontown.coghq import CrusherCell/AI
 from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
 from toontown.minigame.utils.objects import DistributedGoon/AI
-from toontown.minigame.craning.objects import DistributedGoonDrone/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneLaser/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneHeal/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneExplodey/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneStun/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneShield/AI
-from toontown.minigame.craning.objects import DistributedGoonDroneGhosty/AI
+from toontown.minigame.craning.objects import DistributedCashbotDrone/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneLaser/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneHeal/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneExplodey/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneStun/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneShield/AI
+from toontown.minigame.craning.objects import DistributedCashbotDroneGhosty/AI
 from toontown.minigame.utils.objects import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -1184,7 +1184,7 @@ struct LinkPosition {
   int16/100 z;
 };
 
-dclass DistributedCashbotBossCrane : DistributedObject {
+dclass DistributedCashbotCrane : DistributedObject {
   setBossCogId(uint32) required broadcast ram;
   setIndex(uint8) required broadcast ram;
   setState(char, uint32) broadcast ram;
@@ -1197,19 +1197,19 @@ dclass DistributedCashbotBossCrane : DistributedObject {
   tntHit(uint32) broadcast clsend airecv;
 };
 
-dclass DistributedCashbotBossSideCrane : DistributedCashbotBossCrane {
+dclass DistributedCashbotSideCrane : DistributedCashbotCrane {
 };
 
-dclass DistributedCashbotBossHeavyCrane : DistributedCashbotBossCrane {
+dclass DistributedCashbotHeavyCrane : DistributedCashbotCrane {
 };
 
-dclass DistributedCashbotBossBoomBarrow : DistributedObject {
+dclass DistributedCashbotBoomBarrow : DistributedObject {
   setIndex(uint8) required broadcast ram;
   touchBoomBarrow() airecv clsend;
   setCooldownState(bool, uint32) broadcast ram;
 };
 
-dclass DistributedFloatingPlatform : DistributedObject {
+dclass DistributedCashbotFloatingPlatform : DistributedObject {
   setIndex(uint8) required broadcast ram;
   setPosition(int16/10, int16/10, int16/10) broadcast ram;
 };
@@ -1262,14 +1262,14 @@ dclass DistributedCashbotBossObject : DistributedSmoothNode {
   updateClientPositions(int16/10, int16/10, int16/10, int16%360/10, int16%360/10, int16%360/10) broadcast ram;
 };
 
-dclass DistributedCashbotBossSafe : DistributedCashbotBossObject {
+dclass DistributedCashbotSafe : DistributedCashbotBossObject {
   setIndex(uint8) required broadcast ram;
   requestInitial() airecv clsend;
   move(int16/10, int16/10, int16/10, int16/10) broadcast ram clsend airecv;
   destroyedGoon(uint32)  airecv clsend;
 };
 
-dclass DistributedCashbotBossGoon : DistributedCashbotBossObject {
+dclass DistributedCashbotGoon : DistributedCashbotBossObject {
   requestBattle(int16/10) airecv clsend;
   requestStunned(int16/10) airecv clsend;
   requestWalk() airecv clsend;
@@ -1817,7 +1817,7 @@ dclass DistributedEFlyingTreasure : DistributedTreasure {
 dclass DistributedTagTreasure : DistributedTreasure {
 };
 
-dclass DistributedCashbotBossTreasure : DistributedTreasure {
+dclass DistributedCashbotTreasure : DistributedTreasure {
   setGoonId(uint32) required broadcast ram;
   setFinalPosition(int16/10, int16/10, int16/10) required broadcast ram;
   setStyle(uint16) required broadcast ram;
@@ -2259,7 +2259,7 @@ dclass DistributedGoon : DistributedCrushableEntity {
   setMovie(uint8, uint32, int32/10, int16) broadcast ram;
 };
 
-dclass DistributedGoonDrone : DistributedGoon {
+dclass DistributedCashbotDrone : DistributedGoon {
   setOwnerId(uint32) broadcast ram;
   setTargetId(uint32) broadcast ram;
   setDroneType(uint8) broadcast ram;
@@ -2273,25 +2273,25 @@ dclass DistributedGoonDrone : DistributedGoon {
   vanishWithPoof() broadcast clsend airecv;
 };
 
-// Specialized drone classes - all inherit from DistributedGoonDrone
+// Specialized drone classes - all inherit from DistributedCashbotDrone
 // These share the same interface but allow different Python implementations
-dclass DistributedGoonDroneLaser : DistributedGoonDrone {
+dclass DistributedCashbotDroneLaser : DistributedCashbotDrone {
 };
 
-dclass DistributedGoonDroneHeal : DistributedGoonDrone {
+dclass DistributedCashbotDroneHeal : DistributedCashbotDrone {
 };
 
-dclass DistributedGoonDroneExplodey : DistributedGoonDrone {
+dclass DistributedCashbotDroneExplodey : DistributedCashbotDrone {
 };
 
-dclass DistributedGoonDroneStun : DistributedGoonDrone {
+dclass DistributedCashbotDroneStun : DistributedCashbotDrone {
 };
 
-dclass DistributedGoonDroneShield : DistributedGoonDrone {
+dclass DistributedCashbotDroneShield : DistributedCashbotDrone {
   breakShield(uint8) broadcast clsend airecv;
 };
 
-dclass DistributedGoonDroneGhosty : DistributedGoonDrone {
+dclass DistributedCashbotDroneGhosty : DistributedCashbotDrone {
 };
 
 dclass DistributedGridGoon : DistributedGoon {

@@ -210,10 +210,10 @@ class DistributedCashbotBoss(DistributedBossCog):
 
     def grabObject(self, obj):
         # Grab a safe and put it on as a helmet.  This method mirrors
-        # a similar method on DistributedCashbotBossCrane.py; it goes
+        # a similar method on DistributedCashbotCrane.py; it goes
         # through the same API as a crane picking up a safe.
 
-        # This is only called by DistributedCashbotBossObject.enterGrabbed().
+        # This is only called by DistributedCashbotObject.enterGrabbed().
         obj.wrtReparentTo(self.neck)
         obj.hideShadows()
         obj.stashCollisions()
@@ -229,7 +229,7 @@ class DistributedCashbotBoss(DistributedBossCog):
     def dropObject(self, obj):
         # Drop a helmet on the ground.
 
-        # This is only called by DistributedCashbotBossObject.exitGrabbed().
+        # This is only called by DistributedCashbotObject.exitGrabbed().
         assert self.heldObject == obj
 
         if obj.lerpInterval:

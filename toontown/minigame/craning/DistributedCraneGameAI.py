@@ -8,17 +8,17 @@ from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
 from toontown.minigame.craning.boss.CashbotBossComboTracker import CashbotBossComboTracker
 from toontown.minigame.craning.CraneGameGlobals import ScoreReason
-from toontown.minigame.craning.objects.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
-from toontown.minigame.craning.objects.DistributedCashbotBossHeavyCraneAI import DistributedCashbotBossHeavyCraneAI
-from toontown.minigame.craning.objects.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
-from toontown.minigame.craning.objects.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
-from toontown.minigame.craning.objects.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
-from toontown.minigame.craning.objects.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
-from toontown.minigame.craning.objects.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
+from toontown.minigame.craning.objects.DistributedCashbotCraneAI import DistributedCashbotCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotHeavyCraneAI import DistributedCashbotHeavyCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotSafeAI import DistributedCashbotSafeAI
+from toontown.minigame.craning.objects.DistributedCashbotSideCraneAI import DistributedCashbotSideCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotTreasureAI import DistributedCashbotTreasureAI
+from toontown.minigame.craning.objects.DistributedCashbotBoomBarrowAI import DistributedCashbotBoomBarrowAI
+from toontown.minigame.craning.objects.DistributedCashbotFloatingPlatformAI import DistributedCashbotFloatingPlatformAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.objects.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
+from toontown.minigame.craning.objects.DistributedCashbotGoonAI import DistributedCashbotGoonAI
 from toontown.minigame.craning.boss.DistributedCashbotBossAI import DistributedCashbotBossAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
@@ -406,7 +406,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         ind = 0
 
         for _ in CraneGameGlobals.NORMAL_CRANE_POSHPR:
-            crane = DistributedCashbotBossCraneAI(self.air, self, ind)
+            crane = DistributedCashbotCraneAI(self.air, self, ind)
             crane.generateWithRequired(self.zoneId)
             self.cranes.append(crane)
             ind += 1
@@ -414,14 +414,14 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Generate the sidecranes if wanted
         if self.ruleset.WANT_SIDECRANES:
             for _ in CraneGameGlobals.SIDE_CRANE_POSHPR:
-                crane = DistributedCashbotBossSideCraneAI(self.air, self, ind)
+                crane = DistributedCashbotSideCraneAI(self.air, self, ind)
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
                 ind += 1
         # Generate boom barrows if wanted (alternative to side cranes)
         elif self.ruleset.WANT_BOOM_BARROWS:
             for boomBarrowIndex, _ in enumerate(CraneGameGlobals.SIDE_CRANE_POSHPR):
-                boomBarrow = DistributedCashbotBossBoomBarrowAI(self.air, self, boomBarrowIndex)
+                boomBarrow = DistributedCashbotBoomBarrowAI(self.air, self, boomBarrowIndex)
                 boomBarrow.generateWithRequired(self.zoneId)
                 boomBarrow.b_setIndex(boomBarrowIndex)
                 self.boomBarrows.append(boomBarrow)
@@ -437,7 +437,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
                 (120, -357, 4),   # Back platform (behind CFO, towards vault) - 40 units away
             ]
             for platformIndex, (x, y, z) in enumerate(platformPositions):
-                platform = DistributedFloatingPlatformAI(self.air, self, platformIndex)
+                platform = DistributedCashbotFloatingPlatformAI(self.air, self, platformIndex)
                 platform.generateWithRequired(self.zoneId)
                 platform.b_setIndex(platformIndex)
                 platform.setPosition(x, y, z)
@@ -446,7 +446,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Generate the heavy cranes if wanted
         if self.ruleset.WANT_HEAVY_CRANES:
             for _ in CraneGameGlobals.HEAVY_CRANE_POSHPR:
-                crane = DistributedCashbotBossHeavyCraneAI(self.air, self, ind)
+                crane = DistributedCashbotHeavyCraneAI(self.air, self, ind)
                 crane.generateWithRequired(self.zoneId)
                 self.cranes.append(crane)
                 ind += 1
@@ -454,7 +454,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # And all of the safes.
         self.safes.clear()
         for index in range(min(self.ruleset.SAFES_TO_SPAWN, len(CraneGameGlobals.SAFE_POSHPR))):
-            safe = DistributedCashbotBossSafeAI(self.air, self, index)
+            safe = DistributedCashbotSafeAI(self.air, self, index)
             safe.generateWithRequired(self.zoneId)
             self.safes.append(safe)
 
@@ -730,7 +730,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             treasure.b_setFinalPosition(fpos[0], fpos[1], 0)
         else:
             # Create a new treasure object
-            treasure = DistributedCashbotBossTreasureAI(self.air, self, goon, style, fpos[0], fpos[1], 0)
+            treasure = DistributedCashbotTreasureAI(self.air, self, goon, style, fpos[0], fpos[1], 0)
             treasure.generateWithRequired(self.zoneId)
         treasure.healAmount = healAmount
         self.treasures[treasure.doId] = treasure
@@ -764,7 +764,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Check distance to all cranes
         for crane in self.cranes:
             # Get crane position based on its type and index
-            if isinstance(crane, DistributedCashbotBossSideCraneAI):
+            if isinstance(crane, DistributedCashbotSideCraneAI):
                 poshpr = CraneGameGlobals.SIDE_CRANE_POSHPR[crane.index - len(CraneGameGlobals.NORMAL_CRANE_POSHPR)]
             else:
                 poshpr = CraneGameGlobals.NORMAL_CRANE_POSHPR[crane.index]
@@ -799,7 +799,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.__updateGoonCache(side)
 
         # Create and generate the goon
-        goon = DistributedCashbotBossGoonAI(self.air, self)
+        goon = DistributedCashbotGoonAI(self.air, self)
         goon.generateWithRequired(self.zoneId)
         self.goons.append(goon)
 
@@ -1159,7 +1159,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             # dizzy) will make the boss dizzy for a little while.
             delayTime = self.progressValue(20, 5)
             self.boss.b_setAttackCode(ToontownGlobals.BossCogDizzy, delayTime=delayTime)
-            isSideCrane = isinstance(crane, DistributedCashbotBossSideCraneAI)
+            isSideCrane = isinstance(crane, DistributedCashbotSideCraneAI)
             reason = CraneGameGlobals.ScoreReason.SIDE_STUN if isSideCrane else CraneGameGlobals.ScoreReason.STUN
             
             # Determine points based on stun type
