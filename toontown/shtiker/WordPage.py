@@ -376,8 +376,7 @@ class WordsTabPage(DirectFrame):
         phrase = base.cr.magicWordManager.chatPrefix + wordName + ' '
         localAvatar.book.closeBook()
         localAvatar.chatMgr.fsm.request('mainMenu')
-        localAvatar.chatMgr.chatInputNormal.typeCallback(None)
-        localAvatar.chatMgr.chatInputNormal.chatEntry.enterText(phrase)
+        localAvatar.chatbox.setInputText(phrase)
 
     def showInfoPanel(self):
         wordName = None

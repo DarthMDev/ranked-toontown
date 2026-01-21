@@ -53,12 +53,6 @@ class ToontownChatManager(ChatManager.ChatManager):
         self.whisperPos = Vec3(0.0, 0, 0.71)
         self.speedChatPlusPos = Vec3(-0.35, 0, 0.71)
         self.chatInputWhiteList = TTChatInputWhiteList()
-        if self.defaultToWhiteList:
-            self.chatInputNormal = self.chatInputWhiteList
-            self.chatInputNormal.setPos(self.normalPos)
-            self.chatInputNormal.desc = 'chatInputNormal'
-        else:
-            self.chatInputNormal = TTChatInputNormal(self)
         self.chatInputWhiteList.setPos(self.speedChatPlusPos)
         self.chatInputWhiteList.reparentTo(base.a2dTopLeft)
         self.chatInputWhiteList.desc = 'chatInputWhiteList'
@@ -123,7 +117,6 @@ class ToontownChatManager(ChatManager.ChatManager):
 
     def enterMainMenu(self):
         messenger.send("ChatMgr-enterMainMenu")
-        self.chatInputNormal.setPos(self.normalPos)
         self.chatInputWhiteList.reparentTo(base.a2dTopLeft)
         if self.chatInputWhiteList.isActive():
             self.notify.debug('enterMainMenu calling checkObscured')
@@ -400,6 +393,8 @@ class ToontownChatManager(ChatManager.ChatManager):
         if self.fsm.getCurrentState().getName() == 'speedChat':
             self.fsm.request('mainMenu')
         else:
+            if self.fsm.getCurrentState().getName() != 'normalChat':
+                base.localAvatar.chatbox.setWhisperTarget(None)
             self.fsm.request('speedChat')
 
     def __whisperButtonPressed(self, avatarName, avatarId, playerId):
@@ -424,7 +419,6 @@ class ToontownChatManager(ChatManager.ChatManager):
 
     def enterWhisperChatPlayer(self, avatarName, playerId):
         result = ChatManager.ChatManager.enterWhisperChatPlayer(self, avatarName, playerId)
-        self.chatInputNormal.setPos(self.whisperPos)
         self.chatInputWhiteList.reparentTo(aspect2dp)
         if result == None:
             self.notify.warning('something went wrong in enterWhisperChatPlayer, falling back to main menu')
@@ -433,7 +427,6 @@ class ToontownChatManager(ChatManager.ChatManager):
 
     def enterWhisperChat(self, avatarName, avatarId):
         result = ChatManager.ChatManager.enterWhisperChat(self, avatarName, avatarId)
-        self.chatInputNormal.setPos(self.whisperPos)
         self.chatInputWhiteList.reparentTo(aspect2dp)
         if result == None:
             self.notify.warning('something went wrong in enterWhisperChat, falling back to main menu')

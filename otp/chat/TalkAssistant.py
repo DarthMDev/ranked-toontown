@@ -12,6 +12,8 @@ import time
 from otp.chat.TalkGlobals import *
 from otp.chat.ChatGlobals import *
 from libotp import CFSpeech, CFTimeout, CFThought
+from toontown.chat.ChatContainer import ChatMessageAuthor
+
 ThoughtPrefix = '.'
 
 class TalkAssistant(DirectObject.DirectObject):
@@ -388,11 +390,6 @@ class TalkAssistant(DirectObject.DirectObject):
 
     def receiveWhisperTalk(self, avatarId, avatarName, accountId, accountName, toId, toName, message, scrubbed = 0):
         error = None
-        print('receiveWhisperTalk %s %s %s %s %s' % (avatarId,
-         avatarName,
-         accountId,
-         accountName,
-         message))
         if not avatarName and avatarId:
             avatarName = self.findAvatarName(avatarId)
         if not accountName and accountId:
@@ -408,6 +405,7 @@ class TalkAssistant(DirectObject.DirectObject):
         if accountId:
             self.addToHistoryDISLId(newMessage, accountId)
         messenger.send('NewOpenMessage', [newMessage])
+        base.localAvatar.chatbox.addIncomingWhisper(ChatMessageAuthor(avatarId, avatarName), message)
         return error
 
     def receiveAccountTalk(self, avatarId, avatarName, accountId, accountName, toId, toName, message, scrubbed = 0):
@@ -700,27 +698,6 @@ class TalkAssistant(DirectObject.DirectObject):
             newMessage = TalkMessage(self.countMessage(), self.stampTime(), message, localAvatar.doId, localAvatar.getName(), localAvatar.DISLid, localAvatar.DISLname, receiverId, avatarName, None, None, TALK_WHISPER, None)
             self.historyComplete.append(newMessage)
             self.addToHistoryDoId(newMessage, localAvatar.doId)
-            messenger.send('NewOpenMessage', [newMessage])
-        return error
-
-    def sendPlayerWhisperSpeedChat(self, type, messageIndex, receiverId):
-        error = None
-        if type == SPEEDCHAT_NORMAL:
-            base.cr.speedchatRelay.sendSpeedchat(receiverId, messageIndex)
-            message = self.SCDecoder.decodeSCStaticTextMsg(messageIndex)
-        elif type == SPEEDCHAT_EMOTE:
-            base.cr.speedchatRelay.sendSpeedchatEmote(receiverId, messageIndex)
-            message = self.SCDecoder.decodeSCEmoteWhisperMsg(messageIndex, localAvatar.getName())
-            return
-        elif type == SPEEDCHAT_CUSTOM:
-            base.cr.speedchatRelay.sendSpeedchatCustom(receiverId, messageIndex)
-            message = self.SCDecoder.decodeSCCustomMsg(messageIndex)
-        if self.logWhispers:
-            receiverName = self.findName(receiverId, 1)
-            newMessage = TalkMessage(self.countMessage(), self.stampTime(), message, localAvatar.doId, localAvatar.getName(), localAvatar.DISLid, localAvatar.DISLname, None, None, receiverId, receiverName, TALK_ACCOUNT, None)
-            self.historyComplete.append(newMessage)
-            self.addToHistoryDoId(newMessage, localAvatar.doId)
-            self.addToHistoryDISLId(newMessage, base.cr.accountDetailRecord.playerAccountId)
             messenger.send('NewOpenMessage', [newMessage])
         return error
 

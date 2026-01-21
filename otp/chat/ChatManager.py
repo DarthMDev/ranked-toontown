@@ -16,6 +16,7 @@ from panda3d.core import *
 
 from otp.speedchat import SCDecoders
 from toontown.archipelago.util.global_text_properties import get_colored_string
+from toontown.chat.ChatContainer import ChatMessageAuthor
 from toontown.toonbase import ToontownGlobals
 
 ChatEvent = 'ChatEvent'
@@ -102,10 +103,6 @@ class ChatManager(DirectObject.DirectObject):
     def delete(self):
         self.ignoreAll()
         del self.fsm
-        if hasattr(self.chatInputNormal, 'destroy'):
-            self.chatInputNormal.destroy()
-        self.chatInputNormal.delete()
-        del self.chatInputNormal
         self.chatInputSpeedChat.delete()
         del self.chatInputSpeedChat
         if self.openChatWarning:
@@ -187,28 +184,31 @@ class ChatManager(DirectObject.DirectObject):
         base.talkAssistant.sendOpenSpeedChat(1, msgIndex, displayType)
 
     def sendSCWhisperMessage(self, msgIndex, whisperAvatarId, toPlayer):
-        if toPlayer:
-            base.talkAssistant.sendPlayerWhisperSpeedChat(1, msgIndex, whisperAvatarId)
-        else:
-            base.talkAssistant.sendAvatarWhisperSpeedChat(1, msgIndex, whisperAvatarId)
+        base.localAvatar.chatbox.addOutgoingWhisper(
+            base.localAvatar.chatbox.getWhisperTarget(),
+            message=SCDecoders.decodeSCStaticTextMsg(msgIndex),
+            italicize=True)
+        base.talkAssistant.sendAvatarWhisperSpeedChat(1, msgIndex, whisperAvatarId)
 
     def sendSCCustomChatMessage(self, msgIndex):
         base.talkAssistant.sendOpenSpeedChat(3, msgIndex)
 
     def sendSCCustomWhisperMessage(self, msgIndex, whisperAvatarId, toPlayer):
-        if toPlayer:
-            base.talkAssistant.sendPlayerWhisperSpeedChat(3, msgIndex, whisperAvatarId)
-        else:
-            base.talkAssistant.sendAvatarWhisperSpeedChat(3, msgIndex, whisperAvatarId)
+        base.localAvatar.chatbox.addOutgoingWhisper(
+            base.localAvatar.chatbox.getWhisperTarget(),
+            message=SCDecoders.decodeSCCustomMsg(msgIndex),
+            italicize=True)
+        base.talkAssistant.sendAvatarWhisperSpeedChat(3, msgIndex, whisperAvatarId)
 
     def sendSCEmoteChatMessage(self, emoteId):
         base.talkAssistant.sendOpenSpeedChat(2, emoteId)
 
     def sendSCEmoteWhisperMessage(self, emoteId, whisperAvatarId, toPlayer):
-        if toPlayer:
-            base.talkAssistant.sendPlayerWhisperSpeedChat(2, emoteId, whisperAvatarId)
-        else:
-            base.talkAssistant.sendAvatarWhisperSpeedChat(2, emoteId, whisperAvatarId)
+        base.localAvatar.chatbox.addOutgoingWhisper(
+            base.localAvatar.chatbox.getWhisperTarget(),
+            message=SCDecoders.decodeSCEmoteWhisperMsg(emoteId, base.localAvatar.getName()),
+            italicize=True)
+        base.talkAssistant.sendAvatarWhisperSpeedChat(2, emoteId, whisperAvatarId)
 
     def enterOff(self):
         self.ignoreAll()
@@ -257,8 +257,6 @@ class ChatManager(DirectObject.DirectObject):
         pass
 
     def enterWhisper(self, avatarName, avatarId, playerId = None):
-        self.whisperScButton['extraArgs'] = [avatarName, avatarId, playerId]
-        self.whisperButton['extraArgs'] = [avatarName, avatarId, playerId]
         playerName = None
         chatToToon = 1
         online = 0
@@ -270,49 +268,23 @@ class ChatManager(DirectObject.DirectObject):
         if hasManager:
             if base.cr.playerFriendsManager.askAvatarOnline(avatarId):
                 online = 1
-        avatarUnderstandable = config.GetBool('force-avatar-understandable', 0)
-        playerUnderstandable = config.GetBool('force-player-understandable', 0)
         av = None
         if avatarId:
             av = self.cr.identifyAvatar(avatarId)
-        if av != None:
-            avatarUnderstandable = av.isUnderstandable()
         if playerId:
             if playerId in base.cr.playerFriendsManager.playerId2Info:
                 playerInfo = base.cr.playerFriendsManager.playerId2Info.get(playerId)
                 playerName = playerInfo.playerName
                 online = 1
-                playerUnderstandable = playerInfo.understandableYesNo
-                if playerUnderstandable or not avatarId:
-                    chatToToon = 0
         if chatToToon:
             chatName = avatarName
         else:
             chatName = playerName
-        normalButtonObscured, scButtonObscured = self.isObscured()
-        if (avatarUnderstandable or playerUnderstandable) and online and not normalButtonObscured:
-            self.whisperButton['state'] = 'normal'
-            self.enablewhisperButton()
-        else:
-            self.whisperButton['state'] = 'inactive'
-            self.disablewhisperButton()
-        if online:
-            self.whisperScButton['state'] = 'normal'
-            self.changeFrameText(OTPLocalizer.ChatManagerWhisperToName % chatName)
-        else:
-            self.whisperScButton['state'] = 'inactive'
-            self.changeFrameText(OTPLocalizer.ChatManagerWhisperOffline % chatName)
-        self.whisperFrame.show()
-        self.refreshWhisperFrame()
-        if avatarUnderstandable or playerUnderstandable:
-            if playerId and not chatToToon:
-                self.acceptOnce('enterNormalChat', self.fsm.request, ['whisperChatPlayer', [avatarName, playerId]])
-            elif online and chatToToon:
-                self.acceptOnce('enterNormalChat', self.fsm.request, ['whisperChat', [avatarName, avatarId]])
-        if base.cr.config.GetBool('force-typed-whisper-enabled', 0):
-            self.whisperButton['state'] = 'normal'
-            self.enablewhisperButton()
-        return
+
+        recipient = ChatMessageAuthor(avatarId, chatName)
+        base.localAvatar.chatbox.setWhisperTarget(recipient)
+        self.fsm.request("normalChat")
+
 
     def disablewhisperButton(self):
         pass
@@ -327,9 +299,7 @@ class ChatManager(DirectObject.DirectObject):
         self.whisperFrame['text'] = newText
 
     def exitWhisper(self):
-        self.whisperFrame.hide()
-        self.ignore('enterNormalChat')
-        self.chatInputNormal.chatEntry['backgroundFocus'] = 0
+        pass
 
     def enterWhisperSpeedChat(self, avatarId):
         self.whisperFrame.show()
@@ -348,21 +318,19 @@ class ChatManager(DirectObject.DirectObject):
         self.chatInputSpeedChat.hide()
 
     def enterWhisperChat(self, avatarName, avatarId):
-        result = self.chatInputNormal.activateByData(avatarId)
-        return result
+        return True
 
     def exitWhisperChat(self):
-        self.chatInputNormal.deactivate()
+        pass
 
     def enterWhisperChatPlayer(self, avatarName, playerId):
         playerInfo = base.cr.playerFriendsManager.getFriendInfo(playerId)
         if playerInfo:
             avatarName = playerInfo.playerName
-        result = self.chatInputNormal.activateByData(playerId, 1)
-        return result
+        return True
 
     def exitWhisperChatPlayer(self):
-        self.chatInputNormal.deactivate()
+        pass
 
     def enterSpeedChat(self):
         messenger.send('enterSpeedChat')

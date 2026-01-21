@@ -13,6 +13,7 @@ from direct.interval.MetaInterval import Sequence
 from panda3d.core import TextNode, PGButton, MouseButton, PGMouseWatcherParameter
 
 from toontown.archipelago.util import global_text_properties
+from toontown.archipelago.util.global_text_properties import MinimalJsonMessagePart
 
 
 @dataclasses.dataclass
@@ -173,7 +174,7 @@ class ChatContainer(DirectScrolledFrame):
             overflow=True,
             initialText=self.INITIAL_PREFIX,
             textMayChange=True,
-            command=self.__handle_input_sent
+            command=self.__handleInputSent
         )
         self._starting_cursor_position = self._input.getCursorPosition()
         self._input.bind(DirectGuiGlobals.TYPE, self.__onType)
@@ -190,7 +191,7 @@ class ChatContainer(DirectScrolledFrame):
             frameSize=(-.7525, .7525, -.7525, .7525),
             frameColor=self.INPUT_COLOR,
             relief=DirectGuiGlobals.TEXTUREBORDER,
-            command=self.__handle_speedchat_clicked,
+            command=self.__handleSpeedchatClicked,
             clickSound=None
         )
 
@@ -199,17 +200,16 @@ class ChatContainer(DirectScrolledFrame):
         self._msg_sfx.setVolume(.5)
 
         self.isActive = True
+        # If this set to an instance of an author, the next message we send will whisper to them instead of talk.
+        self._whisperTarget: ChatMessageAuthor | None = None
+
         self.deactivate()
 
-    def __onType(self, mw: PGMouseWatcherParameter):
-        pass
-
-    def __onErase(self, mw: PGMouseWatcherParameter):
-        if self._input.getCursorPosition() <= self._starting_cursor_position:
-            self._input.set(self._input_prefix)
-            self._input.setCursorPosition(self._starting_cursor_position)
 
     def activate(self):
+        """
+        Focuses the chatbox and chatlog for chat entry and interaction
+        """
         self['frameColor'] = self.FRAME_COLOR
         self._input.show()
         self._speedchat.show()
@@ -220,9 +220,12 @@ class ChatContainer(DirectScrolledFrame):
             msg.toggleHoverFunctionality(True)
             msg.clearBackground()
             msg['state'] = DirectGuiGlobals.NORMAL
-        self.acceptOnce('escape', lambda : base.localAvatar.chatMgr.fsm.request('mainMenu'))
+        self.acceptOnce('escape', self.__handleEscapePressedWhileTyping)
 
     def deactivate(self):
+        """
+        Unfocuses the chatbox and chatlog.
+        """
         self['frameColor'] = (0, 0, 0, 0)
         self._input.hide()
         self._speedchat.hide()
@@ -234,8 +237,13 @@ class ChatContainer(DirectScrolledFrame):
             msg['state'] = DirectGuiGlobals.DISABLED
         self.ignore('escape')
         self.isActive = False
+        base.localAvatar.chatMgr.chatInputSpeedChat.hide()
 
     def setPrefix(self, prefix: str):
+        """
+        Sets the prefix of the chat input. By default, this usually just says "All: " But it can be changed to fit
+        whatever needs you have.
+        """
         old_input = self._input.get()
         old_input_clean = self._input.get(plain=True)
         old_cursor_position = self._input.getCursorPosition()
@@ -245,37 +253,37 @@ class ChatContainer(DirectScrolledFrame):
         self._input.setCursorPosition(old_cursor_position + cursor_diff)
         self._starting_cursor_position += cursor_diff
 
-    def __handle_input_sent(self, text):
-        text = text.replace(self._input_prefix, '')
-        self._input.enterText(self._input_prefix)
-        base.localAvatar.chatMgr.fsm.request('mainMenu')
-        base.localAvatar.chatMgr.lastSendTime = time.time()
-        if text is None or len(text) == 0:
-            return
-        self.verticalScroll['value'] = 1
-        base.talkAssistant.sendOpenTalk(text)
+    def getWhisperTarget(self) -> ChatMessageAuthor | None:
+        return self._whisperTarget
 
-    def __handle_speedchat_clicked(self):
-        base.localAvatar.chatMgr.toggleSpeedChatMenu()
+    def setWhisperTarget(self, target: ChatMessageAuthor | None = None):
+        """
+        Sets the state of the chatbox to prepare to send a whisper to a target instead of saying a message out loud.
+        Pass in None to clear the current target and revert back to default behavior.
+        """
+        self._whisperTarget = target
 
-    def _reposition_messages(self):
-        height_offset = 0
-        height_offset += .015
-        for message in reversed(self._messages):
-            height_offset += abs(message.bounds[2] - message.bounds[3]) * message.getScale()[2]
-            message.setPos(self.MESSAGE_HORIZONTAL_PADDING, 0, height_offset)
+        if target is not None:
+            self.setPrefix(global_text_properties.get_colored_string(f" To: {self._whisperTarget.name}: ", color='magenta'))
+        else:
+            self.setPrefix(self.INITIAL_PREFIX)
 
-        self['canvasSize'] = (self.FRAME_SIZE[0], self.FRAME_SIZE[1]-self.SCROLLBAR_WIDTH, 0, max(self.FRAME_SIZE[3], height_offset))
+    def setInputText(self, text: str):
+        self._input.set(f"{self._input_prefix}{text}")
+        self._input.setCursorPosition(len(self._input.get(plain=True))-1)
 
-    def add_message(self, message: ChatContainerMessage):
+    def addMessage(self, message: ChatContainerMessage):
+        """
+        Adds a new message to the chat log.
+        """
         self._messages.append(message)
         if len(self._messages) > self.MESSAGE_CACHE_LIMIT:
             old = self._messages.pop(0)
             old.destroy()
         message.setScale(.1)
         message.reparentTo(self.getCanvas())
-        message.scrollFunc = self.scroll_func
-        self._reposition_messages()
+        message.scrollFunc = self.scrollFunc
+        self._repositionMessages()
         self._msg_sfx.play()
 
         if self.isActive:
@@ -285,13 +293,39 @@ class ChatContainer(DirectScrolledFrame):
         else:
             self.verticalScroll['value'] = 1
 
-    def add_entry(self, avId: int, text: str):
+    def addEntry(self, avId: int, text: str):
         """
-        Adds raw text to the log. Can be used for various purposes.
+        Adds raw text to the log. Can be used for various purposes. Pass in an avId to emulate whisper clicking
+        behavior when the entry is clicked.
         """
-        self.add_message(ChatContainerMessage(ChatMessageAuthor(avId, ''), text))
+        self.addMessage(ChatContainerMessage(ChatMessageAuthor(avId, ''), text))
 
-    def scroll_func(self, multiplier):
+    def addOutgoingWhisper(self, recipient: ChatMessageAuthor, message: str, italicize: bool = False):
+        """
+        Adds an outgoing whisper message to the chat log.
+        """
+        if message is None or len(message) == 0:
+            return
+        text = global_text_properties.get_colored_string(f"To {recipient.name}: ", color='yellow')
+        if italicize:
+            message = global_text_properties.get_colored_string(message, color='bold')
+        self.addEntry(recipient.avId, f"{text}{message}")
+
+    def addIncomingWhisper(self, _from: ChatMessageAuthor, message: str, italicize: bool = False):
+        """
+        Adds an incoming whisper message to the chat log.
+        """
+        text = global_text_properties.get_colored_string(f"From {_from.name}: ", color='magenta')
+        if italicize:
+            message = global_text_properties.get_colored_string(message, color='bold')
+        self.addEntry(_from.avId, f"{text}{message}")
+
+    def scrollFunc(self, multiplier):
+        """
+        Callable object that can be used to scroll the chat log up and down.
+        Negative multiplier will "scroll up" while positive ones will scroll down.
+        The multiplier should be a float between 0 and 1.
+        """
         content_height = self['canvasSize'][3] - self['canvasSize'][2]
         view_height = self.FRAME_SIZE[3] - self.FRAME_SIZE[2]
         if content_height <= view_height:
@@ -301,6 +335,74 @@ class ChatContainer(DirectScrolledFrame):
         view_height = max(0, view_height)
         self.verticalScroll['value'] += multiplier / max(1, content_height-view_height)
         self.verticalScroll['value'] = min(max(0, self.verticalScroll['value']), 1)
+
+    def _repositionMessages(self):
+        """
+        Utility method to reposition all the messages currently cached.
+        """
+        height_offset = 0
+        height_offset += .015
+        for message in reversed(self._messages):
+            height_offset += abs(message.bounds[2] - message.bounds[3]) * message.getScale()[2]
+            message.setPos(self.MESSAGE_HORIZONTAL_PADDING, 0, height_offset)
+
+        self['canvasSize'] = (self.FRAME_SIZE[0], self.FRAME_SIZE[1]-self.SCROLLBAR_WIDTH, 0, max(self.FRAME_SIZE[3], height_offset))
+
+    def __onType(self, mw: PGMouseWatcherParameter):
+        """
+        Handler for when the chatbox is typed into.
+        """
+        pass
+
+    def __onErase(self, mw: PGMouseWatcherParameter):
+        """
+        Handler for when the chatbox registers a backspace.
+        """
+        if self._input.getCursorPosition() < self._starting_cursor_position:
+            self._input.set(self._input_prefix)
+            self._input.setCursorPosition(self._starting_cursor_position)
+            if self._whisperTarget is not None:
+                self.setWhisperTarget(None)
+
+    def __handleEscapePressedWhileTyping(self):
+        """
+        Handler for when escape is pressed while the chatbox is focused.
+        """
+        if self._whisperTarget is not None:
+            self._input.set(self._input_prefix)
+        self.setWhisperTarget(None)
+        base.localAvatar.chatMgr.fsm.request('mainMenu')
+
+    def __handleInputSent(self, text):
+        """
+        Handler for when the text input registers an "enter" press.
+        """
+        text = text.replace(self._input_prefix, '')
+        self._input.enterText(self._input_prefix)
+        if self._whisperTarget is not None:
+            base.talkAssistant.sendWhisperTalk(text, self._whisperTarget.avId)
+            self.addOutgoingWhisper(self._whisperTarget, text)
+        else:
+            base.talkAssistant.sendOpenTalk(text)
+        base.localAvatar.chatMgr.fsm.request('mainMenu')
+        base.localAvatar.chatMgr.lastSendTime = time.time()
+        if text is None or len(text) == 0:
+            return
+        self.verticalScroll['value'] = 1
+        self.setWhisperTarget(None)
+
+    def __handleSpeedchatClicked(self):
+        """
+        Handler for when the speedchat shortcut button is clicked.
+        """
+        base.localAvatar.chatMgr.openScSfx.play()
+        if base.localAvatar.chatMgr.chatInputSpeedChat.isHidden():
+            base.localAvatar.chatMgr.chatInputSpeedChat.show()
+        else:
+            base.localAvatar.chatMgr.chatInputSpeedChat.hide()
+
+
+
 
 if __name__ == "__main__":
     from direct.gui.DirectButton import DirectButton
@@ -325,7 +427,7 @@ if __name__ == "__main__":
                 ChatMessageAuthor(123, 'test user'),
                 'a' * random.randint(10, 500),
             )
-            self.chatbox.add_message(msg)
+            self.chatbox.addMessage(msg)
             print(self.chatbox.verticalScroll['value'])
 
 
