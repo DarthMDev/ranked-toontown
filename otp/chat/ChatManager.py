@@ -13,6 +13,10 @@ from direct.directnotify import DirectNotifyGlobal
 from otp.login import LeaveToPayDialog
 from direct.gui.DirectGui import *
 from panda3d.core import *
+
+from otp.speedchat import SCDecoders
+from toontown.archipelago.util.global_text_properties import get_colored_string
+
 ChatEvent = 'ChatEvent'
 NormalChatEvent = 'NormalChatEvent'
 SCChatEvent = 'SCChatEvent'

@@ -250,6 +250,12 @@ class ChatContainer(DirectScrolledFrame):
         else:
             self.verticalScroll['value'] = 1
 
+    def add_entry(self, avId: int, text: str):
+        """
+        Adds raw text to the log. Can be used for various purposes.
+        """
+        self.add_message(ChatContainerMessage(ChatMessageAuthor(avId, ''), text))
+
     def scroll_func(self, multiplier):
         content_height = self['canvasSize'][3] - self['canvasSize'][2]
         view_height = self.FRAME_SIZE[3] - self.FRAME_SIZE[2]

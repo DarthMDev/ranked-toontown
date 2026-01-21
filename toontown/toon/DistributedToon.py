@@ -48,7 +48,8 @@ from ..archipelago.definitions import color_profile
 from ..archipelago.definitions.color_profile import ColorProfile
 from ..archipelago.definitions.death_reason import DeathReason
 from ..archipelago.util import global_text_properties
-from ..archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart
+from ..archipelago.util.global_text_properties import get_raw_formatted_string, MinimalJsonMessagePart, \
+    get_colored_string
 from ..archipelago.util.net_utils import JSONMessagePart
 from ..chat.ChatContainer import ChatContainerMessage, ChatMessageAuthor
 from ..matchmaking.player_skill_profile import PlayerSkillProfile
@@ -882,6 +883,10 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         extraArgs = []
         extraArgs.insert(0, animIndex)
         self.doEmote(animIndex, animMultiplier, ts, callback, extraArgs)
+        # We need to add the other toon's version of the emote to the chat log since when we receive it here it's only from other toons.
+        chatString = SCDecoders.decodeSCEmoteWhisperMsg(animIndex, self.getName())
+        text = global_text_properties.create_text_with_undefined_color(chatString, color=self.getCurrentColorProfile().getPrimaryColor())
+        base.localAvatar.chatbox.add_entry(self.getDoId(), text)
         return
 
     def playEmote(self, emoteIndex, animMultiplier, timestamp):
@@ -2041,8 +2046,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
     def __getChatLogMessage(self, content: str, isSpeedchat: bool) -> ChatContainerMessage:
         author_name = self.getName() if self.getDoId() != base.localAvatar.getDoId() else 'You'
         author_color = self.getCurrentColorProfile().getPrimaryColor() if self.getDoId() != base.localAvatar.getDoId() else color_profile.YELLOW.getPrimaryColor()
-        name = get_raw_formatted_string(
-            [global_text_properties.create_text_with_undefined_color(author_name + ": ", color=author_color)])
+        name = global_text_properties.create_text_with_undefined_color(author_name + ": ", color=author_color)
         text = content if not isSpeedchat else get_raw_formatted_string([MinimalJsonMessagePart(content, color='bold')])
         return ChatContainerMessage(
             ChatMessageAuthor(self.getDoId(), name),

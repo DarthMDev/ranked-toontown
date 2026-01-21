@@ -296,7 +296,7 @@ def create_gradient_text_parts(text: str, start_color: tuple, end_color: tuple) 
     return parts
 
 
-def create_text_with_undefined_color(text: str, color: tuple) -> MinimalJsonMessagePart:
+def create_text_with_undefined_color(text: str, color: tuple) -> str:
     """
     Used to create text by using a color. Useful if you don't have proper json/vec4 mappings.
     """
@@ -311,7 +311,7 @@ def create_text_with_undefined_color(text: str, color: tuple) -> MinimalJsonMess
         temp_props = TextProperties()
         temp_props.setTextColor(color)
         __register_property(color_name, f"temp_{color_name}", temp_props)
-    return MinimalJsonMessagePart(message=text, color=color_name)
+    return get_raw_formatted_string([MinimalJsonMessagePart(message=text, color=color_name)])
 
 
 def get_gradient_formatted_string(text: str, gradient_type: str) -> str:
@@ -371,3 +371,6 @@ def get_raw_formatted_string(parts: List[MinimalJsonMessagePart]) -> str:
     for part in parts:
         msg += f"\1{get_property_code_from_json_code(part.color)}\1{part.message}\2"
     return msg
+
+def get_colored_string(text: str, color: str):
+    return get_raw_formatted_string([MinimalJsonMessagePart(message=text, color=color)])

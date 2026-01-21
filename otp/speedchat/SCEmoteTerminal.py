@@ -29,9 +29,7 @@ class SCEmoteTerminal(SCTerminal):
             return 0
 
     def __emoteEnabled(self):
-        if self.isWhispering():
-            return 1
-        return Emote.globalEmote.isEnabled(self.emoteId)
+        return True
 
     def finalize(self, dbArgs = {}):
         if not self.isDirty():
