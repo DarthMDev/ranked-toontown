@@ -7,17 +7,12 @@ from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from direct.distributed import DistributedObject
-from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
-from toontown.suit import DistributedGoon, GoonDeath
+from toontown.minigame.utils.objects import DistributedGoon
 from toontown.coghq import DistributedCrushableEntity
 from toontown.minigame.craning import CraneGameGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
-from panda3d.core import Vec2, Vec3
-import math
-import random
 
 
 class DistributedGoonDroneBase(DistributedGoon.DistributedGoon, DistributedCrushableEntity.DistributedCrushableEntity):

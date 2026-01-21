@@ -11,7 +11,7 @@ from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
 from toontown.minigame.craning import CraneGameGlobals
 from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
-from toontown.suit import GoonDeath
+from toontown.minigame.utils.objects import GoonDeath
 import random
 import math
 

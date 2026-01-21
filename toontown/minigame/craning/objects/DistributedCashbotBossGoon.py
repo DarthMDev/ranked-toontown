@@ -7,7 +7,8 @@ from direct.task.Task import Task
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.craning.objects import DistributedCashbotBossObject
 from direct.showbase import PythonUtil
-from toontown.suit import DistributedGoon
+from toontown.minigame.utils.objects import DistributedGoon
+
 
 class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCashbotBossObject.DistributedCashbotBossObject):
     

@@ -4,7 +4,7 @@ from direct.distributed.ClockDelta import *
 
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
-from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
+from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 
 
 class DistributedLawbotBossStrippedAI(DistributedBossCogAI):

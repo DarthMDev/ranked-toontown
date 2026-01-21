@@ -8,15 +8,12 @@ Creates an animated explosion effect with:
 - At 1.5s: Massive explosion - flames burst out + explosion particles + subtle orange/red screen flash (epilepsy-friendly)
 - Scaled appropriately to object size (especially for CFO)
 """
-from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4, NodePath
-from panda3d.physics import LinearVectorForce, LinearFrictionForce, LinearSinkForce, LinearDistanceForce
-from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, LerpScaleInterval, Wait, Func, Parallel, LerpPosInterval, LerpFunc
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, NodePath
+from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, LerpScaleInterval, Wait, Func, Parallel
 from direct.interval.ParticleInterval import ParticleInterval
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 from toontown.battle import BattleParticles
-from toontown.suit import GoonDeath
 import random
 
 
@@ -53,7 +50,7 @@ class ExplosionEffectVisual(StatusEffectVisualBase):
         # Check if this is the CFO boss
         isCFOBoss = False
         try:
-            from toontown.suit import BossCog
+            from ..boss import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
                 self.notify.info("Detected CFO boss - applying large-scale explosion effect")

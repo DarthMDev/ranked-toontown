@@ -7,12 +7,10 @@ Creates an animated ice/frost effect with:
 - Scaled appropriately for the CFO boss
 """
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
+from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib
 from panda3d.physics import LinearVectorForce
-from direct.interval.IntervalGlobal import Sequence, Wait, Func
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
-import math
 
 
 class FrozenEffectVisual(StatusEffectVisualBase):
@@ -48,7 +46,7 @@ class FrozenEffectVisual(StatusEffectVisualBase):
         # Check if this is the CFO boss (FROZEN only applies to CFO)
         isCFOBoss = False
         try:
-            from toontown.suit import BossCog
+            from ..boss import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
                 self.notify.info("Detected CFO boss - applying large-scale frozen effect")

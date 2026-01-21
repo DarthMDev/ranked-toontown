@@ -43,7 +43,7 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         isCFOBoss = False
         isSafe = False
         try:
-            from toontown.suit import BossCog
+            from ..boss import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
                 self.notify.info("Detected CFO boss - applying larger, wider fire effect")
@@ -624,8 +624,8 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         try:
             # Check if this is a safe (not CFO)
             from ...craning.objects import DistributedCashbotBossSafe
-            from toontown.suit import BossCog
-            
+            from ..boss import BossCog
+
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
                 if hasattr(self.obj, '_burnedGlowColor'):
                     # Use centralized color management system
@@ -656,8 +656,8 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         try:
             # Check if this is a safe (not CFO)
             from ...craning.objects import DistributedCashbotBossSafe
-            from toontown.suit import BossCog
-            
+            from ..boss import BossCog
+
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):
@@ -688,8 +688,8 @@ class BurnedEffectVisual(StatusEffectVisualBase):
         try:
             # Check if this is a safe (not CFO)
             from ...craning.objects import DistributedCashbotBossSafe
-            from toontown.suit import BossCog
-            
+            from ..boss import BossCog
+
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):

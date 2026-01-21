@@ -3,7 +3,7 @@ from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import ToontownGlobals
-from toontown.suit import DistributedGoon
+from toontown.minigame.utils.objects import DistributedGoon
 from toontown.coghq import DistributedCrushableEntity
 from toontown.minigame.craning import CraneGameGlobals
 from toontown.battle import BattleProps

@@ -1,6 +1,6 @@
 import math
 
-from toontown.suit import BossCogGlobals
+from toontown.minigame.utils.boss import BossCogGlobals
 
 
 class BossComboTrackerAI:

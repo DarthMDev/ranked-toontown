@@ -1,9 +1,8 @@
 from otp.ai.AIBaseGlobal import *
-from .GoonGlobals import *
+from toontown.minigame.utils.objects.GoonGlobals import *
 from direct.directnotify import DirectNotifyGlobal
-from toontown.battle import SuitBattleGlobals
 from toontown.coghq import DistributedCrushableEntityAI
-from . import GoonPathData
+from toontown.minigame.utils.objects import GoonPathData
 from direct.distributed import ClockDelta
 import random
 from direct.task import Task

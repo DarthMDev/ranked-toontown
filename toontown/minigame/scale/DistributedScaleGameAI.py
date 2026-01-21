@@ -9,13 +9,13 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import ScaleLeagueGlobals
-from toontown.minigame.utils.BossComboTrackerAI import BossComboTrackerAI
+from toontown.minigame.utils.boss.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedLawbotBossGavelAI import DistributedLawbotBossGavelAI
 from toontown.coghq.DistributedLawbotChairAI import DistributedLawbotChairAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
-from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
-from toontown.suit.DistributedLawbotBossSuitAI import DistributedLawbotBossSuitAI
+from toontown.minigame.scale.boss.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
+from toontown.minigame.scale.objects.DistributedLawbotBossSuitAI import DistributedLawbotBossSuitAI
 from toontown.suit.SuitDNA import SuitDNA
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownBattleGlobals, ToontownGlobals

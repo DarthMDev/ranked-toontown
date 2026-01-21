@@ -3,14 +3,10 @@ Base AI class for drone goons with common functionality.
 Specialized drone types inherit from this class.
 """
 
-import random
-from panda3d.core import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from direct.distributed import DistributedObjectAI
-from toontown.suit import DistributedGoonAI
+from toontown.minigame.utils.objects import DistributedGoonAI
 from toontown.minigame.craning import CraneGameGlobals
-import math
 
 
 class DistributedGoonDroneBaseAI(DistributedGoonAI.DistributedGoonAI):

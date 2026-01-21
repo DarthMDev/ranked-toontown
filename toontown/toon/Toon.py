@@ -2,11 +2,8 @@ import functools
 
 from otp.avatar import Avatar
 from otp.avatar.Avatar import teleportNotify
-from . import ToonDNA
 from direct.task.Task import Task
 from toontown.suit import SuitDNA
-from direct.actor import Actor
-import string
 from .ToonHead import *
 from panda3d.core import *
 from panda3d.direct import *
@@ -16,19 +13,15 @@ from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPLocalizer
 from toontown.toonbase import TTLocalizer
-import random
 from toontown.effects import Wake
-from . import TTEmote
 from otp.avatar import Emote
 from . import Motion
 from toontown.hood import ZoneUtil
 from toontown.battle import SuitBattleGlobals
 from otp.otpbase import OTPGlobals
 from toontown.effects import DustCloud
-from otp.otpbase.PythonUtil import Functor
 from toontown.distributed import DelayDelete
 from . import AccessoryGlobals
-import types
 import importlib
 
 def teleportDebug(requestStatus, msg, onlyIfToAv = True):
@@ -3209,8 +3202,6 @@ class Toon(Avatar.Avatar, ToonHead):
     def getPieSplatInterval(self, x, y, z, pieCode, goonsDestroyed=False):
         from toontown.toonbase import ToontownBattleGlobals
         from toontown.battle import BattleProps
-        from toontown.suit import GoonDeath
-        from toontown.battle import BattleParticles
         pieName = ToontownBattleGlobals.pieNames[self.pieType]
         
         if pieName == 'tnt':
@@ -3220,7 +3211,6 @@ class Toon(Avatar.Avatar, ToonHead):
             # If goons were destroyed, only show explosion effects (no kapow)
             if goonsDestroyed:
                 # Create a simple explosion for goon destruction
-                from toontown.suit import GoonDeath
                 from toontown.battle import BattleParticles
                 BattleParticles.loadParticles()
                 scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions
@@ -3261,7 +3251,6 @@ class Toon(Avatar.Avatar, ToonHead):
                 return particleTrack
             
             # Otherwise, show full explosion with particles and sound
-            from toontown.suit import GoonDeath
             from toontown.battle import BattleParticles
             BattleParticles.loadParticles()
             scale = VBase3(1.0, 1.0, 1.0)  # Bigger scale for TNT explosions

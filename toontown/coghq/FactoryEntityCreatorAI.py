@@ -7,8 +7,7 @@ from . import DistributedLiftAI
 from . import DistributedDoorEntityAI
 from . import DistributedGagBarrelAI
 from . import DistributedGridAI
-from toontown.suit import DistributedGridGoonAI
-from toontown.suit import DistributedGoonAI
+from ..minigame.utils.objects import DistributedGridGoonAI, DistributedGoonAI
 from . import DistributedHealBarrelAI
 from . import DistributedStomperPairAI
 from . import DistributedTriggerAI

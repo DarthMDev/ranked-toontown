@@ -4,10 +4,10 @@ from direct.distributed.ClockDelta import *
 from direct.task.TaskManagerGlobal import taskMgr
 
 from otp.ai.AIBaseGlobal import *
-from toontown.suit import SellbotBossGlobals
+from toontown.minigame.pie.boss import SellbotBossGlobals
 from toontown.toonbase import ToontownGlobals
-from . import BossCogGlobals
-from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
+from toontown.minigame.utils.boss import BossCogGlobals
+from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 
 
 class DistributedSellbotBossStrippedAI(DistributedBossCogAI):

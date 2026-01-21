@@ -9,7 +9,7 @@ from panda3d.core import Point3
 from toontown.minigame.craning import CraneGameGlobals
 from toontown.minigame.craning.objects import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
-from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
+from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, STATUS_EFFECT_DURATIONS
 
 

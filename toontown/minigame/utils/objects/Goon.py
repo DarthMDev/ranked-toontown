@@ -1,10 +1,8 @@
 from panda3d.core import *
-from direct.actor import Actor
 from otp.avatar import Avatar
 from toontown.toonbase import ToontownGlobals
-from toontown.toonbase import TTLocalizer
-from . import GoonGlobals
-from . import SuitDNA
+from toontown.minigame.utils.objects import GoonGlobals
+from toontown.suit import SuitDNA
 import math
 AnimDict = {'pg': (('walk', '-walk'), ('collapse', '-collapse'), ('recovery', '-recovery')),
  'sg': (('walk', '-walk'), ('collapse', '-collapse'), ('recovery', '-recovery')),

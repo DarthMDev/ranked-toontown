@@ -9,9 +9,9 @@ from direct.fsm import FSM
 from direct.fsm import State
 from toontown.toonbase import TTLocalizer
 from toontown.battle import BattleParticles
-from . import Suit
+from toontown.suit import Suit
 from direct.task.Task import Task
-from . import SuitDNA
+from toontown.suit import SuitDNA
 from toontown.battle import BattleProps
 from otp.otpbase.PythonUtil import Functor
 import string

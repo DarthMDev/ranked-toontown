@@ -4,9 +4,8 @@ Base class for status effect visuals.
 This provides a consistent interface for creating, updating, and cleaning up
 visual effects (particles, models, etc.) for status effects on objects.
 """
-from panda3d.core import NodePath, Vec3, Point3
+from panda3d.core import NodePath, Vec3
 from direct.directnotify import DirectNotifyGlobal
-from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Func, Wait
 from abc import ABC, abstractmethod
 
 
@@ -46,7 +45,7 @@ class StatusEffectVisualBase(ABC):
         """
         # Special handling for BossCog (CFO boss) - need to include all parts
         try:
-            from toontown.suit import BossCog
+            from toontown.minigame.utils.boss import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 # CFO boss is composed of legs, torso, head, and treads
                 # Get bounds from all parts

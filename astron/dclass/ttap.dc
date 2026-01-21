@@ -38,11 +38,11 @@ from toontown.suit import DistributedSuitBase/AI
 from toontown.suit import DistributedSuit/AI
 from toontown.suit import DistributedTutorialSuit/AI
 
-from toontown.minigame.utils import DistributedBossCog/AI
-from toontown.suit import DistributedSellbotBossStripped/AI
+from toontown.minigame.utils.boss import DistributedBossCog/AI
+from toontown.minigame.pie.boss import DistributedSellbotBossStripped/AI
 from toontown.minigame.craning.boss import DistributedCashbotBoss/AI
-from toontown.suit import DistributedLawbotBossStripped/AI
-from toontown.suit import DistributedBossbotBossStripped/AI
+from toontown.minigame.scale.boss import DistributedLawbotBossStripped/AI
+from toontown.minigame.seltzer.boss import DistributedBossbotBoss/AI
 from toontown.minigame.craning.objects import DistributedCashbotBossSafe/AI
 from toontown.minigame.craning.objects import DistributedCashbotBossCrane/AI
 from toontown.minigame.craning.objects import DistributedCashbotBossSideCrane/AI
@@ -148,7 +148,7 @@ from toontown.coghq import DirectionalCell/AI
 from toontown.coghq import CrusherCell/AI
 from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
-from toontown.suit import DistributedGoon/AI
+from toontown.minigame.utils.objects import DistributedGoon/AI
 from toontown.minigame.craning.objects import DistributedGoonDrone/AI
 from toontown.minigame.craning.objects import DistributedGoonDroneLaser/AI
 from toontown.minigame.craning.objects import DistributedGoonDroneHeal/AI
@@ -156,7 +156,7 @@ from toontown.minigame.craning.objects import DistributedGoonDroneExplodey/AI
 from toontown.minigame.craning.objects import DistributedGoonDroneStun/AI
 from toontown.minigame.craning.objects import DistributedGoonDroneShield/AI
 from toontown.minigame.craning.objects import DistributedGoonDroneGhosty/AI
-from toontown.suit import DistributedGridGoon/AI
+from toontown.minigame.utils.objects import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
 from toontown.ai import DistributedPolarPlaceEffectMgr/AI
@@ -184,7 +184,7 @@ from toontown.racing import DistributedProjectile/AI
 from toontown.uberdog.DistributedDeliveryManager/AI/UD import DistributedDeliveryManager/AI/UD
 from toontown.uberdog.DistributedDataStoreManager/AI/UD import DistributedDataStoreManager/AI/UD
 from toontown.coghq import DistributedLawbotBossGavel/AI
-from toontown.suit import DistributedLawbotBossSuit/AI
+from toontown.minigame.scale.objects import DistributedLawbotBossSuit/AI
 from toontown.coghq import DistributedLawbotCannon/AI
 from toontown.coghq import DistributedLawbotChair/AI
 from toontown.minigame.pairing import DistributedPairingGame/AI
@@ -207,10 +207,10 @@ from toontown.coghq import DistributedCountryClubBattle/AI
 from toontown.coghq import DistributedMaze/AI
 from toontown.battle import DistributedBattleWaiters/AI
 from toontown.coghq import DistributedFoodBelt/AI
-from toontown.coghq import DistributedBanquetTable/AI
+from toontown.minigame.seltzer.objects import DistributedBanquetTable/AI
 from toontown.battle import DistributedBattleDiners/AI
 from toontown.battle import DistributedBattleSandbox/AI
-from toontown.coghq import DistributedGolfSpot/AI
+from toontown.minigame.seltzer.objects import DistributedGolfSpot/AI
 from toontown.minigame.ice import DistributedIceGame/AI
 from toontown.minigame.cogthief import DistributedCogThiefGame/AI
 from toontown.minigame.escape import DistributedEscapeGame/AI
@@ -1165,7 +1165,7 @@ dclass DistributedLawbotBossStripped: DistributedBossCog {
   setTaunt(int8, int8) broadcast;
 };
 
-dclass DistributedBossbotBossStripped: DistributedBossCog {
+dclass DistributedBossbotBoss: DistributedBossCog {
   setBossDamage(uint32, uint32, uint32) broadcast ram;
   setSpeedDamage(uint16, uint8, int16) broadcast ram;
   setAttackCode(uint8, uint32) broadcast;

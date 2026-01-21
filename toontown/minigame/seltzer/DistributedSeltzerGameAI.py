@@ -6,13 +6,13 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import SeltzerLeagueGlobals
-from toontown.minigame.utils.BossComboTrackerAI import BossComboTrackerAI
-from toontown.coghq.DistributedBanquetTableAI import DistributedBanquetTableAI
+from toontown.minigame.utils.boss.BossComboTrackerAI import BossComboTrackerAI
+from toontown.minigame.seltzer.objects.DistributedBanquetTableAI import DistributedBanquetTableAI
 from toontown.coghq.DistributedFoodBeltAI import DistributedFoodBeltAI
-from toontown.coghq.DistributedGolfSpotAI import DistributedGolfSpotAI
+from toontown.minigame.seltzer.objects.DistributedGolfSpotAI import DistributedGolfSpotAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
-from toontown.suit.DistributedBossbotBossStrippedAI import DistributedBossbotBossStrippedAI
+from toontown.minigame.seltzer.boss.DistributedBossbotBossAI import DistributedBossbotBossAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 
@@ -25,7 +25,7 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
 
         self.ruleset = SeltzerLeagueGlobals.CEORuleset()
 
-        self.boss: Optional[DistributedBossbotBossStrippedAI] = None
+        self.boss: Optional[DistributedBossbotBossAI] = None
 
         self.tables = []
         self.foodBelts = []
@@ -65,7 +65,7 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
     def generate(self):
         self.notify.debug("generate")
 
-        self.boss = DistributedBossbotBossStrippedAI(self.air, self)
+        self.boss = DistributedBossbotBossAI(self.air, self)
         self.boss.generateWithRequired(self.zoneId)
 
         super().generate()

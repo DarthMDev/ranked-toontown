@@ -274,8 +274,8 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         """Perform explosion visual effect when hitting CFO (similar to explodey drone)."""
         if self.isEmpty():
             return
-        
-        from toontown.suit import GoonDeath
+
+        from toontown.minigame.utils.objects import GoonDeath
         from toontown.battle import BattleParticles
         import random
         

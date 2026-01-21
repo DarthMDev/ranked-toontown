@@ -1,22 +1,15 @@
-from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from toontown.battle.BattleProps import *
-from .GoonGlobals import *
+from toontown.minigame.utils.objects.GoonGlobals import *
 from direct.fsm import FSM
 from direct.distributed import ClockDelta
-from otp.level import BasicEntities
-from otp.level import DistributedEntity
 from direct.directnotify import DirectNotifyGlobal
 from toontown.coghq import DistributedCrushableEntity
 from toontown.toonbase import ToontownGlobals
-from toontown.coghq import MovingPlatform
-from . import Goon
-from direct.task.Task import Task
-from otp.level import PathEntity
-from . import GoonDeath
+from toontown.minigame.utils.objects import GoonDeath, Goon
 import random
 
-from ..archipelago.definitions.death_reason import DeathReason
+from toontown.archipelago.definitions.death_reason import DeathReason
 
 
 class DistributedGoon(DistributedCrushableEntity.DistributedCrushableEntity, Goon.Goon, FSM.FSM):

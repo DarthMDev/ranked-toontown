@@ -18,14 +18,14 @@ from toontown.distributed import DelayDelete
 from toontown.effects import DustCloud
 from toontown.suit import Suit
 from toontown.suit import SuitDNA
-from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
+from toontown.minigame.utils.boss.DistributedBossCog import DistributedBossCog
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 
 TTL = TTLocalizer
 
 
-class DistributedBossbotBossStripped(DistributedBossCog):
+class DistributedBossbotBoss(DistributedBossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossbotBoss')
     BallLaunchOffset = Point3(10.5, 8.5, -5)
 

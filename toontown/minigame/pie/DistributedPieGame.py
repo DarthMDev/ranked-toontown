@@ -14,12 +14,12 @@ from libotp import NametagGroup, CFSpeech, CFTimeout
 from libotp.nametag import NametagGlobals
 from toontown.minigame.utils.elevator import ElevatorConstants
 from toontown.minigame.utils.elevator.ElevatorConstants import ELEVATOR_VP
-from toontown.minigame.utils.BossSpeedrunTimer import BossSpeedrunTimer
-from toontown.minigame.utils.CogBossScoreboard import CogBossScoreboard
+from toontown.minigame.utils.boss.BossSpeedrunTimer import BossSpeedrunTimer
+from toontown.minigame.utils.boss.CogBossScoreboard import CogBossScoreboard
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.craning.CraneWalk import CraneWalk
 from toontown.minigame.pie.PieGameRampFSM import PieGameRampFSM
-from toontown.suit import BossCogGlobals
+from toontown.minigame.utils.boss import BossCogGlobals
 from toontown.toon.Toon import Toon
 from toontown.toon.ToonDNA import ToonDNA
 from toontown.toonbase import TTLocalizer, ToontownGlobals

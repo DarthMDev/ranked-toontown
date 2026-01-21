@@ -5,14 +5,12 @@ Creates a shattering glass effect similar to the SHIELD drone's shield shatter,
 with icy blue color (always, since SHATTERED comes from FROZEN + GROUNDED).
 Positioned at the CFO's head when applied to the CFO boss.
 """
-from direct.particles import ParticleEffect, Particles, ForceGroup
-from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4, NodePath
-from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, LerpScaleInterval, Wait, Func, Parallel
+from panda3d.core import Vec4, Point3, ColorBlendAttrib
+from direct.interval.IntervalGlobal import Sequence, Wait
 from direct.interval.ParticleInterval import ParticleInterval
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 from toontown.battle import BattleParticles
-import math
 
 
 class ShatteredEffectVisual(StatusEffectVisualBase):
@@ -48,7 +46,7 @@ class ShatteredEffectVisual(StatusEffectVisualBase):
         # Check if this is the CFO boss
         isCFOBoss = False
         try:
-            from toontown.suit import BossCog
+            from ..boss import BossCog
             if isinstance(self.obj, BossCog.BossCog):
                 isCFOBoss = True
                 self.notify.info("Detected CFO boss - applying large-scale shatter effect")

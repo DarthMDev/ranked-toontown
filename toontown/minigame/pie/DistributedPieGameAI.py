@@ -7,10 +7,10 @@ from direct.fsm.ClassicFSM import ClassicFSM
 from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
-from toontown.minigame.utils.BossComboTrackerAI import BossComboTrackerAI
+from toontown.minigame.utils.boss.BossComboTrackerAI import BossComboTrackerAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
-from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
+from toontown.minigame.pie.boss.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import TTLocalizer, ToontownGlobals
 

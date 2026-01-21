@@ -6,12 +6,12 @@ from direct.distributed.ClockDelta import globalClockDelta
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import SeltzerLeagueGlobals
-from toontown.suit import BossCogGlobals
-from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
+from toontown.minigame.utils.boss import BossCogGlobals
+from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 from toontown.toonbase import ToontownGlobals
 
 
-class DistributedBossbotBossStrippedAI(DistributedBossCogAI):
+class DistributedBossbotBossAI(DistributedBossCogAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossbotBossAI')
 
     def __init__(self, air, game):

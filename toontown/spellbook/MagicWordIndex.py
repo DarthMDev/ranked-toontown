@@ -1600,7 +1600,7 @@ class RestartPieRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
+        from toontown.minigame.pie.boss.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
             if isinstance(do, DistributedSellbotBossStrippedAI):
@@ -1858,7 +1858,7 @@ class StunLawyers(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         boss = None
-        from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
+        from toontown.minigame.scale.boss.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
         for do in list(simbase.air.doId2do.values()):
             if isinstance(do, DistributedLawbotBossStrippedAI):
                 if invoker.doId in do.involvedToons:
@@ -1883,7 +1883,7 @@ class RestartScaleRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
+        from toontown.minigame.scale.boss.DistributedLawbotBossStrippedAI import DistributedLawbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
             if isinstance(do, DistributedLawbotBossStrippedAI):
@@ -1908,10 +1908,10 @@ class RestartSeltzerRound(MagicWord):
 
     def handleWord(self, invoker, avId, toon, *args):
         battle = args[0]
-        from toontown.suit.DistributedBossbotBossStrippedAI import DistributedBossbotBossStrippedAI
+        from toontown.minigame.seltzer.boss.DistributedBossbotBossAI import DistributedBossbotBossAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
-            if isinstance(do, DistributedBossbotBossStrippedAI):
+            if isinstance(do, DistributedBossbotBossAI):
                 if invoker.doId in do.involvedToons:
                     boss = do
                     break
@@ -1929,7 +1929,7 @@ class StunVP(MagicWord):
     accessLevel = 'USER'
 
     def handleWord(self, invoker, avId, toon, *args):
-        from toontown.suit.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
+        from toontown.minigame.pie.boss.DistributedSellbotBossStrippedAI import DistributedSellbotBossStrippedAI
         boss = None
         for do in list(simbase.air.doId2do.values()):
             if isinstance(do, DistributedSellbotBossStrippedAI):
@@ -2846,7 +2846,7 @@ class ShowScoreboard(MagicWord):
         global DEBUG_HEAT
 
         if not DEBUG_SCOREBOARD:
-            from toontown.minigame.utils.CogBossScoreboard import CogBossScoreboard
+            from toontown.minigame.utils.boss.CogBossScoreboard import CogBossScoreboard
             DEBUG_SCOREBOARD = CogBossScoreboard()
             DEBUG_SCOREBOARD.show()
             DEBUG_HEAT = CraneLeagueHeatDisplay()

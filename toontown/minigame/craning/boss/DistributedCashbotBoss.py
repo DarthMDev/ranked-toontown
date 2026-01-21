@@ -8,10 +8,10 @@ from toontown.minigame.craning import CraneGameGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import SuitDNA
-from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
+from toontown.minigame.utils.boss.DistributedBossCog import DistributedBossCog
 
 TTL = TTLocalizer
-from toontown.minigame.utils import BossHealthBar
+from toontown.minigame.utils.boss import BossHealthBar
 
 
 class DistributedCashbotBoss(DistributedBossCog):

@@ -4,8 +4,8 @@ from direct.interval.IntervalGlobal import *
 from libotp import *
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
-from . import SuitDNA
-from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
+from toontown.suit import SuitDNA
+from toontown.minigame.utils.boss.DistributedBossCog import DistributedBossCog
 
 
 class DistributedLawbotBossStripped(DistributedBossCog):
