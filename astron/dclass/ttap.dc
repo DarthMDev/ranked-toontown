@@ -1029,6 +1029,7 @@ dclass GroupManager : DistributedObject {
   requestTeamSwap(uint32 avId) airecv clsend;
   requestMinigameSwitch(uint32 minigameId) airecv clsend;
   updateStatus(uint8 code) airecv clsend;
+  requestGroupDebug() airecv clsend;
   setCurrentGroup(int32 groupId);
   // New method: sends complete group state through global object (works across zones)
   setGroupState(int32 groupId, GroupMember [], int32 capacity, uint32 minigameType);

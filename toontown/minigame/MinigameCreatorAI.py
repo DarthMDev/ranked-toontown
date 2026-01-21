@@ -29,6 +29,7 @@ from .golfgreen.DistributedGolfGreenGameAI import DistributedGolfGreenGameAI
 from .pie.DistributedPieGameAI import DistributedPieGameAI
 from .scale.DistributedScaleGameAI import DistributedScaleGameAI
 from .seltzer.DistributedSeltzerGameAI import DistributedSeltzerGameAI
+from toontown.groups.Group import Group
 
 
 @dataclass
@@ -150,6 +151,81 @@ class MinigameCreatorAI:
                 self.air.questManager.toonPlayedMinigame(toon)
 
         return GeneratedMinigame(mg, minigameZone, mgId)
+    
+    def createMinigameFromGroup(self, group: Group, minigameZone=None, participantIds=None, spectatorIds=None) -> GeneratedMinigame:
+        """
+        Create a minigame using data from a Group object.
+        This method fetches all necessary data from the group's minigame config,
+        including rulesets, modifiers, participants, spectators, etc.
+        
+        This is the preferred method for creating minigames from groups,
+        as it ensures all data persists correctly through the flow.
+        
+        Args:
+            group: The Group object containing all minigame configuration
+            minigameZone: Optional zone ID to reuse (e.g., for play-again scenarios).
+                         If None, a new zone will be allocated.
+            participantIds: Optional list of participant IDs. If None, uses all group members.
+            spectatorIds: Optional list of spectator IDs. If None, uses group's spectators.
+        """
+        config = group.getMinigameConfig()
+        
+        # Get basic info from group
+        # Use provided participantIds if given (e.g., for play-again), otherwise use all group members
+        if participantIds is not None:
+            playerArray = participantIds
+        else:
+            playerArray = group.getMemberIds()
+        
+        # Use provided spectatorIds if given, otherwise use group's spectators
+        if spectatorIds is None:
+            spectatorIds = group.getSpectators()
+        
+        minigameId = config.minigameId
+        trolleyZone = config.trolleyZone
+        hostId = config.hostId
+        
+        # Allocate minigame zone (or reuse provided one)
+        if minigameZone is None:
+            minigameZone = self.air.allocateZone()
+        self.acquireMinigameZone(minigameZone)
+        
+        # Create the minigame instance
+        if minigameId not in self.MINIGAME_ID_TO_CLASS:
+            print(f"Unable to find minigame constructor matching minigame id: {minigameId}, defaulting to crane game")
+            traceback.print_exc()
+            mg = DistributedCraneGameAI(self.air, ToontownGlobals.CraneGameId)
+        else:
+            mg = self.MINIGAME_ID_TO_CLASS[minigameId](self.air, minigameId)
+        
+        # Set basic minigame properties
+        mg.setExpectedAvatars(playerArray)
+        mg.setTrolleyZone(trolleyZone)
+        if hostId is not None:
+            mg.setHost(hostId)
+        
+        # Generate the minigame
+        mg.generateWithRequired(minigameZone)
+        
+        # Track created minigame for memory monitoring
+        self._createdMinigames.add(mg)
+        mg.b_setSpectators(spectatorIds)
+        
+        # Store reference to group BEFORE setGameReady is called
+        # This allows setupRuleset() to check for saved state and restore it
+        if hasattr(mg, 'setGroup'):
+            mg.setGroup(group)
+        
+        # Don't restore ruleset/modifiers here - let setGameReady() -> setupRuleset() handle it
+        # setupRuleset() will check for group data and restore if available
+        
+        # Track quest progress
+        for avId in playerArray:
+            toon = self.air.doId2do.get(avId)
+            if toon is not None:
+                self.air.questManager.toonPlayedMinigame(toon)
+        
+        return GeneratedMinigame(mg, minigameZone, minigameId)
     
     def clearExpiredRequests(self):
         """Clear expired minigame requests to prevent memory buildup"""

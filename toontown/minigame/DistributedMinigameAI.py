@@ -536,12 +536,13 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
     def requestGroupDebug(self):
         """Called from client to request group debug data to be printed on AI."""
         avId = self.air.getAvatarIdFromSender()
-        self.notify.info('=' * 80)
-        self.notify.info(f'AI GROUP DEBUG DATA (requested by avatar {avId})')
+        self.notify.info('\n' + '=' * 80)
+        self.notify.info('AI GROUP DEBUG DATA (requested by avatar %s)' % avId)
         self.notify.info('=' * 80)
         
         if not hasattr(self.air, 'groupManager') or self.air.groupManager is None:
             self.notify.info('GroupManagerAI not found!')
+            self.notify.info('=' * 80 + '\n')
             return
         
         gm = self.air.groupManager
@@ -549,33 +550,149 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
         # Find group for this avatar
         toon = self.air.getDo(avId)
         if toon is None:
-            self.notify.info(f'Avatar {avId} not found!')
+            self.notify.info('Avatar %s not found!' % avId)
+            self.notify.info('=' * 80 + '\n')
             return
         
         group = gm.getGroup(toon)
         if group is None:
-            self.notify.info(f'Avatar {avId} is not in any group')
-            self.notify.info(f'Total groups: {len(gm.groups)}')
-            for idx, g in enumerate(gm.groups):
-                self.notify.info(f'  Group {idx}: groupId={g.groupId}, leader={g.getLeader()}, members={g.getMemberIds()}')
+            self.notify.info('Avatar %s is not in any group' % avId)
+            self.notify.info('\nGROUP MANAGER STATS')
+            self.notify.info('  Total groups: %s' % len(gm.groups))
+            if gm.groups:
+                self.notify.info('\n  All groups:')
+                for idx, g in enumerate(gm.groups, 1):
+                    leader = self.air.getDo(g.getLeader())
+                    leaderName = leader.getName() if leader else 'Unknown'
+                    self.notify.info('    %s. Group ID: %s, Leader: %s (%s), Members: %s' % 
+                                   (idx, g.groupId, leaderName, g.getLeader(), len(g.getMemberIds())))
+            self.notify.info('=' * 80 + '\n')
             return
         
-        self.notify.info(f'Group ID: {group.groupId}')
-        self.notify.info(f'Leader: {group.getLeader()}')
-        self.notify.info(f'Capacity: {group.getCapacity()}')
-        self.notify.info(f'Minigame Type: {group.desiredMinigame}')
-        self.notify.info(f'Member IDs: {group.getMemberIds()}')
-        self.notify.info(f'Member Count: {group.getMemberCount()}')
+        from toontown.toonbase import ToontownGlobals
+        from toontown.groups import GroupGlobals
         
+        # Basic Group Info
+        self.notify.info('\nBASIC GROUP INFO')
+        self.notify.info('  Group ID: %s' % group.groupId)
+        leader = self.air.getDo(group.getLeader())
+        leaderName = leader.getName() if leader else 'Unknown'
+        self.notify.info('  Leader: %s (%s)' % (leaderName, group.getLeader()))
+        self.notify.info('  Capacity: %s / %s' % (group.getMemberCount(), group.getCapacity()))
+        self.notify.info('  On Cooldown: %s' % ('Yes' if group.onCooldown() else 'No'))
+        
+        # Members
         members = group.getMembers()
-        self.notify.info(f'Members ({len(members)}):')
-        for member in members:
-            toon = self.air.getDo(member.avId)
-            toonName = toon.getName() if toon else 'Unknown'
-            self.notify.info(f'  - avId: {member.avId} ({toonName}), team: {member.team}, status: {member.status}, leader: {member.leader}')
+        participants = [m for m in members if m.team != GroupGlobals.TEAM_SPECTATOR]
+        spectators = [m for m in members if m.team == GroupGlobals.TEAM_SPECTATOR]
         
-        self.notify.info(f'Total groups in manager: {len(gm.groups)}')
-        self.notify.info('=' * 80)
+        self.notify.info('\nMEMBERS (%s total)' % len(members))
+        self.notify.info('  Participants: %s' % len(participants))
+        self.notify.info('  Spectators: %s' % len(spectators))
+        
+        if members:
+            for i, member in enumerate(members, 1):
+                toon = self.air.getDo(member.avId)
+                toonName = toon.getName() if toon else 'Unknown'
+                teamStr = 'Spectator' if member.team == GroupGlobals.TEAM_SPECTATOR else 'Participant'
+                statusStr = {GroupGlobals.STATUS_LEADER: 'Leader', 
+                            GroupGlobals.STATUS_READY: 'Ready',
+                            GroupGlobals.STATUS_UNREADY: 'Not Ready'}.get(member.status, f'Status {member.status}')
+                self.notify.info('    %s. %s (%s) - %s, %s' % (i, toonName, member.avId, teamStr, statusStr))
+        
+        # Minigame Config
+        config = group.getMinigameConfig()
+        minigameName = ToontownGlobals.MinigameId2Name.get(config.minigameId, f'Unknown ({config.minigameId})')
+        
+        self.notify.info('\nMINIGAME CONFIG')
+        self.notify.info('  Minigame: %s (ID: %s)' % (minigameName, config.minigameId))
+        self.notify.info('  Trolley Zone: %s' % config.trolleyZone)
+        host = self.air.getDo(config.hostId) if config.hostId else None
+        hostName = host.getName() if host else 'Unknown'
+        self.notify.info('  Host: %s (%s)' % (hostName, config.hostId))
+        self.notify.info('  Desired Minigame (legacy): %s' % group.desiredMinigame)
+        
+        # Ruleset Data
+        rulesetStruct = config.getRuleset(config.minigameId)
+        if rulesetStruct is not None:
+            self.notify.info('\nRULESET DATA')
+            if config.minigameId == ToontownGlobals.CraneGameId:
+                # Deserialize and show key Crane Game ruleset values
+                try:
+                    from toontown.minigame.craning import CraneGameGlobals
+                    ruleset = CraneGameGlobals.CraneGameRuleset.fromStruct(rulesetStruct)
+                    self.notify.info('  CFO Max HP: %s' % ruleset.CFO_MAX_HP)
+                    self.notify.info('  Timer Mode: %s' % ('Yes' if ruleset.TIMER_MODE else 'No'))
+                    if ruleset.TIMER_MODE:
+                        self.notify.info('  Timer Limit: %s seconds' % ruleset.TIMER_MODE_TIME_LIMIT)
+                    self.notify.info('  Side Cranes: %s' % ('Yes' if ruleset.WANT_SIDECRANES else 'No'))
+                    self.notify.info('  Drones: %s' % ('Yes' if ruleset.WANT_DRONES else 'No'))
+                    self.notify.info('  Back Wall: %s' % ('Yes' if ruleset.WANT_BACKWALL else 'No'))
+                    self.notify.info('  Remove Impact Cap: %s' % ('Yes' if ruleset.REMOVE_IMPACT_CAP else 'No'))
+                except Exception as e:
+                    self.notify.info('  (Error deserializing ruleset: %s)' % e)
+                    self.notify.info('  Raw struct length: %s' % len(rulesetStruct))
+            else:
+                self.notify.info('  (Ruleset data present but format unknown for this minigame)')
+                self.notify.info('  Raw struct length: %s' % len(rulesetStruct))
+        else:
+            self.notify.info('\nRULESET DATA: None (using defaults)')
+        
+        # Modifiers Data
+        modifierStructs = config.getModifiers(config.minigameId)
+        if modifierStructs:
+            self.notify.info('\nMODIFIERS (%s)' % len(modifierStructs))
+            if config.minigameId == ToontownGlobals.CraneGameId:
+                try:
+                    from toontown.minigame.craning import CraneGameGlobals
+                    for i, modStruct in enumerate(modifierStructs, 1):
+                        modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+                        tierStr = ' (Tier %s)' % modifier.tier if modifier.tier > 1 else ''
+                        self.notify.info('    %s. %s%s' % (i, modifier.getName(), tierStr))
+                except Exception as e:
+                    self.notify.info('  (Error deserializing modifiers: %s)' % e)
+                    for i, modStruct in enumerate(modifierStructs, 1):
+                        self.notify.info('    %s. Raw struct: %s' % (i, modStruct))
+            else:
+                self.notify.info('  (Modifiers present but format unknown for this minigame)')
+                for i, modStruct in enumerate(modifierStructs, 1):
+                    self.notify.info('    %s. Raw struct: %s' % (i, modStruct))
+        else:
+            self.notify.info('\nMODIFIERS: None')
+        
+        # Extra Config
+        extraConfig = config.getExtraConfig(config.minigameId)
+        if extraConfig:
+            self.notify.info('\nEXTRA CONFIG')
+            for key, value in extraConfig.items():
+                self.notify.info('  %s: %s' % (key, value))
+        else:
+            self.notify.info('\nEXTRA CONFIG: None')
+        
+        # Stored data for other minigames
+        otherMinigames = set(config.rulesetData.keys()) | set(config.modifiersData.keys()) | set(config.extraConfig.keys())
+        otherMinigames.discard(config.minigameId)
+        if otherMinigames:
+            self.notify.info('\nSTORED DATA FOR OTHER MINIGAMES')
+            for mgId in otherMinigames:
+                mgName = ToontownGlobals.MinigameId2Name.get(mgId, f'Unknown ({mgId})')
+                hasRuleset = mgId in config.rulesetData
+                hasModifiers = mgId in config.modifiersData and len(config.modifiersData[mgId]) > 0
+                hasExtra = mgId in config.extraConfig and len(config.extraConfig[mgId]) > 0
+                flags = []
+                if hasRuleset:
+                    flags.append('Ruleset')
+                if hasModifiers:
+                    flags.append('%s Modifiers' % len(config.modifiersData[mgId]))
+                if hasExtra:
+                    flags.append('Extra Config')
+                self.notify.info('  %s (ID: %s): %s' % (mgName, mgId, ', '.join(flags) if flags else 'No data'))
+        
+        # Group Manager Stats
+        self.notify.info('\nGROUP MANAGER STATS')
+        self.notify.info('  Total groups: %s' % len(gm.groups))
+        
+        self.notify.info('\n' + '=' * 80 + '\n')
     
     def requestExit(self):
         self.notify.debug('BASE: requestExit: client has requested the game to end')

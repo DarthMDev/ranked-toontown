@@ -188,6 +188,10 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
     def d_requestMinigameSwitch(self, minigameId: int):
         self.sendUpdate('requestMinigameSwitch', [minigameId])
     
+    def d_requestGroupDebug(self):
+        """Request group debug data from AI"""
+        self.sendUpdate('requestGroupDebug', [])
+    
     def setMinigameZone(self, minigameZone, minigameGameId):
         """
         Called from the AI when the group is being sent to a minigame.
@@ -251,6 +255,9 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             self.leaveGroup()
             return
         
+        # Check if minigame type changed
+        minigameTypeChanged = hasattr(self, 'minigameType') and self.minigameType != minigameType
+        
         # Update group ID
         self.groupId = groupId
         self.minigameType = minigameType
@@ -270,6 +277,10 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         self.setCapacity(capacity)
         
         self.Notify.debug(f"setGroupState: Updated group state. Members: {self.getMemberIds()}, Leader: {self.getLeader()}")
+        
+        # Notify interface if minigame type changed
+        if minigameTypeChanged:
+            messenger.send('group-minigame-updated')
         
         # Render the UI
         self.render()
@@ -397,6 +408,23 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             self.interface = GroupInterface(self)
             self.going_text = DirectLabel(parent=base.a2dBottomCenter, pos=(0, 0, .3), text='', textMayChange=1, text_scale=.15,
                         text_shadow=(0, 0, 0, 1), text_fg=(.15, .9, .15, 1), text_font=ToontownGlobals.getCompetitionFont())
+            
+            # Debug button for group data - positioned in top right (same as minigame and purchase manager)
+            from direct.gui.DirectButton import DirectButton
+            from direct.gui.DirectGui import DGG
+            self.debugGroupButton = DirectButton(
+                parent=base.a2dTopRight,
+                pos=(-0.15, 0, -0.1),
+                scale=0.06,
+                text='Debug Group',
+                text_scale=0.5,
+                text_fg=(1, 1, 1, 1),
+                text_shadow=(0, 0, 0, 1),
+                frameColor=(0.2, 0.2, 0.2, 0.8),
+                relief=DGG.RAISED,
+                command=self.requestGroupDebug
+            )
+            
             self.Notify.debug(f"__makeNewInterface: Interface created successfully")
         except Exception as e:
             self.Notify.error(f"__makeNewInterface: Failed to create interface: {e}")
@@ -413,6 +441,9 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         if self.going_text is not None:
             self.going_text.destroy()
             self.going_text = None
+        if hasattr(self, 'debugGroupButton') and self.debugGroupButton is not None:
+            self.debugGroupButton.destroy()
+            self.debugGroupButton = None
 
     def sendInvite(self, sender: int, groupId: int):
 
@@ -436,3 +467,72 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         Use isInGroup() and direct GroupBase methods instead.
         """
         return self if self.isInGroup() else None
+    
+    def requestGroupDebug(self):
+        """
+        Request group debug data to be printed on both client and AI.
+        This can be called from anywhere (GroupInterface, Purchase Manager, etc.)
+        """
+        if not self.isInGroup():
+            self.Notify.info('Not in a group - cannot show debug data')
+            return
+        
+        # Print client-side data
+        self.Notify.info('\n' + '=' * 80)
+        self.Notify.info('CLIENT GROUP DEBUG DATA')
+        self.Notify.info('=' * 80)
+        
+        from toontown.toonbase import ToontownGlobals
+        from toontown.groups import GroupGlobals
+        
+        # Basic Group Info
+        self.Notify.info('\nBASIC GROUP INFO')
+        self.Notify.info('  Group ID: %s' % self.groupId)
+        self.Notify.info('  In Group: %s' % ('Yes' if self.isInGroup() else 'No'))
+        self.Notify.info('  Leader: %s' % self.getLeader())
+        self.Notify.info('  Capacity: %s / %s' % (self.getMemberCount(), self.getCapacity()))
+        
+        # Minigame Info
+        minigameName = ToontownGlobals.MinigameId2Name.get(self.minigameType, f'Unknown ({self.minigameType})')
+        self.Notify.info('\nMINIGAME INFO')
+        self.Notify.info('  Type: %s (ID: %s)' % (minigameName, self.minigameType))
+        
+        # Members
+        members = self.getMembers()
+        self.Notify.info('\nMEMBERS (%s)' % len(members))
+        if not members:
+            self.Notify.info('  (No members)')
+        else:
+            for i, member in enumerate(members, 1):
+                teamStr = 'Spectator' if member.team == GroupGlobals.TEAM_SPECTATOR else 'Participant'
+                statusStr = {GroupGlobals.STATUS_LEADER: 'Leader', 
+                            GroupGlobals.STATUS_READY: 'Ready',
+                            GroupGlobals.STATUS_UNREADY: 'Not Ready'}.get(member.status, f'Status {member.status}')
+                leaderStr = ' (Leader)' if member.leader else ''
+                self.Notify.info('  %s. avId: %s - %s, %s%s' % (i, member.avId, teamStr, statusStr, leaderStr))
+        
+        self.Notify.info('\n' + '=' * 80)
+        self.Notify.info('(See AI-side output for full minigame config details)')
+        self.Notify.info('=' * 80 + '\n')
+        
+        # Request AI-side debug data
+        # First try to use GroupManager's direct method
+        self.d_requestGroupDebug()
+        
+        # Also try minigame's requestGroupDebug if available (for when in minigame)
+        if hasattr(base.cr, 'playGame') and base.cr.playGame.getPlace():
+            place = base.cr.playGame.getPlace()
+            if hasattr(place, 'fsm') and hasattr(place.fsm, 'getCurrentState'):
+                state = place.fsm.getCurrentState()
+                if state and hasattr(state, 'minigame'):
+                    minigame = state.minigame
+                    if minigame and hasattr(minigame, 'sendUpdate'):
+                        minigame.sendUpdate('requestGroupDebug', [])
+                        return
+        
+        # If not in minigame, try to find any minigame object
+        for do in list(base.cr.doId2do.values()):
+            if hasattr(do, '__class__') and 'Minigame' in do.__class__.__name__:
+                if hasattr(do, 'sendUpdate') and hasattr(do, 'requestGroupDebug'):
+                    do.sendUpdate('requestGroupDebug', [])
+                    return

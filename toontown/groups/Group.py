@@ -3,6 +3,7 @@ import time
 from toontown.groups import GroupGlobals
 from toontown.groups.GroupBase import GroupBase
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
+from toontown.groups.GroupMinigameConfig import GroupMinigameConfig
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 
@@ -18,6 +19,16 @@ class Group(GroupBase):
         self.air = air
         self.groupId = 0  # Will be set when group is created
         self.activityStartCooldown = 0
+        
+        # Initialize minigame config with default values
+        leaderZone = leader.zoneId if leader else 0
+        self.minigameConfig = GroupMinigameConfig(
+            minigameId=ToontownGlobals.CraneGameId,
+            trolleyZone=leaderZone,
+            hostId=leader.getDoId()
+        )
+        
+        # Backward compatibility - keep desiredMinigame for now
         self.desiredMinigame = ToontownGlobals.CraneGameId
 
     def getToons(self):
@@ -58,10 +69,18 @@ class Group(GroupBase):
 
         self.announce("Activity starting...")
         self.activityStartCooldown = time.time() + 6
-        # Get zone from leader
+        
+        # Update config with current leader zone (in case leader changed zones)
         leader = self.air.getDo(self.getLeader())
-        zoneId = leader.zoneId if leader else 0
-        minigame = self.air.minigameMgr.createMinigame(self.getMemberIds(), zoneId, hostId=self.getLeader(), spectatorIds=self.getSpectators(), desiredNextGame=self.desiredMinigame)
+        if leader:
+            self.minigameConfig.updateTrolleyZone(leader.zoneId)
+            self.minigameConfig.updateHostId(self.getLeader())
+        
+        # Update minigame ID in config
+        self.minigameConfig.updateMinigameId(self.desiredMinigame)
+        
+        # Create minigame - it will fetch all data from group
+        minigame = self.air.minigameMgr.createMinigameFromGroup(self)
         self.d_setMinigameZone(minigame)
 
     """
@@ -120,4 +139,25 @@ class Group(GroupBase):
         Updates minigame type and broadcasts to all members.
         """
         self.desiredMinigame = minigameId
+        self.minigameConfig.updateMinigameId(minigameId)
         self.broadcastGroupState()
+    
+    def getMinigameConfig(self) -> GroupMinigameConfig:
+        """
+        Get the minigame configuration for this group.
+        """
+        return self.minigameConfig
+    
+    def setMinigameRuleset(self, minigameId, rulesetStruct):
+        """
+        Store ruleset data for a minigame in the group config.
+        This persists across minigame sessions.
+        """
+        self.minigameConfig.setRuleset(minigameId, rulesetStruct)
+    
+    def setMinigameModifiers(self, minigameId, modifierStructs):
+        """
+        Store modifier data for a minigame in the group config.
+        This persists across minigame sessions.
+        """
+        self.minigameConfig.setModifiers(minigameId, modifierStructs)

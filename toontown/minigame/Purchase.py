@@ -72,6 +72,20 @@ class Purchase(PurchaseBase):
          purchaseModels.find('**/PurchScrn_BTN_DN'),
          purchaseModels.find('**/PurchScrn_BTN_RLVR'),
          purchaseModels.find('**/PurchScrn_BTN_UP')), text=TTLocalizer.GagShopBackToPlayground, text_fg=(0, 0.1, 0.7, 1), text_scale=0.05, text_pos=(0, 0.015, 0), image3_color=Vec4(0.6, 0.6, 0.6, 1), text3_fg=Vec4(0, 0, 0.4, 1), command=self.__handleBackToPlayground)
+        
+        # Debug button for group data
+        self.debugGroupButton = DirectButton(
+            parent=base.a2dTopRight,
+            pos=(-0.15, 0, -0.1),
+            scale=0.06,
+            text='Debug Group',
+            text_scale=0.5,
+            text_fg=(1, 1, 1, 1),
+            text_shadow=(0, 0, 0, 1),
+            frameColor=(0.2, 0.2, 0.2, 0.8),
+            relief=DGG.RAISED,
+            command=self.__handleDebugGroup
+        )
         self.timer = ToontownTimer.ToontownTimer()
         self.timer.hide()
         self.timer.posInTopRightCorner()
@@ -152,6 +166,9 @@ class Purchase(PurchaseBase):
         del self.playAgain
         self.backToPlayground.destroy()
         del self.backToPlayground
+        if hasattr(self, 'debugGroupButton'):
+            self.debugGroupButton.destroy()
+            del self.debugGroupButton
         self.timer.stop()
         self.timer.destroy()
         del self.timer
@@ -214,6 +231,15 @@ class Purchase(PurchaseBase):
              'where': 'playground'}
         messenger.send(self.doneEvent)
 
+    def __handleDebugGroup(self):
+        """
+        Handle debug group button click in purchase manager.
+        """
+        if hasattr(base.cr, 'groupManager') and base.cr.groupManager:
+            base.cr.groupManager.requestGroupDebug()
+        else:
+            self.notify.info('GroupManager not available')
+    
     def __handleBackToPlayground(self):
         self.toon.inventory.reparentTo(hidden)
         self.toon.inventory.hide()

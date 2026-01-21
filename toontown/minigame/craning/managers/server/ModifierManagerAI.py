@@ -19,6 +19,23 @@ class ModifierManagerAI:
     
     def setupRuleset(self):
         """Setup the ruleset with modifiers"""
+        # Check if we have group data to restore first
+        if hasattr(self.game, 'group') and self.game.group is not None:
+            config = self.game.group.getMinigameConfig()
+            rulesetStruct = config.getRuleset(self.game.minigameId)
+            modifierStructs = config.getModifiers(self.game.minigameId)
+            
+            # If we have saved state, restore it instead of creating defaults
+            if rulesetStruct is not None:
+                self.setupRulesetFromStruct(rulesetStruct)
+                if modifierStructs:
+                    self.applyModifiersFromStructs(modifierStructs)
+                # Save again to ensure it's up to date
+                if hasattr(self.game, 'saveStateToGroup'):
+                    self.game.saveStateToGroup()
+                return
+        
+        # No saved state - create fresh ruleset with defaults
         self.game.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.modifiers.clear()
         modifiers = []
@@ -28,24 +45,17 @@ class ModifierManagerAI:
         if self.rollModsOnStart:
             modifiers += self.rollRandomModifiers()
         
-        # Add default competitive modifiers only on first setup for 2+ players
-        if len(self.game.getParticipantsNotSpectating()) >= 2 and not self.defaultModifiersInitialized:
-            invincibleBoss = CraneGameGlobals.ModifierInvincibleBoss()
-            timerEnabler = CraneGameGlobals.ModifierTimerEnabler(3)
-            sideCranesEnabler = CraneGameGlobals.ModifierSideCranesEnabler()
-            modifiers.append(invincibleBoss)
-            modifiers.append(timerEnabler)
-            modifiers.append(sideCranesEnabler)
-            # Also add them to desiredModifiers so they persist until explicitly removed
-            self.desiredModifiers.append(invincibleBoss)
-            self.desiredModifiers.append(timerEnabler)
-            self.desiredModifiers.append(sideCranesEnabler)
-            self.defaultModifiersInitialized = True
+        # Default modifiers removed - start with 0 modifiers by default
+        # Players can add modifiers manually if desired
         
         self.applyModifiers(modifiers, updateClient=True)
         
         if self.game.getBoss() is not None:
             self.game.getBoss().setRuleset(self.game.ruleset)
+        
+        # Save state to group after initial setup (so default modifiers are persisted)
+        if hasattr(self.game, 'saveStateToGroup'):
+            self.game.saveStateToGroup()
     
     def applyModifiers(self, modifiers: list[CraneGameGlobals.CFORulesetModifierBase], updateClient=False):
         """
@@ -67,6 +77,9 @@ class ModifierManagerAI:
         if updateClient:
             self.d_setRawRuleset()
             self.d_setModifiers()
+            # Save to group if available
+            if hasattr(self.game, 'saveStateToGroup'):
+                self.game.saveStateToGroup()
     
     def removeModifier(self, modifierClass):
         """Remove a modifier by class"""
@@ -100,6 +113,9 @@ class ModifierManagerAI:
         if removedMod:
             # Rebuild ruleset from scratch without the removed modifier
             self._rebuildRuleset()
+            # Save to group if available
+            if hasattr(self.game, 'saveStateToGroup'):
+                self.game.saveStateToGroup()
         else:
             self.game.notify.warning(f"Modifier {modifierEnum} not found to remove")
     
@@ -126,6 +142,7 @@ class ModifierManagerAI:
             self.desiredModifiers.append(modifier)
             
             self.applyModifier(modifier, updateClient=True)
+            # saveStateToGroup is called inside applyModifier when updateClient=True
         else:
             self.game.notify.warning(f"Unknown modifier enum: {modifierEnum}")
     
@@ -197,3 +214,48 @@ class ModifierManagerAI:
     def d_setModifiers(self):
         """Send modifiers to clients"""
         self.game.sendUpdate('setModifiers', [self._getRawModifierList()])
+    
+    def setupRulesetFromStruct(self, rulesetStruct):
+        """
+        Restore ruleset from a struct (e.g., from group config).
+        This is used when creating a minigame from group data.
+        """
+        self.game.ruleset = CraneGameGlobals.CraneGameRuleset.fromStruct(rulesetStruct)
+        self.modifiers.clear()
+        
+        # Update boss if it exists
+        if self.game.getBoss() is not None:
+            self.game.getBoss().setRuleset(self.game.ruleset)
+        
+        # Update clients
+        self.d_setRawRuleset()
+    
+    def applyModifiersFromStructs(self, modifierStructs):
+        """
+        Restore modifiers from structs (e.g., from group config).
+        This is used when creating a minigame from group data.
+        """
+        modifiers = []
+        for modStruct in modifierStructs:
+            modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+            modifiers.append(modifier)
+            # Also add to desired modifiers so they persist
+            # Check by enum to avoid duplicates
+            if not any(m.MODIFIER_ENUM == modifier.MODIFIER_ENUM for m in self.desiredModifiers):
+                self.desiredModifiers.append(modifier)
+        
+        # Apply all modifiers (don't update client yet - that happens in setupRuleset)
+        # We'll update client after everything is set up
+        for modifier in modifiers:
+            self.modifiers.append(modifier)
+            modifier.apply(self.game.ruleset)
+        
+        self.game.ruleset.validate()
+        
+        # Mark that we've initialized defaults so they don't get added again
+        if len(self.game.getParticipantsNotSpectating()) >= 2:
+            self.defaultModifiersInitialized = True
+        
+        # Update clients
+        self.d_setRawRuleset()
+        self.d_setModifiers()

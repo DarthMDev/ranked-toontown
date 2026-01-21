@@ -224,7 +224,34 @@ class PurchaseManagerAI(DistributedObjectAI.DistributedObjectAI):
             for oldSpec in self.spectators:
                 if oldSpec in playAgainList:
                     newSpecList.append(oldSpec)
-            self.air.minigameMgr.createMinigame(playAgainList, self.trolleyZone, minigameZone=self.zoneId, hostId=self.previousHost, previousGameId=self.previousMinigameId, desiredNextGame=self.previousMinigameId, spectatorIds=newSpecList)
+            
+            # Try to get group from first player for play-again
+            group = None
+            if playAgainList and hasattr(self.air, 'groupManager') and self.air.groupManager:
+                firstToon = self.air.getDo(playAgainList[0])
+                if firstToon:
+                    group = self.air.groupManager.getGroup(firstToon)
+            
+            if group is not None:
+                # IMPORTANT: Don't remove group members who exit back to playground!
+                # They remain in the group, just not participating in this minigame.
+                # The group should keep all members, and only those who chose to play again
+                # will be included in the minigame.
+                
+                # For play-again, reuse the current zone (same as old behavior)
+                # This avoids teleport issues - players are already in the zone
+                # Create minigame from group, but only include those who chose to play again
+                # Note: We don't call d_setMinigameZone here because players are already in the zone
+                # The minigame will just start in the same zone
+                minigame = self.air.minigameMgr.createMinigameFromGroup(
+                    group, 
+                    minigameZone=self.zoneId,
+                    participantIds=playAgainList,  # Only include those playing again
+                    spectatorIds=newSpecList  # Include spectators who chose to play again
+                )
+            else:
+                # Fallback to old method if no group (e.g., trolley minigames)
+                self.air.minigameMgr.createMinigame(playAgainList, self.trolleyZone, minigameZone=self.zoneId, hostId=self.previousHost, previousGameId=self.previousMinigameId, desiredNextGame=self.previousMinigameId, spectatorIds=newSpecList)
         else:
             self.air.minigameMgr.releaseMinigameZone(self.zoneId)
         self.requestDelete()

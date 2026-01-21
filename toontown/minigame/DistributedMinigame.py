@@ -572,29 +572,48 @@ class DistributedMinigame(DistributedObject.DistributedObject):
     
     def __handleGroupDebug(self):
         """Prints group data on client and sends request to AI to print group data."""
-        self.notify.info('=' * 80)
+        self.notify.info('\n' + '=' * 80)
         self.notify.info('CLIENT GROUP DEBUG DATA')
         self.notify.info('=' * 80)
         
         if not hasattr(base.cr, 'groupManager') or base.cr.groupManager is None:
             self.notify.info('GroupManager not found!')
+            self.notify.info('=' * 80 + '\n')
             return
         
         gm = base.cr.groupManager
-        self.notify.info(f'Group ID: {gm.groupId}')
-        self.notify.info(f'Is in group: {gm.isInGroup()}')
-        self.notify.info(f'Leader: {gm.getLeader()}')
-        self.notify.info(f'Capacity: {gm.getCapacity()}')
-        self.notify.info(f'Minigame Type: {gm.minigameType}')
-        self.notify.info(f'Member IDs: {gm.getMemberIds()}')
-        self.notify.info(f'Member Count: {gm.getMemberCount()}')
         
+        # Basic Group Info
+        self.notify.info('\nBASIC GROUP INFO')
+        self.notify.info('  Group ID: %s' % gm.groupId)
+        self.notify.info('  In Group: %s' % ('Yes' if gm.isInGroup() else 'No'))
+        self.notify.info('  Leader: %s' % gm.getLeader())
+        self.notify.info('  Capacity: %s / %s' % (gm.getMemberCount(), gm.getCapacity()))
+        
+        # Minigame Info
+        from toontown.toonbase import ToontownGlobals
+        minigameName = ToontownGlobals.MinigameId2Name.get(gm.minigameType, f'Unknown ({gm.minigameType})')
+        self.notify.info('\nMINIGAME INFO')
+        self.notify.info('  Type: %s (ID: %s)' % (minigameName, gm.minigameType))
+        
+        # Members
         members = gm.getMembers()
-        self.notify.info(f'Members ({len(members)}):')
-        for member in members:
-            self.notify.info(f'  - avId: {member.avId}, team: {member.team}, status: {member.status}, leader: {member.leader}')
+        self.notify.info('\nMEMBERS (%s)' % len(members))
+        if not members:
+            self.notify.info('  (No members)')
+        else:
+            from toontown.groups import GroupGlobals
+            for i, member in enumerate(members, 1):
+                teamStr = 'Spectator' if member.team == GroupGlobals.TEAM_SPECTATOR else 'Participant'
+                statusStr = {GroupGlobals.STATUS_LEADER: 'Leader', 
+                            GroupGlobals.STATUS_READY: 'Ready',
+                            GroupGlobals.STATUS_UNREADY: 'Not Ready'}.get(member.status, f'Status {member.status}')
+                leaderStr = ' (Leader)' if member.leader else ''
+                self.notify.info('  %s. avId: %s - %s, %s%s' % (i, member.avId, teamStr, statusStr, leaderStr))
         
-        self.notify.info('=' * 80)
+        self.notify.info('\n' + '=' * 80)
+        self.notify.info('(See AI-side output for full minigame config details)')
+        self.notify.info('=' * 80 + '\n')
         
         # Send request to AI to also print group data
         self.sendUpdate('requestGroupDebug', [])
