@@ -55,9 +55,6 @@ class DistributedChatManager(DistributedObjectGlobal):
     def sendWhisperSCTo(self, toId, msgIndex):
         self.sendUpdate('whisperSCTo', [toId, msgIndex])
 
-    def whisperSCFrom(self, fromId, msgIndex):
-        pass
-
     def sendWhisperSCCustomTo(self, toId, msgIndex):
         self.sendUpdate('whisperSCCustomTo', [toId, msgIndex])
 

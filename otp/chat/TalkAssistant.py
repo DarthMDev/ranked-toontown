@@ -598,23 +598,11 @@ class TalkAssistant(DirectObject.DirectObject):
         self.historyOpen.append(newMessage)
         self.addToHistoryDoId(newMessage, senderAvId)
         messenger.send('NewOpenMessage', [newMessage])
-        return error
-
-    def receivePlayerWhisperSpeedChat(self, type, messageIndex, senderAvId, name = None):
-        error = None
-        if not name and senderAvId:
-            name = self.findName(senderAvId, 1)
-        if type == SPEEDCHAT_NORMAL:
-            message = self.SCDecoder.decodeSCStaticTextMsg(messageIndex)
-        elif type == SPEEDCHAT_EMOTE:
-            message = self.SCDecoder.decodeSCEmoteWhisperMsg(messageIndex, name)
-        elif type == SPEEDCHAT_CUSTOM:
-            message = self.SCDecoder.decodeSCCustomMsg(messageIndex)
-        newMessage = TalkMessage(self.countMessage(), self.stampTime(), message, None, None, senderAvId, name, localAvatar.doId, localAvatar.getName(), localAvatar.DISLid, localAvatar.DISLname, TALK_WHISPER, None)
-        self.historyComplete.append(newMessage)
-        self.historyOpen.append(newMessage)
-        self.addToHistoryDISLId(newMessage, senderAvId)
-        messenger.send('NewOpenMessage', [newMessage])
+        base.localAvatar.chatbox.addIncomingWhisper(
+            ChatMessageAuthor(senderAvId, name),
+            message=message,
+            italicize=True
+        )
         return error
 
     def sendOpenTalk(self, message):
@@ -641,25 +629,6 @@ class TalkAssistant(DirectObject.DirectObject):
     def sendWhisperTalk(self, message, receiverAvId):
         error = None
         base.cr.chatManager.sendWhisperMessage(message, receiverAvId)
-        return error
-
-    def sendAccountTalk(self, message, receiverAccount):
-        error = None
-        base.cr.playerFriendsManager.sendUpdate('setTalkAccount', [receiverAccount,
-         0,
-         '',
-         message,
-         [],
-         0])
-        return error
-
-    def sendGuildTalk(self, message):
-        error = None
-        if self.checkGuildTypedChat():
-            base.cr.guildManager.sendTalk(message)
-        else:
-            print('Guild chat error')
-            error = ERROR_NO_GUILD_CHAT
         return error
 
     def sendOpenSpeedChat(self, type, messageIndex, displayType=0):
@@ -700,20 +669,3 @@ class TalkAssistant(DirectObject.DirectObject):
             self.addToHistoryDoId(newMessage, localAvatar.doId)
             messenger.send('NewOpenMessage', [newMessage])
         return error
-
-    def sendGuildSpeedChat(self, type, msgIndex):
-        error = None
-        if self.checkGuildSpeedChat():
-            base.cr.guildManager.sendSC(msgIndex)
-        else:
-            print('Guild Speedchat error')
-            error = ERROR_NO_GUILD_CHAT
-        return error
-
-    def getWhisperReplyId(self):
-        if self.lastWhisper:
-            toPlayer = 0
-            if self.lastWhisper == self.lastWhisperPlayerId:
-                toPlayer = 1
-            return (self.lastWhisper, toPlayer)
-        return (0, 0)

@@ -1,5 +1,6 @@
 import dataclasses
 import random
+import re
 import time
 from typing import Callable
 
@@ -32,8 +33,8 @@ class ChatContainerMessage(DirectButton):
     SCROLL_SPEED = .075
 
     def __init__(self, author: ChatMessageAuthor, content: str, **kwargs):
-        self.author: ChatMessageAuthor = author
-        kwargs['text'] = f"{author.name}{content}"
+        self.author: ChatMessageAuthor | None = author
+        kwargs['text'] = f"{content}"
         kwargs['text_wordwrap'] = self.WORDWRAP
         kwargs['relief'] = DirectGuiGlobals.RAISED
         kwargs['text_pos'] = (0, self.TEXT_HORIZONTAL_OFFSET)
@@ -102,9 +103,15 @@ class ChatContainerMessage(DirectButton):
         self.fadeSeq.start()
 
     def __handleClicked(self):
+        if self.author is None:
+            return
+
         av = base.cr.getDo(self.author.avId)
         if av is not None:
             messenger.send('clickedNametag', sentArgs=[av])
+
+        if self.author.avId != base.localAvatar.getDoId():
+            base.localAvatar.chatMgr.whisperTo(self.author.name, self.author.avId)
 
     def destroy(self):
         super().destroy()
@@ -272,9 +279,9 @@ class ChatContainer(DirectScrolledFrame):
         self._input.set(f"{self._input_prefix}{text}")
         self._input.setCursorPosition(len(self._input.get(plain=True))-1)
 
-    def addMessage(self, message: ChatContainerMessage):
+    def __start_tracking_message(self, message: ChatContainerMessage):
         """
-        Adds a new message to the chat log.
+        Adds a message the log in the interface. Should be called everytime you construct a ChatContainerMessage and want to track it.
         """
         self._messages.append(message)
         if len(self._messages) > self.MESSAGE_CACHE_LIMIT:
@@ -293,12 +300,26 @@ class ChatContainer(DirectScrolledFrame):
         else:
             self.verticalScroll['value'] = 1
 
-    def addEntry(self, avId: int, text: str):
+    def addRawMessage(self, text: str, author: ChatMessageAuthor = None):
         """
-        Adds raw text to the log. Can be used for various purposes. Pass in an avId to emulate whisper clicking
+        Adds raw text to the log. Can be used for various purposes. Pass in an author to emulate whisper clicking
         behavior when the entry is clicked.
         """
-        self.addMessage(ChatContainerMessage(ChatMessageAuthor(avId, ''), text))
+        self.__start_tracking_message(ChatContainerMessage(author, text))
+
+    def addDefaultMessage(self, author: ChatMessageAuthor, message: str, nameColor: str | tuple | None=None, italicize: bool = False):
+        """
+        Adds a new message to the chat log with the default format.
+        nameColor parameter can either be a tuple or a JSON color string key.
+        """
+        name = author.name if author.avId != base.localAvatar.getDoId() else 'You'
+        namePrefix = name + ": " if nameColor is None \
+            else global_text_properties.get_colored_string(name + ": ", color=nameColor) if isinstance(nameColor, str) \
+            else global_text_properties.create_text_with_undefined_color(name + ": ", color=nameColor)
+        if italicize:
+            message = global_text_properties.get_colored_string(message, color='bold')
+        allText = namePrefix + message
+        self.addRawMessage(allText, author)
 
     def addOutgoingWhisper(self, recipient: ChatMessageAuthor, message: str, italicize: bool = False):
         """
@@ -309,7 +330,7 @@ class ChatContainer(DirectScrolledFrame):
         text = global_text_properties.get_colored_string(f"To {recipient.name}: ", color='yellow')
         if italicize:
             message = global_text_properties.get_colored_string(message, color='bold')
-        self.addEntry(recipient.avId, f"{text}{message}")
+        self.addRawMessage(f"{text}{message}", recipient)
 
     def addIncomingWhisper(self, _from: ChatMessageAuthor, message: str, italicize: bool = False):
         """
@@ -318,7 +339,7 @@ class ChatContainer(DirectScrolledFrame):
         text = global_text_properties.get_colored_string(f"From {_from.name}: ", color='magenta')
         if italicize:
             message = global_text_properties.get_colored_string(message, color='bold')
-        self.addEntry(_from.avId, f"{text}{message}")
+        self.addRawMessage(f"{text}{message}", _from)
 
     def scrollFunc(self, multiplier):
         """
@@ -427,7 +448,7 @@ if __name__ == "__main__":
                 ChatMessageAuthor(123, 'test user'),
                 'a' * random.randint(10, 500),
             )
-            self.chatbox.addMessage(msg)
+            self.chatbox.addDefaultMessage(msg)
             print(self.chatbox.verticalScroll['value'])
 
 

@@ -239,19 +239,18 @@ class ChatManager(DirectObject.DirectObject):
 
     def enterWhiteListOpenChat(self):
         self.checkObscurred()
-        base.localAvatar.chatMgr.chatInputWhiteList.activateByData()
 
     def exitWhiteListOpenChat(self):
         pass
 
     def enterWhiteListAvatarChat(self, receiverId):
-        base.localAvatar.chatMgr.chatInputWhiteList.activateByData(receiverId, 0)
+        pass
 
     def exitWhiteListAvatarChat(self):
         pass
 
     def enterWhiteListPlayerChat(self, receiverId):
-        base.localAvatar.chatMgr.chatInputWhiteList.activateByData(receiverId, 1)
+        pass
 
     def exitWhiteListPlayerChat(self):
         pass

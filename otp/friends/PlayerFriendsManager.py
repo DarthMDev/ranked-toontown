@@ -128,9 +128,6 @@ class PlayerFriendsManager(DistributedObjectGlobal):
         messenger.send(OTPGlobals.PlayerFriendRemoveEvent, [id])
         return
 
-    def whisperSCFrom(self, playerId, msg):
-        base.talkAssistant.receivePlayerWhisperSpeedChat(msg, playerId)
-
     def isFriend(self, pId):
         return self.isPlayerFriend(pId)
 
