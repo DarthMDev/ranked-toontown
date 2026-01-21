@@ -1047,7 +1047,10 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             return
         if not entry.getInto().isTangible():
             return
-        sequence = int(entry.getFromNodePath().getNetTag('pieSequence'))
+        sequenceStr = entry.getFromNodePath().getNetTag('pieSequence')
+        if not sequenceStr:
+            return  # No valid sequence tag, can't process this hit
+        sequence = int(sequenceStr)
         self.__finishPieTrack(sequence)
         if sequence in self.splatTracks:
             splatTrack = self.splatTracks[sequence]
