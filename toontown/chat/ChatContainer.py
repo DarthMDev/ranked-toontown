@@ -1,6 +1,7 @@
 import dataclasses
 import random
 import time
+from typing import Callable
 
 from direct.gui import DirectGuiGlobals
 from direct.gui.DirectEntry import DirectEntry
@@ -9,7 +10,7 @@ from direct.gui.DirectButton import DirectButton
 from direct.interval.FunctionInterval import Wait, Func
 from direct.interval.LerpInterval import LerpColorScaleInterval
 from direct.interval.MetaInterval import Sequence
-from panda3d.core import TextNode
+from panda3d.core import TextNode, PGButton, MouseButton
 
 
 @dataclasses.dataclass
@@ -25,7 +26,10 @@ class ChatContainerMessage(DirectButton):
     TEXT_SCALE = 0.3
     VERTICAL_PADDING_PER_LINE = .3
 
+    SCROLL_SPEED = .075
+
     def __init__(self, author: ChatMessageAuthor, content: str, **kwargs):
+        self.author: ChatMessageAuthor = author
         kwargs['text'] = f"{author.name}{content}"
         kwargs['text_wordwrap'] = self.WORDWRAP
         kwargs['relief'] = DirectGuiGlobals.RAISED
@@ -36,20 +40,37 @@ class ChatContainerMessage(DirectButton):
         kwargs['text_fg'] = (.9, .9, .9, 1)
         kwargs['text_shadow'] = (0, 0, 0, 1)
         kwargs['frameSize'] = (-0.1, 7.75, -.55, -.1)
+        kwargs['command'] = self.__handleClicked
         super().__init__(**kwargs)
         self.initialiseoptions(ChatContainerMessage)
         self['frameSize'] = (-0.1, 7.75, -.3 - self.VERTICAL_PADDING_PER_LINE * self.getNumLines(), -.1)
         self.fadeSeq = None
         self.addBackground()
         self.fadeOutLater()
+        self['state'] = DirectGuiGlobals.DISABLED
+        self.scrollFunc: Callable | None = None
 
     def toggleHoverFunctionality(self, enable: bool):
         if enable:
-            self.bind(DirectGuiGlobals.ENTER, lambda _: self.addBackground((.5, .5, .5, .75)))
-            self.bind(DirectGuiGlobals.EXIT, lambda _: self.clearBackground())
+            self.bind(DirectGuiGlobals.ENTER, self.__handleEnterHover)
+            self.bind(DirectGuiGlobals.EXIT, self.__handleExitHover)
         else:
             self.unbind(DirectGuiGlobals.ENTER)
             self.unbind(DirectGuiGlobals.EXIT)
+
+    def __handleEnterHover(self, _):
+        WHEELUP = PGButton.getReleasePrefix() + MouseButton.wheelUp().getName() + '-'
+        WHEELDOWN = PGButton.getReleasePrefix() + MouseButton.wheelDown().getName() + '-'
+        self.bind(WHEELUP, lambda _: self.scrollFunc(-self.SCROLL_SPEED) if self.scrollFunc is not None else None)
+        self.bind(WHEELDOWN, lambda _: self.scrollFunc(self.SCROLL_SPEED) if self.scrollFunc is not None else None)
+        self.addBackground((.5, .5, .5, .75))
+
+    def __handleExitHover(self, _):
+        self.clearBackground()
+        WHEELUP = PGButton.getReleasePrefix() + MouseButton.wheelUp().getName() + '-'
+        WHEELDOWN = PGButton.getReleasePrefix() + MouseButton.wheelDown().getName() + '-'
+        self.unbind(WHEELUP)
+        self.unbind(WHEELDOWN)
 
     def getNumLines(self):
         return self.component('text0').textNode.getWordwrappedText().count('\n') + 1
@@ -76,6 +97,11 @@ class ChatContainerMessage(DirectButton):
             LerpColorScaleInterval(self, 3, (1, 1, 1, 0)),
         )
         self.fadeSeq.start()
+
+    def __handleClicked(self):
+        av = base.cr.getDo(self.author.avId)
+        if av is not None:
+            messenger.send('clickedNametag', sentArgs=[av])
 
     def destroy(self):
         super().destroy()
@@ -169,6 +195,7 @@ class ChatContainer(DirectScrolledFrame):
         for msg in self._messages:
             msg.toggleHoverFunctionality(True)
             msg.clearBackground()
+            msg['state'] = DirectGuiGlobals.NORMAL
         self.acceptOnce('escape', lambda : base.localAvatar.chatMgr.fsm.request('mainMenu'))
 
     def deactivate(self):
@@ -180,6 +207,7 @@ class ChatContainer(DirectScrolledFrame):
             msg.addBackground()
             msg.toggleHoverFunctionality(False)
             msg.fadeOutLater()
+            msg['state'] = DirectGuiGlobals.DISABLED
         self.ignore('escape')
         self.isActive = False
 
@@ -211,14 +239,27 @@ class ChatContainer(DirectScrolledFrame):
             old.destroy()
         message.setScale(.1)
         message.reparentTo(self.getCanvas())
+        message.scrollFunc = self.scroll_func
         self._reposition_messages()
         self._msg_sfx.play()
 
         if self.isActive:
             message.toggleHoverFunctionality(True)
             message.clearBackground()
+            message['state'] = DirectGuiGlobals.NORMAL
         else:
             self.verticalScroll['value'] = 1
+
+    def scroll_func(self, multiplier):
+        content_height = self['canvasSize'][3] - self['canvasSize'][2]
+        view_height = self.FRAME_SIZE[3] - self.FRAME_SIZE[2]
+        if content_height <= view_height:
+            self.verticalScroll['value'] = 0.0
+            return
+        content_height = max(0, content_height)
+        view_height = max(0, view_height)
+        self.verticalScroll['value'] += multiplier / max(1, content_height-view_height)
+        self.verticalScroll['value'] = min(max(0, self.verticalScroll['value']), 1)
 
 if __name__ == "__main__":
     from direct.gui.DirectButton import DirectButton
