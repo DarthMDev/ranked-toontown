@@ -1,18 +1,17 @@
 import random
 
 from direct.distributed.ClockDelta import *
-from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
-from .DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
+from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
 
 
-class DistributedLawbotBossStrippedAI(DistributedBossCogStrippedAI):
+class DistributedLawbotBossStrippedAI(DistributedBossCogAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedLawbotBossAI')
 
     def __init__(self, air, game):
-        DistributedBossCogStrippedAI.__init__(self, air, game, 'l')
+        DistributedBossCogAI.__init__(self, air, game, 'l')
         self.game = game
 
         self.bossMaxDamage = ToontownGlobals.LawbotBossMaxDamage
@@ -24,7 +23,7 @@ class DistributedLawbotBossStrippedAI(DistributedBossCogStrippedAI):
 
     def delete(self):
         self.notify.debug('DistributedLawbotBossAI.delete')
-        return DistributedBossCogStrippedAI.delete(self)
+        return DistributedBossCogAI.delete(self)
 
     def doTaunt(self):
         tauntIndex = random.randrange(len(TTLocalizer.LawbotBossTaunts))

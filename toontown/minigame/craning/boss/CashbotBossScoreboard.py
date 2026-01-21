@@ -4,7 +4,7 @@ from direct.gui.DirectGui import *
 
 from direct.showbase.DirectObject import DirectObject
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedCashbotBossCrane import DistributedCashbotBossCrane
+from toontown.minigame.craning.objects.DistributedCashbotBossCrane import DistributedCashbotBossCrane
 from toontown.suit.Suit import *
 from direct.task.Task import Task
 from direct.interval.IntervalGlobal import *

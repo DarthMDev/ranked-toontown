@@ -1,7 +1,6 @@
 from direct.distributed.ClockDelta import *
 from direct.fsm import FSM
-from toontown.coghq import DistributedCashbotBossCrane
-from toontown.coghq import DistributedCashbotBossSafe
+from toontown.minigame.craning.objects import DistributedCashbotBossCrane
 from panda3d.core import *
 
 class DistributedCashbotBossHeavyCrane(DistributedCashbotBossCrane.DistributedCashbotBossCrane, FSM.FSM):

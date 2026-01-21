@@ -14,7 +14,7 @@ from toontown.minigame.craning import CraneGameGlobals
 from toontown.toonbase import ToontownGlobals
 from toontown.toonbase import TTLocalizer
 from otp.otpbase import OTPGlobals
-from toontown.suit import DistributedCashbotBossGoon
+from toontown.minigame.craning.objects import DistributedCashbotBossGoon
 import random
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect
 

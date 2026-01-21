@@ -7,15 +7,15 @@ from otp.ai.AIBaseGlobal import *
 from toontown.suit import SellbotBossGlobals
 from toontown.toonbase import ToontownGlobals
 from . import BossCogGlobals
-from .DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
+from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
 
 
-class DistributedSellbotBossStrippedAI(DistributedBossCogStrippedAI):
+class DistributedSellbotBossStrippedAI(DistributedBossCogAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedSellbotBossStrippedAI')
     limitHitCount = 6
 
     def __init__(self, air, game):
-        DistributedBossCogStrippedAI.__init__(self, air, game, 's')
+        DistributedBossCogAI.__init__(self, air, game, 's')
         self.game = game
 
         self.bossMaxDamage = ToontownGlobals.SellbotBossMaxDamage

@@ -4,13 +4,11 @@ Heal Drone - Hovers above owner and heals them over time with visual particles.
 
 from panda3d.core import *
 from direct.particles import ParticleEffect, Particles, ForceGroup
-from direct.interval.IntervalGlobal import Sequence, Wait, Func, Parallel
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from panda3d.physics import LinearVectorForce
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
-import random
+from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
 
 
 class DistributedGoonDroneHeal(DistributedGoonDroneBase):

@@ -1,7 +1,7 @@
 import traceback
 import collections
 import typing
-from typing import List, Dict, Type, TypeVar
+from typing import List, Type, TypeVar
 
 from direct.interval.IntervalGlobal import *
 
@@ -2846,7 +2846,7 @@ class ShowScoreboard(MagicWord):
         global DEBUG_HEAT
 
         if not DEBUG_SCOREBOARD:
-            from toontown.coghq.CogBossScoreboard import CogBossScoreboard
+            from toontown.minigame.utils.CogBossScoreboard import CogBossScoreboard
             DEBUG_SCOREBOARD = CogBossScoreboard()
             DEBUG_SCOREBOARD.show()
             DEBUG_HEAT = CraneLeagueHeatDisplay()

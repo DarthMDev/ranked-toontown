@@ -7,8 +7,8 @@ from panda3d.core import CollisionPlane, Plane, Vec3, Point3, CollisionNode
 
 from libotp.nametag import NametagGlobals
 from toontown.coghq import SeltzerLeagueGlobals
-from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimer
-from toontown.coghq.CogBossScoreboard import CogBossScoreboard
+from toontown.minigame.utils.BossSpeedrunTimer import BossSpeedrunTimer
+from toontown.minigame.utils.CogBossScoreboard import CogBossScoreboard
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.craning.CraneWalk import CraneWalk
 from toontown.suit import BossCogGlobals

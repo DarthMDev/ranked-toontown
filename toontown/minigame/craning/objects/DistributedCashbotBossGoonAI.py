@@ -1,12 +1,12 @@
 from panda3d.core import *
 from direct.task.TaskManagerGlobal import *
-from . import GoonGlobals
+from toontown.suit import GoonGlobals
 from direct.task.Task import Task
 from toontown.toonbase import ToontownGlobals
-from toontown.coghq import DistributedCashbotBossObjectAI
-from ..minigame.craning import CraneGameGlobals
+from toontown.minigame.craning.objects import DistributedCashbotBossObjectAI
+from toontown.minigame.craning import CraneGameGlobals
 from direct.showbase import PythonUtil
-from . import DistributedGoonAI
+from toontown.suit import DistributedGoonAI
 import math
 import random
 

@@ -5,15 +5,15 @@ from libotp import *
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from . import SuitDNA
-from .DistributedBossCogStripped import DistributedBossCogStripped
+from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
 
 
-class DistributedLawbotBossStripped(DistributedBossCogStripped):
+class DistributedLawbotBossStripped(DistributedBossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedLawbotBoss')
 
     def __init__(self, cr):
         self.notify.debug('----- __init___')
-        DistributedBossCogStripped.__init__(self, cr)
+        DistributedBossCog.__init__(self, cr)
         self.game = None
         self.bossDamage = 0
         self.attackCode = None
@@ -24,7 +24,7 @@ class DistributedLawbotBossStripped(DistributedBossCogStripped):
 
     def announceGenerate(self):
         self.notify.debug('----- announceGenerate')
-        DistributedBossCogStripped.announceGenerate(self)
+        DistributedBossCog.announceGenerate(self)
         self.setName(TTLocalizer.LawbotBossName)
         nameInfo = TTLocalizer.BossCogNameWithDept % {'name': self._name,
                                                       'dept': SuitDNA.getDeptFullname(self.style.dept)}
@@ -34,7 +34,7 @@ class DistributedLawbotBossStripped(DistributedBossCogStripped):
     def delete(self):
         self.notify.debug('----- delete')
         del self.game
-        DistributedBossCogStripped.delete(self)
+        DistributedBossCog.delete(self)
 
     def setBossDamage(self, bossDamage, recoverRate, timestamp):
         recoverStartTime = globalClockDelta.networkToLocalTime(timestamp)
@@ -103,7 +103,7 @@ class DistributedLawbotBossStripped(DistributedBossCogStripped):
         self.saySomething(chatString)
 
     def setAttackCode(self, attackCode, avId=0):
-        DistributedBossCogStripped.setAttackCode(self, attackCode, avId)
+        DistributedBossCog.setAttackCode(self, attackCode, avId)
         if attackCode == ToontownGlobals.BossCogAreaAttack:
             self.saySomething(TTLocalizer.LawbotBossAreaAttackTaunt)
             base.playSfx(self.warningSfx)

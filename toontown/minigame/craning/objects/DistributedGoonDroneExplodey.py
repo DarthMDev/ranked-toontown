@@ -10,8 +10,7 @@ from direct.showbase.ShowBaseGlobal import aspect2d
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
-from toontown.effects import DustCloud
+from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
 from toontown.suit import GoonDeath
 import random
 import math
@@ -173,8 +172,7 @@ class DistributedGoonDroneExplodey(DistributedGoonDroneBase):
         
         # Pull back direction is OPPOSITE of the heading (away from CFO)
         # Heading points TO CFO, so we need to go in the opposite direction
-        from math import radians, sin, cos
-        
+
         # Calculate direction vector from deployment to CFO
         directionToCFO = self.cfoTargetPos - self.deploymentPos
         directionToCFO.normalize()

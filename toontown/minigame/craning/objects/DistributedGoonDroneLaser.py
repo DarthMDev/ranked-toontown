@@ -7,7 +7,7 @@ from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
+from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
 
 
 class DistributedGoonDroneLaser(DistributedGoonDroneBase):
@@ -255,8 +255,8 @@ class DistributedGoonDroneLaser(DistributedGoonDroneBase):
     
     def createLaserEffect(self, startPos, targetPos, target):
         """Create a straight laser beam that travels from start to target over 0.3 seconds."""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3
-        
+        from panda3d.core import LineSegs, TransparencyAttrib
+
         distance = (targetPos - startPos).length()
         
         if distance < 0.01:

@@ -6,18 +6,18 @@ from direct.fsm import FSM
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import Point3
 
-from ..minigame.craning import CraneGameGlobals
-from toontown.coghq import DistributedCashbotBossSideCraneAI
+from toontown.minigame.craning import CraneGameGlobals
+from toontown.minigame.craning.objects import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
-from .DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
+from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, STATUS_EFFECT_DURATIONS
 
 
-class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
+class DistributedCashbotBossAI(DistributedBossCogAI, FSM.FSM):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedCashbotBossAI')
 
     def __init__(self, air, game):
-        DistributedBossCogStrippedAI.__init__(self, air, game, 'm')
+        DistributedBossCogAI.__init__(self, air, game, 'm')
         FSM.FSM.__init__(self, 'DistributedCashbotBossAI')
         air.memoryDebugger.track_weak(self, "CraneGameBoss")
 
@@ -319,7 +319,7 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         self.sendUpdate('setBossDamage', [bossDamage, avId, objId, isGoon, isDOT])
 
     def waitForNextAttack(self, delayTime):
-        DistributedBossCogStrippedAI.waitForNextAttack(self, delayTime)
+        DistributedBossCogAI.waitForNextAttack(self, delayTime)
 
     def prepareBossForBattle(self):
         # Force unstun the CFO if he was stunned in a previous Battle Three round
@@ -1153,26 +1153,26 @@ class DistributedCashbotBossStrippedAI(DistributedBossCogStrippedAI, FSM.FSM):
         # Create the drone with specified type - use specialized classes
         # Select the appropriate drone class based on type
         if droneType == CraneGameGlobals.DroneType.LASER:
-            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
             drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.HEAL:
-            from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
             drone = DistributedGoonDroneHealAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.EXPLODEY:
-            from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
             drone = DistributedGoonDroneExplodeyAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.STUN:
-            from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
             drone = DistributedGoonDroneStunAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.SHIELD:
-            from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
             drone = DistributedGoonDroneShieldAI(self.air, self, toonId)
         elif droneType == CraneGameGlobals.DroneType.GHOSTY:
-            from toontown.coghq.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
             drone = DistributedGoonDroneGhostyAI(self.air, self, toonId)
         else:
             self.notify.warning(f"Unknown drone type: {droneType}, defaulting to Laser")
-            from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+            from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
             drone = DistributedGoonDroneLaserAI(self.air, self, toonId)
         
         drone.generateWithRequired(self.zoneId)

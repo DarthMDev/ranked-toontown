@@ -7,15 +7,15 @@ from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import SeltzerLeagueGlobals
 from toontown.suit import BossCogGlobals
-from toontown.suit.DistributedBossCogStrippedAI import DistributedBossCogStrippedAI
+from toontown.minigame.utils.DistributedBossCogAI import DistributedBossCogAI
 from toontown.toonbase import ToontownGlobals
 
 
-class DistributedBossbotBossStrippedAI(DistributedBossCogStrippedAI):
+class DistributedBossbotBossStrippedAI(DistributedBossCogAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossbotBossAI')
 
     def __init__(self, air, game):
-        DistributedBossCogStrippedAI.__init__(self, air, game, 'c')
+        DistributedBossCogAI.__init__(self, air, game, 'c')
         self.ruleset = SeltzerLeagueGlobals.CEORuleset()
         self.threatDict = {}
         self.battleFourStart = 0

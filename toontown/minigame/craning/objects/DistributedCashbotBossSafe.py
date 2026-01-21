@@ -4,9 +4,9 @@ from direct.interval.IntervalGlobal import *
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import ToontownGlobals
 from otp.otpbase import OTPGlobals
-from . import DistributedCashbotBossObject
+from toontown.minigame.craning.objects import DistributedCashbotBossObject
 
-from ..minigame.craning import CraneGameGlobals
+from toontown.minigame.craning import CraneGameGlobals
 
 
 class DistributedCashbotBossSafe(DistributedCashbotBossObject.DistributedCashbotBossObject):

@@ -6,7 +6,7 @@ from toontown.suit import SuitDNA
 from toontown.toonbase import ToontownGlobals
 
 
-class DistributedBossCogStrippedAI(DistributedAvatarAI.DistributedAvatarAI):
+class DistributedBossCogAI(DistributedAvatarAI.DistributedAvatarAI):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossCogAI')
 
     def __init__(self, air, game, dept):

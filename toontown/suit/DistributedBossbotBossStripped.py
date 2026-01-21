@@ -18,20 +18,20 @@ from toontown.distributed import DelayDelete
 from toontown.effects import DustCloud
 from toontown.suit import Suit
 from toontown.suit import SuitDNA
-from toontown.suit.DistributedBossCogStripped import DistributedBossCogStripped
+from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 
 TTL = TTLocalizer
 
 
-class DistributedBossbotBossStripped(DistributedBossCogStripped):
+class DistributedBossbotBossStripped(DistributedBossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossbotBoss')
     BallLaunchOffset = Point3(10.5, 8.5, -5)
 
     def __init__(self, cr):
         self.notify.debug('----- __init___')
-        DistributedBossCogStripped.__init__(self, cr)
+        DistributedBossCog.__init__(self, cr)
         self.ruleset = SeltzerLeagueGlobals.CEORuleset()
         self.bossDamage = 0
         self.bossMaxDamage = self.ruleset.CEO_MAX_HP
@@ -48,7 +48,7 @@ class DistributedBossbotBossStripped(DistributedBossCogStripped):
         return
 
     def announceGenerate(self):
-        DistributedBossCogStripped.announceGenerate(self)
+        DistributedBossCog.announceGenerate(self)
         render.setTag('pieCode', str(ToontownGlobals.PieCodeNotBossCog))
         self.setTag('attackCode', str(ToontownGlobals.BossCogGolfAttack))
         target = CollisionTube(0, -2, -2, 0, -1, 9, 4.0)
@@ -102,7 +102,7 @@ class DistributedBossbotBossStripped(DistributedBossCogStripped):
 
     def disable(self):
         self.notify.debug('----- disable')
-        DistributedBossCogStripped.disable(self)
+        DistributedBossCog.disable(self)
         self.demotedCeo.delete()
         base.cTrav.removeCollider(self.closeBubbleNodePath)
         taskMgr.remove('RecoverSpeedDamage')

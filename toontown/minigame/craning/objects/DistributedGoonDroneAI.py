@@ -13,10 +13,7 @@ This file now acts as a factory that routes to the appropriate class based on dr
 """
 
 from direct.directnotify import DirectNotifyGlobal
-from direct.distributed import DistributedObjectAI
-from toontown.suit import DistributedGoonAI
 from toontown.minigame.craning import CraneGameGlobals
-import math
 
 
 def create_drone_ai(air, boss, ownerId, droneType=None):
@@ -33,26 +30,26 @@ def create_drone_ai(air, boss, ownerId, droneType=None):
     
     # Route to the appropriate specialized class
     if droneType == CraneGameGlobals.DroneType.LASER:
-        from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
         return DistributedGoonDroneLaserAI(air, boss, ownerId)
     elif droneType == CraneGameGlobals.DroneType.HEAL:
-        from toontown.coghq.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneHealAI import DistributedGoonDroneHealAI
         return DistributedGoonDroneHealAI(air, boss, ownerId)
     elif droneType == CraneGameGlobals.DroneType.EXPLODEY:
-        from toontown.coghq.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneExplodeyAI import DistributedGoonDroneExplodeyAI
         return DistributedGoonDroneExplodeyAI(air, boss, ownerId)
     elif droneType == CraneGameGlobals.DroneType.STUN:
-        from toontown.coghq.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneStunAI import DistributedGoonDroneStunAI
         return DistributedGoonDroneStunAI(air, boss, ownerId)
     elif droneType == CraneGameGlobals.DroneType.SHIELD:
-        from toontown.coghq.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneShieldAI import DistributedGoonDroneShieldAI
         return DistributedGoonDroneShieldAI(air, boss, ownerId)
     elif droneType == CraneGameGlobals.DroneType.GHOSTY:
-        from toontown.coghq.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneGhostyAI import DistributedGoonDroneGhostyAI
         return DistributedGoonDroneGhostyAI(air, boss, ownerId)
     else:
         # Default to laser for unknown types
-        from toontown.coghq.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
+        from toontown.minigame.craning.objects.DistributedGoonDroneLaserAI import DistributedGoonDroneLaserAI
         return DistributedGoonDroneLaserAI(air, boss, ownerId)
 
 

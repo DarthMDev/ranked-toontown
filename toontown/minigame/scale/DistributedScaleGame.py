@@ -14,10 +14,10 @@ from panda3d.core import Fog, CollisionPlane, Plane, Vec3, Point3, CollisionNode
 from libotp import NametagGroup, CFSpeech, CFTimeout
 from libotp.nametag import NametagGlobals
 from toontown.minigame.utils.elevator import ElevatorConstants
-from toontown.minigame.utils.elevator.ElevatorConstants import ElevatorData, ELEVATOR_CJ
+from toontown.minigame.utils.elevator.ElevatorConstants import ELEVATOR_CJ
 from toontown.coghq import ScaleLeagueGlobals
-from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimer
-from toontown.coghq.CogBossScoreboard import CogBossScoreboard
+from toontown.minigame.utils.BossSpeedrunTimer import BossSpeedrunTimer
+from toontown.minigame.utils.CogBossScoreboard import CogBossScoreboard
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.craning.CraneWalk import CraneWalk
 from toontown.suit import BossCogGlobals

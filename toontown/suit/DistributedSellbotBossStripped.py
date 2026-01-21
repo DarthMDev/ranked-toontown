@@ -1,28 +1,20 @@
-import math
-import random
-
-from direct.directnotify import DirectNotifyGlobal
-from direct.directutil import Mopath
 from direct.distributed.ClockDelta import *
-from direct.fsm import FSM
 from direct.interval.IntervalGlobal import *
 from direct.task import Task
 from direct.task.TaskManagerGlobal import taskMgr
 
-from libotp import *
 from toontown.battle.BattleProps import *
-from toontown.coghq import CogDisguiseGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
 from . import SuitDNA
-from .DistributedBossCogStripped import DistributedBossCogStripped
+from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
 
 
-class DistributedSellbotBossStripped(DistributedBossCogStripped):
+class DistributedSellbotBossStripped(DistributedBossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedSellbotBoss')
 
     def __init__(self, cr):
-        DistributedBossCogStripped.__init__(self, cr)
+        DistributedBossCog.__init__(self, cr)
         self.bossDamage = 0
         self.attackCode = None
         self.attackAvId = 0
@@ -35,7 +27,7 @@ class DistributedSellbotBossStripped(DistributedBossCogStripped):
         self.bossMaxDamage = ToontownGlobals.SellbotBossMaxDamage
 
     def announceGenerate(self):
-        DistributedBossCogStripped.announceGenerate(self)
+        DistributedBossCog.announceGenerate(self)
         self.setName(TTLocalizer.SellbotBossName)
         nameInfo = TTLocalizer.BossCogNameWithDept % {'name': self._name,
          'dept': SuitDNA.getDeptFullname(self.style.dept)}
@@ -79,7 +71,7 @@ class DistributedSellbotBossStripped(DistributedBossCogStripped):
         disk.setZ(0.8)
 
     def disable(self):
-        DistributedBossCogStripped.disable(self)
+        DistributedBossCog.disable(self)
         self.__cleanupStrafe()
         render.clearTag('pieCode')
         self.targetNodePath.detachNode()

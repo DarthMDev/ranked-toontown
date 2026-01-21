@@ -4,17 +4,17 @@ from panda3d.core import *
 from panda3d.direct import *
 
 from libotp import *
-from ..minigame.craning import CraneGameGlobals
+from toontown.minigame.craning import CraneGameGlobals
 from toontown.toonbase import TTLocalizer
 from toontown.toonbase import ToontownGlobals
-from . import SuitDNA
-from .DistributedBossCogStripped import DistributedBossCogStripped
+from toontown.suit import SuitDNA
+from toontown.minigame.utils.DistributedBossCog import DistributedBossCog
 
 TTL = TTLocalizer
-from toontown.coghq import BossHealthBar
+from toontown.minigame.utils import BossHealthBar
 
 
-class DistributedCashbotBossStripped(DistributedBossCogStripped):
+class DistributedCashbotBoss(DistributedBossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedCashbotBoss')
 
     def __init__(self, cr):

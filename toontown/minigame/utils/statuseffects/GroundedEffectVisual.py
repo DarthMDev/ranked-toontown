@@ -6,7 +6,7 @@ Creates animated earth/dirt particles and dust clouds around the object.
 from direct.particles import ParticleEffect, Particles, ForceGroup
 from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
 from panda3d.physics import LinearVectorForce
-from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func
+from direct.interval.IntervalGlobal import LerpColorScaleInterval
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
 
@@ -50,7 +50,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
                 self.notify.info("Detected CFO boss - applying larger, wider earth effect")
             else:
                 # Check if this is a safe (not CFO)
-                from toontown.coghq import DistributedCashbotBossSafe
+                from ...craning.objects import DistributedCashbotBossSafe
                 if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
                     isSafe = True
                     self.notify.info("Detected safe - will apply brown/tan glow color")
@@ -508,7 +508,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
@@ -540,7 +540,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
@@ -572,7 +572,7 @@ class GroundedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):

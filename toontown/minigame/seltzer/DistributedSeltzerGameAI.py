@@ -6,7 +6,7 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import SeltzerLeagueGlobals
-from toontown.coghq.BossComboTrackerAI import BossComboTrackerAI
+from toontown.minigame.utils.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedBanquetTableAI import DistributedBanquetTableAI
 from toontown.coghq.DistributedFoodBeltAI import DistributedFoodBeltAI
 from toontown.coghq.DistributedGolfSpotAI import DistributedGolfSpotAI

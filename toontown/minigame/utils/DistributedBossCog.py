@@ -11,16 +11,16 @@ from panda3d.core import *
 
 from otp.avatar import DistributedAvatar
 from toontown.battle import BattleBase
-from toontown.coghq import BossHealthBar
+from toontown.minigame.utils import BossHealthBar
 from toontown.coghq import CogDisguiseGlobals
 from toontown.distributed import DelayDelete
 from toontown.effects import DustCloud
 from toontown.toonbase import ToontownGlobals
-from . import BossCog
-from . import SuitDNA
+from toontown.suit import BossCog
+from toontown.suit import SuitDNA
 
 
-class DistributedBossCogStripped(DistributedAvatar.DistributedAvatar, BossCog.BossCog):
+class DistributedBossCog(DistributedAvatar.DistributedAvatar, BossCog.BossCog):
     notify = DirectNotifyGlobal.directNotify.newCategory('DistributedBossCog')
     allowClickedNameTag = True
 

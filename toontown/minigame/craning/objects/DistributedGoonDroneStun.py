@@ -3,14 +3,12 @@ Stun Drone - Goes high above CFO, grows while rotating, then launches down to st
 """
 
 from panda3d.core import *
-from panda3d.physics import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.toonbase import ToontownGlobals
-from otp.otpbase import OTPGlobals
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
+from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
 import math
 
 
@@ -279,7 +277,6 @@ class DistributedGoonDroneStun(DistributedGoonDroneBase):
         
         from toontown.suit import GoonDeath
         from toontown.battle import BattleParticles
-        from direct.interval.ParticleInterval import ParticleInterval
         import random
         
         # Load particles if not already loaded

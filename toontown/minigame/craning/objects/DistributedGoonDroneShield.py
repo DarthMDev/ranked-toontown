@@ -7,8 +7,7 @@ from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBase import DistributedGoonDroneBase
-from toontown.effects import DustCloud
+from toontown.minigame.craning.objects.DistributedGoonDroneBase import DistributedGoonDroneBase
 import math
 
 

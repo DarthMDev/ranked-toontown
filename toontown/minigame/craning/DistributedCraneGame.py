@@ -20,8 +20,8 @@ from libotp.nametag import NametagGlobals
 from otp.otpbase import OTPGlobals
 from toontown.minigame.craning.CraneGameGlobals import RED_COUNTDOWN_COLOR, ORANGE_COUNTDOWN_COLOR, \
     YELLOW_COUNTDOWN_COLOR
-from toontown.coghq.BossSpeedrunTimer import BossSpeedrunTimedTimer, BossSpeedrunTimer
-from toontown.coghq.CashbotBossScoreboard import CashbotBossScoreboard
+from toontown.minigame.utils.BossSpeedrunTimer import BossSpeedrunTimedTimer, BossSpeedrunTimer
+from toontown.minigame.craning.boss.CashbotBossScoreboard import CashbotBossScoreboard
 from toontown.coghq.CraneLeagueHeatDisplay import CraneLeagueHeatDisplay
 from toontown.minigame.DistributedMinigame import DistributedMinigame
 from toontown.minigame.craning.CraneWalk import CraneWalk

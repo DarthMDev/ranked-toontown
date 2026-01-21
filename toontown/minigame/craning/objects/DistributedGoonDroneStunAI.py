@@ -3,11 +3,9 @@ Stun Drone AI - Goes high above CFO, grows, then launches down to stun.
 """
 
 import random
-from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
-from toontown.toonbase import ToontownGlobals
+from toontown.minigame.craning.objects.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
 class DistributedGoonDroneStunAI(DistributedGoonDroneBaseAI):

@@ -1,9 +1,9 @@
 from panda3d.core import *
 
-from ..minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
+from toontown.minigame.craning import CraneGameGlobals
+from toontown.minigame.craning.objects.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
 from toontown.toonbase import ToontownGlobals
-from . import DistributedCashbotBossObjectAI
+from toontown.minigame.craning.objects import DistributedCashbotBossObjectAI
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect, SYNERGY_EFFECTS, STATUS_EFFECT_DURATIONS
 import math
 import time

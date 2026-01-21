@@ -6,20 +6,20 @@ from direct.fsm import State
 from otp.otpbase.PythonUtil import clamp
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionSphere, CollisionTube, NodePath, Vec3, Point3
-from toontown.coghq.CashbotBossComboTracker import CashbotBossComboTracker
+from toontown.minigame.craning.boss.CashbotBossComboTracker import CashbotBossComboTracker
 from toontown.minigame.craning.CraneGameGlobals import ScoreReason
-from toontown.coghq.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
-from toontown.coghq.DistributedCashbotBossHeavyCraneAI import DistributedCashbotBossHeavyCraneAI
-from toontown.coghq.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
-from toontown.coghq.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
-from toontown.coghq.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
-from toontown.coghq.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
-from toontown.coghq.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
+from toontown.minigame.craning.objects.DistributedCashbotBossCraneAI import DistributedCashbotBossCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotBossHeavyCraneAI import DistributedCashbotBossHeavyCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotBossSafeAI import DistributedCashbotBossSafeAI
+from toontown.minigame.craning.objects.DistributedCashbotBossSideCraneAI import DistributedCashbotBossSideCraneAI
+from toontown.minigame.craning.objects.DistributedCashbotBossTreasureAI import DistributedCashbotBossTreasureAI
+from toontown.minigame.craning.objects.DistributedCashbotBossBoomBarrowAI import DistributedCashbotBossBoomBarrowAI
+from toontown.minigame.craning.objects.DistributedFloatingPlatformAI import DistributedFloatingPlatformAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.suit.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
-from toontown.suit.DistributedCashbotBossStrippedAI import DistributedCashbotBossStrippedAI
+from toontown.minigame.craning.objects.DistributedCashbotBossGoonAI import DistributedCashbotBossGoonAI
+from toontown.minigame.craning.boss.DistributedCashbotBossAI import DistributedCashbotBossAI
 from toontown.toon.DistributedToonAI import DistributedToonAI
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
@@ -142,7 +142,7 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def __makeBoss(self):
         self.__deleteBoss()
 
-        self.boss = DistributedCashbotBossStrippedAI(self.air, self)
+        self.boss = DistributedCashbotBossAI(self.air, self)
         self.boss.generateWithRequired(self.zoneId)
         self.statusEffectSystem = DistributedStatusEffectSystemAI(self, self.air,
                                         StatusEffect.BURNED,

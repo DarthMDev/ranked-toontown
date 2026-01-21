@@ -38,18 +38,18 @@ from toontown.suit import DistributedSuitBase/AI
 from toontown.suit import DistributedSuit/AI
 from toontown.suit import DistributedTutorialSuit/AI
 
-from toontown.suit import DistributedBossCogStripped/AI
+from toontown.minigame.utils import DistributedBossCog/AI
 from toontown.suit import DistributedSellbotBossStripped/AI
-from toontown.suit import DistributedCashbotBossStripped/AI
+from toontown.minigame.craning.boss import DistributedCashbotBoss/AI
 from toontown.suit import DistributedLawbotBossStripped/AI
 from toontown.suit import DistributedBossbotBossStripped/AI
-from toontown.coghq import DistributedCashbotBossSafe/AI
-from toontown.coghq import DistributedCashbotBossCrane/AI
-from toontown.coghq import DistributedCashbotBossSideCrane/AI
-from toontown.coghq import DistributedCashbotBossHeavyCrane/AI
-from toontown.coghq import DistributedCashbotBossBoomBarrow/AI
-from toontown.coghq import DistributedFloatingPlatform/AI
-from toontown.suit import DistributedCashbotBossGoon/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossSafe/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossSideCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossHeavyCrane/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossBoomBarrow/AI
+from toontown.minigame.craning.objects import DistributedFloatingPlatform/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossGoon/AI
 from toontown.battle import DistributedBattleBase/AI
 from toontown.battle import DistributedBattle/AI
 from toontown.coghq import DistributedBattleFactory/AI
@@ -94,7 +94,7 @@ from toontown.safezone import DistributedOZTreasure/AI
 from toontown.safezone import DistributedETreasure/AI
 from toontown.safezone import DistributedEFlyingTreasure/AI
 from toontown.minigame.tag import DistributedTagTreasure/AI
-from toontown.coghq import DistributedCashbotBossTreasure/AI
+from toontown.minigame.craning.objects import DistributedCashbotBossTreasure/AI
 from toontown.building import DistributedTrophyMgr/AI
 from toontown.building import DistributedBuilding/AI
 from toontown.building import DistributedAnimBuilding/AI
@@ -149,13 +149,13 @@ from toontown.coghq import CrusherCell/AI
 from toontown.coghq import DistributedCrate/AI
 from toontown.coghq import DistributedSinkingPlatform/AI
 from toontown.suit import DistributedGoon/AI
-from toontown.coghq import DistributedGoonDrone/AI
-from toontown.coghq import DistributedGoonDroneLaser/AI
-from toontown.coghq import DistributedGoonDroneHeal/AI
-from toontown.coghq import DistributedGoonDroneExplodey/AI
-from toontown.coghq import DistributedGoonDroneStun/AI
-from toontown.coghq import DistributedGoonDroneShield/AI
-from toontown.coghq import DistributedGoonDroneGhosty/AI
+from toontown.minigame.craning.objects import DistributedGoonDrone/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneLaser/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneHeal/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneExplodey/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneStun/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneShield/AI
+from toontown.minigame.craning.objects import DistributedGoonDroneGhosty/AI
 from toontown.suit import DistributedGridGoon/AI
 from toontown.coghq import BattleBlocker/AI
 from toontown.ai import DistributedBlackCatMgr/AI
@@ -1066,7 +1066,7 @@ dclass DistributedFactorySuit : DistributedSuitBase {
   setReturn() broadcast;
 };
 
-dclass DistributedBossCogStripped: DistributedNode {
+dclass DistributedBossCog: DistributedNode {
   setDNAString(blob) required broadcast db;
   avatarNearEnter() airecv clsend;
   avatarNearExit() airecv clsend;
@@ -1074,83 +1074,9 @@ dclass DistributedBossCogStripped: DistributedNode {
   showZapToon(uint32, int16/10, int16/10, int16/10, int16/10, int16/10, int16/10, uint8, int16) broadcast;
 };
 
-dclass DistributedSellbotBossStripped: DistributedBossCogStripped {
-  setBossDamage(uint32, uint32, uint32) broadcast ram;
-  setAttackCode(uint8, uint32) broadcast;
-  hitBoss(uint8) airecv clsend;
-  hitBossInsides() airecv clsend;
-  hitToon(uint32) airecv clsend;
-  doStrafe(uint8, uint8) broadcast;
-};
-
-dclass DistributedCashbotBossStripped: DistributedBossCogStripped {
-  setBossDamage(uint32, uint32, uint32, bool, bool) broadcast ram;
-  setAttackCode(uint8, uint32, uint32) broadcast;
-  setAnimationSpeed(int16/100) broadcast;
-  setFrozenState(bool) broadcast;
-  pieHitBoss(uint8) clsend airecv;
-};
-
-dclass DistributedLawbotBossStripped: DistributedBossCogStripped {
-  setBossDamage(uint32, uint32, uint32) broadcast ram;
-  setAttackCode(uint8, uint32, uint32) broadcast;
-  setTaunt(int8, int8) broadcast;
-};
-
-dclass DistributedBossbotBossStripped: DistributedBossCogStripped {
-  setBossDamage(uint32, uint32, uint32) broadcast ram;
-  setSpeedDamage(uint16, uint8, int16) broadcast ram;
-  setAttackCode(uint8, uint32) broadcast;
-  hitBoss(uint8) airecv clsend;
-  hitToon(uint32) airecv clsend;
-  ballHitBoss(uint8) airecv clsend;
-  reachedTable(uint8) airecv clsend;
-  hitTable(uint8) airecv clsend;
-  awayFromTable(uint8) airecv clsend;
-  toonGotHealed(uint32) broadcast;
-};
-
-dclass DistributedBossCog : DistributedNode {
-  setDNAString(blob) required broadcast db;
-  setToonIds(uint32[], uint32[], uint32[]) broadcast ram;
-  setBattleIds(uint8, uint32, uint32) broadcast ram;
-  setArenaSide(uint8) broadcast ram;
-  avatarEnter() airecv clsend;
-  avatarExit() airecv clsend;
-  avatarNearEnter() airecv clsend;
-  avatarNearExit() airecv clsend;
-  toonDied(uint32) broadcast;
-  revivedToon(uint32 avId) broadcast ram;
-  setBattleExperience(int32, int32[], int32[], uint32[], int16[], int16[], int16[], int16[], uint32[], int32, int32[], int32[], uint32[], int16[], int16[], int16[], int16[], uint32[], int32, int32[], int32[], uint32[], int16[], int16[], int16[], int16[], uint32[], int32, int32[], int32[], uint32[], int16[], int16[], int16[], int16[], uint32[], uint8[], uint32[]) required broadcast ram;
-  zapToon(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10, int8/100, int8/100, uint8, int16) airecv clsend;
-  showZapToon(uint32, int16/10, int16/10, int16/10, int16/10, int16/10, int16/10, uint8, int16) broadcast;
-  setAttackCode(uint8, uint32) broadcast;
-  setSkipAmount(uint8) broadcast;
-  requestSkip() airecv clsend;
-  skipCutscene() broadcast;
-  updateTimer(uint32/255) broadcast ram;
-  damageDealt(uint32, uint32) broadcast;
-  stunBonus(uint32 avId, uint32) broadcast;
-  avHealed(uint32 avId, uint32) broadcast;
-  updateCombo(uint32 avId, uint8) broadcast ram;
-  awardCombo(uint32 avId, uint8, int32) broadcast ram;
-  timesUp() broadcast ram;
-  teamWiped() broadcast ram;
-};
-
-dclass DistributedSellbotBoss : DistributedBossCog {
-  setCagedToonNpcId(uint32) required broadcast ram;
-  setDooberIds(uint32[]) broadcast ram;
-  setBossDamage(uint16, uint8, int16) broadcast ram;
-  setState(string) broadcast ram;
-  hitBoss(uint8) airecv clsend;
-  hitBossInsides() airecv clsend;
-  hitToon(uint32) airecv clsend;
-  finalPieSplat() airecv clsend;
-  touchCage() airecv clsend;
-  doStrafe(uint8, uint8) broadcast;
-  cagedToonBattleThree(uint16, uint32) broadcast;
-  toonPromoted(uint8(0-1));
+struct CraneLeagueModifier {
+  int32 ENUM;
+  int32 TIER;
 };
 
 struct CraneLeagueRuleset {
@@ -1186,11 +1112,6 @@ struct CraneLeagueRuleset {
   bool REMOVE_IMPACT_CAP;
 };
 
-struct CraneLeagueModifier {
-  int32 ENUM;
-  int32 TIER;
-};
-
 struct ScaleLeagueRuleset {
   bool TIMER_MODE;
   int32 TIMER_MODE_TIME_LIMIT;
@@ -1221,30 +1142,40 @@ struct SeltzerLeagueRuleset {
   int16/100 COMBO_DURATION;
 };
 
-dclass DistributedCashbotBoss : DistributedBossCog {
-  updateSpectators(uint32[]) broadcast ram;
-  setRawRuleset(CraneLeagueRuleset) required broadcast ram;
-  setModifiers(CraneLeagueModifier[]) broadcast ram;
-  setToonSpawnpoints(uint8[]) broadcast ram;
-  setState(string) broadcast ram;
-  setBossDamage(uint32, uint32, uint32, bool) broadcast ram;
-  setCraneSpawn(bool, uint8, uint32) broadcast ram;
-  setRewardId(uint16) broadcast ram;
-  applyReward() airecv clsend;
-  killingBlowDealt(uint32 avId) broadcast ram;
-  updateDamageDealt(uint32 avId, uint32) broadcast ram;
-  updateStunCount(uint32 avId, uint32) broadcast ram;
-  updateGoonsStomped(uint32 avId) broadcast ram;
-  updateSafePoints(uint32 avId, int32) broadcast ram;
-  updateMaxImpactHits(uint32 avId) broadcast ram;
-  updateLowImpactHits(uint32 avId) broadcast ram;
-  updateCombo(uint32 avId, uint8) broadcast ram;
-  awardCombo(uint32 avId, uint8, int32) broadcast ram;
-  announceCraneRestart() broadcast ram;
-  revivedToon(uint32 avId) broadcast ram;
-  goonKilledBySafe(uint32 avId) broadcast ram;
-  updateUnstun(uint32 avId) broadcast ram;
+dclass DistributedSellbotBossStripped: DistributedBossCog {
+  setBossDamage(uint32, uint32, uint32) broadcast ram;
+  setAttackCode(uint8, uint32) broadcast;
+  hitBoss(uint8) airecv clsend;
+  hitBossInsides() airecv clsend;
+  hitToon(uint32) airecv clsend;
+  doStrafe(uint8, uint8) broadcast;
+};
+
+dclass DistributedCashbotBoss: DistributedBossCog {
+  setBossDamage(uint32, uint32, uint32, bool, bool) broadcast ram;
   setAttackCode(uint8, uint32, uint32) broadcast;
+  setAnimationSpeed(int16/100) broadcast;
+  setFrozenState(bool) broadcast;
+  pieHitBoss(uint8) clsend airecv;
+};
+
+dclass DistributedLawbotBossStripped: DistributedBossCog {
+  setBossDamage(uint32, uint32, uint32) broadcast ram;
+  setAttackCode(uint8, uint32) broadcast;
+  setTaunt(int8, int8) broadcast;
+};
+
+dclass DistributedBossbotBossStripped: DistributedBossCog {
+  setBossDamage(uint32, uint32, uint32) broadcast ram;
+  setSpeedDamage(uint16, uint8, int16) broadcast ram;
+  setAttackCode(uint8, uint32) broadcast;
+  hitBoss(uint8) airecv clsend;
+  hitToon(uint32) airecv clsend;
+  ballHitBoss(uint8) airecv clsend;
+  reachedTable(uint8) airecv clsend;
+  hitTable(uint8) airecv clsend;
+  awayFromTable(uint8) airecv clsend;
+  toonGotHealed(uint32) broadcast;
 };
 
 struct LinkPosition {
@@ -2617,29 +2548,6 @@ dclass DistributedDeliveryManager : DistributedObject {
   returnAck();
 };
 
-dclass DistributedLawbotBoss : DistributedBossCog {
-  setState(string) broadcast ram;
-  setBossDamage(uint16, uint8, int16) broadcast ram;
-  touchWitnessStand() airecv clsend;
-  hitBoss(uint8) airecv clsend;
-  healBoss(uint8) airecv clsend;
-  hitToon(uint32) airecv clsend;
-  hitDefensePan() airecv clsend;
-  hitProsecutionPan() airecv clsend;
-  hitChair(uint8, uint8) airecv clsend;
-  setLawyerIds(uint32[]) broadcast ram;
-  setTaunt(int8, int8) broadcast;
-  toonGotHealed(uint32) broadcast;
-  enteredBonusState() broadcast;
-  setBattleDifficulty(uint8) broadcast ram;
-  setRawRuleset(ScaleLeagueRuleset) required broadcast ram;
-  damageDealt(uint32, uint32) broadcast;
-  updateCombo(uint32 avId, uint8) broadcast ram;
-  awardCombo(uint32 avId, uint8, int32) broadcast ram;
-  lawyerDisabled(uint32 avid) broadcast;
-  stunBonus(uint32 avId, uint32) broadcast;
-};
-
 dclass DistributedLawbotBossSuit : DistributedSuitBase {
   setPosHpr(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) required broadcast ram;
   doAttack(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) broadcast;
@@ -2960,26 +2868,6 @@ dclass DistributedPicnicBasket : DistributedObject {
   setPicnicDone();
   setPosHpr(int16/10, int16/10, int16/10, int16/10, int16/10, int16/10) required broadcast ram;
   setTableNumber(int16) required broadcast ram;
-};
-
-dclass DistributedBossbotBoss : DistributedBossCog {
-  setState(string) broadcast ram;
-  setBattleDifficulty(uint8) broadcast ram;
-  requestGetFood(int8, int8, uint32) airecv clsend;
-  toonGotFood(uint32, int8, int8, uint32) broadcast;
-  requestServeFood(int8, int8) airecv clsend;
-  toonServeFood(uint32, int8, int8) broadcast;
-  hitBoss(uint8) airecv clsend;
-  hitToon(uint32) airecv clsend;
-  ballHitBoss(uint8) airecv clsend;
-  setBossDamage(uint16, uint8, int16) broadcast ram;
-  setSpeedDamage(uint16, uint8, int16) broadcast ram;
-  reachedTable(uint8) airecv clsend;
-  hitTable(uint8) airecv clsend;
-  awayFromTable(uint8) airecv clsend;
-  toonGotHealed(uint32) broadcast;
-  requestGetToonup(int8, int8, uint32) airecv clsend;
-  toonGotToonup(uint32, int8, int8, uint32) broadcast;
 };
 
 dclass DistributedCountryClubRoom : DistributedLevel {

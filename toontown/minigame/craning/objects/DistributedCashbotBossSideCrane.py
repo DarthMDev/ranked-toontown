@@ -1,14 +1,13 @@
 from direct.distributed.ClockDelta import *
 from direct.fsm import FSM
-from toontown.coghq import DistributedCashbotBossCrane
-from toontown.coghq import DistributedCashbotBossSafe
+from toontown.minigame.craning.objects import DistributedCashbotBossSafe, DistributedCashbotBossCrane, \
+    DistributedCashbotBossGoon
 from panda3d.core import *
 from panda3d.core import Point3
 from panda3d.core import TextureStage
 from panda3d.physics import PhysicsCollisionHandler
 from panda3d.core import CollisionInvSphere, CollisionNode, CollisionCapsule, BitMask32, CollisionHandlerEvent
 
-from toontown.suit import DistributedCashbotBossGoon
 from toontown.toonbase import ToontownGlobals
 
 

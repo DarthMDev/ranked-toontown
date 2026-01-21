@@ -9,7 +9,7 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.coghq import ScaleLeagueGlobals
-from toontown.coghq.BossComboTrackerAI import BossComboTrackerAI
+from toontown.minigame.utils.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedLawbotBossGavelAI import DistributedLawbotBossGavelAI
 from toontown.coghq.DistributedLawbotChairAI import DistributedLawbotChairAI
 from toontown.matchmaking.skill_profile_keys import SkillProfileKey

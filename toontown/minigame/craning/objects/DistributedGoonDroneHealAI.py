@@ -5,7 +5,7 @@ Heal Drone AI - Heals the deployer over time.
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
+from toontown.minigame.craning.objects.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
 class DistributedGoonDroneHealAI(DistributedGoonDroneBaseAI):

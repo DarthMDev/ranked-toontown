@@ -8,10 +8,9 @@ reduced leaf frequency for better visual clarity.
 from direct.particles import ParticleEffect, Particles, ForceGroup
 from panda3d.core import Vec3, Vec4, Point3, ColorBlendAttrib, VBase4
 from panda3d.physics import LinearVectorForce
-from direct.interval.IntervalGlobal import Sequence, LerpColorScaleInterval, Wait, Func, LerpPosInterval, Parallel
+from direct.interval.IntervalGlobal import LerpColorScaleInterval
 from direct.task.TaskManagerGlobal import taskMgr
 from .StatusEffectVisualBase import StatusEffectVisualBase
-import math
 
 
 class WindedEffectVisual(StatusEffectVisualBase):
@@ -54,7 +53,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
                 self.notify.info("Detected CFO boss - applying larger, wider wind effect")
             else:
                 # Check if this is a safe (not CFO)
-                from toontown.coghq import DistributedCashbotBossSafe
+                from ...craning.objects import DistributedCashbotBossSafe
                 if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
                     isSafe = True
                     self.notify.info("Detected safe - will apply green glow color")
@@ -512,7 +511,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
@@ -544,7 +543,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
@@ -576,7 +575,7 @@ class WindedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from toontown.coghq import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotBossSafe
             from toontown.suit import BossCog
             
             if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):

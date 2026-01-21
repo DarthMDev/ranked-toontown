@@ -2,16 +2,13 @@ from panda3d.core import *
 from direct.interval.IntervalGlobal import *
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
-from direct.distributed import DistributedObject
-from direct.distributed.ClockDelta import globalClockDelta
 from toontown.toonbase import ToontownGlobals
 from toontown.suit import DistributedGoon
 from toontown.coghq import DistributedCrushableEntity
 from toontown.minigame.craning import CraneGameGlobals
 from toontown.battle import BattleProps
 from toontown.effects import DustCloud
-from panda3d.core import Vec2, Vec3
-import math
+from panda3d.core import Vec3
 
 """
 DEPRECATED: This file is kept for backwards compatibility.
@@ -27,12 +24,8 @@ New structure:
 This file now acts as a compatibility layer that routes to the appropriate class.
 """
 
-from toontown.coghq.DistributedGoonDroneLaser import DistributedGoonDroneLaser
-from toontown.coghq.DistributedGoonDroneHeal import DistributedGoonDroneHeal
-from toontown.coghq.DistributedGoonDroneExplodey import DistributedGoonDroneExplodey
-from toontown.coghq.DistributedGoonDroneStun import DistributedGoonDroneStun
-from toontown.coghq.DistributedGoonDroneShield import DistributedGoonDroneShield
-from toontown.coghq.DistributedGoonDroneGhosty import DistributedGoonDroneGhosty
+from toontown.minigame.craning.objects.DistributedGoonDroneLaser import DistributedGoonDroneLaser
+
 
 # For backwards compatibility, map the old class name to Laser drone
 # (since Laser was the default/original type)
@@ -626,8 +619,8 @@ class DistributedGoonDrone(DistributedGoonDroneLaser):
         
     def createLaserEffect(self, startPos, targetPos, target):
         """Create a straight laser beam that travels from start to target over 0.3 seconds."""
-        from panda3d.core import LineSegs, TransparencyAttrib, Point3
-        
+        from panda3d.core import LineSegs, TransparencyAttrib
+
         # Calculate the distance and direction
         distance = (targetPos - startPos).length()
         

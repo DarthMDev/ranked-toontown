@@ -5,9 +5,9 @@ from direct.distributed.ClockDelta import *
 from direct.directnotify import DirectNotifyGlobal
 from direct.task.Task import Task
 from toontown.toonbase import ToontownGlobals
-from toontown.coghq import DistributedCashbotBossObject
+from toontown.minigame.craning.objects import DistributedCashbotBossObject
 from direct.showbase import PythonUtil
-from . import DistributedGoon
+from toontown.suit import DistributedGoon
 
 class DistributedCashbotBossGoon(DistributedGoon.DistributedGoon, DistributedCashbotBossObject.DistributedCashbotBossObject):
     

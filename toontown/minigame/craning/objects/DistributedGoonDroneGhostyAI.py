@@ -5,7 +5,7 @@ Ghosty Drone AI - Server-side logic for ghosting opponent safes.
 from direct.task.Task import Task
 from direct.directnotify import DirectNotifyGlobal
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.coghq.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
+from toontown.minigame.craning.objects.DistributedGoonDroneBaseAI import DistributedGoonDroneBaseAI
 
 
 class DistributedGoonDroneGhostyAI(DistributedGoonDroneBaseAI):
