@@ -2312,7 +2312,7 @@ class Toon(Avatar.Avatar, ToonHead):
 
     def exitSleep(self):
         taskMgr.remove(self.uniqueName('afkTimeout'))
-        self.sleepTrack.finish()
+        self.sleepTrack.pause()
         self.hideAngryMuzzle()
         self.normalEyes()
         self.startLookAround()
