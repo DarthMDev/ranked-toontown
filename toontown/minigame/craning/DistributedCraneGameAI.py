@@ -69,6 +69,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Expose ruleset for backward compatibility and direct access
         # Ruleset is managed by ModifierManager but exposed here for convenience
         self.ruleset = CraneGameGlobals.CraneGameRuleset()
+        
+        # Reference to the group that created this minigame (if any)
+        self.group = None
 
         self.gameFSM = ClassicFSM.ClassicFSM('DistributedMinigameTemplateAI',
                                [
@@ -404,7 +407,33 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     
     def rollRandomModifiers(self):
         return self.modifierManager.rollRandomModifiers()
-
+    
+    def setGroup(self, group):
+        """
+        Set the group reference for this minigame.
+        This allows the minigame to save its state back to the group.
+        """
+        self.group = group
+    
+    def saveStateToGroup(self):
+        """
+        Save the current ruleset and modifiers to the group config.
+        This ensures the state persists for play-again scenarios.
+        """
+        if self.group is None:
+            self.notify.debug('saveStateToGroup: No group reference, cannot save')
+            return
+        
+        # Save ruleset
+        rulesetStruct = self.modifierManager.getRawRuleset()
+        self.group.setMinigameRuleset(self.minigameId, rulesetStruct)
+        self.notify.debug(f'saveStateToGroup: Saved ruleset for minigame {self.minigameId}')
+        
+        # Save modifiers
+        modifierStructs = self.modifierManager._getRawModifierList()
+        self.group.setMinigameModifiers(self.minigameId, modifierStructs)
+        self.notify.debug(f'saveStateToGroup: Saved {len(modifierStructs)} modifiers for minigame {self.minigameId}')
+    
     def setGameStart(self, timestamp):
         self.notify.debug("setGameStart")
         # base class will cause gameFSM to enter initial state
@@ -1220,6 +1249,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.overtimeManager.d_setOvertime(flag)
 
     def enterVictory(self):
+        # Save state to group before ending (for play-again scenarios)
+        self.saveStateToGroup()
+        
         highest_scorers = self.getHighestScorers()
 
         # If nobody is in the lead, check if this is a single-player forfeit

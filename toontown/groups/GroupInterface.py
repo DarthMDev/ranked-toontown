@@ -136,7 +136,7 @@ class GroupInterface(DirectFrame):
         Called via a button press when the start game button is pressed.
         """
         self.groupManager.attemptStart()
-
+    
     def __onHoverRow(self, row, event=None):
         # Hide every single row.
         for other in self.rows:
