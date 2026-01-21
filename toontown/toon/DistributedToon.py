@@ -886,7 +886,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         # We need to add the other toon's version of the emote to the chat log since when we receive it here it's only from other toons.
         chatString = SCDecoders.decodeSCEmoteWhisperMsg(animIndex, self.getName())
         text = global_text_properties.create_text_with_undefined_color(chatString, color=self.getCurrentColorProfile().getPrimaryColor())
-        base.localAvatar.chatbox.addRawMessage(self.getDoId(), text)
+        base.localAvatar.chatbox.addRawMessage(text, ChatMessageAuthor(self.getDoId(), self.getName()))
         return
 
     def playEmote(self, emoteIndex, animMultiplier, timestamp):
