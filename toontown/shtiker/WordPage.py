@@ -11,6 +11,7 @@ from toontown.toon import Toon
 from toontown.toon import ToonDNA
 from toontown.spellbook.MagicWordIndex import *
 from . import ShtikerPage
+from ..archipelago.util import global_text_properties
 from ..util.ui import make_dsl_scrollable
 
 PageMode = IntEnum('PageMode', ('Words', 'IDs', 'Acc1', 'Acc2'))
@@ -376,6 +377,7 @@ class WordsTabPage(DirectFrame):
         phrase = base.cr.magicWordManager.chatPrefix + wordName + ' '
         localAvatar.book.closeBook()
         localAvatar.chatMgr.fsm.request('mainMenu')
+        localAvatar.chatbox.setPrefix(global_text_properties.get_colored_string('execute ', 'yellow'))
         localAvatar.chatbox.setInputText(phrase)
 
     def showInfoPanel(self):

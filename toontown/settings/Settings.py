@@ -39,6 +39,7 @@ class ControlSettings:
     ACTION_BUTTON: List[str] = field(default_factory=lambda: ["delete", ""])
     SECONDARY_ACTION: List[str] = field(default_factory=lambda: ["insert", ""])
     CHAT_HOTKEY: List[str] = field(default_factory=lambda: ["t", ""])
+    COMMAND_HOTKEY: List[str] = field(default_factory=lambda: ["/", ""])
     SPEEDCHAT_HOTKEY: List[str] = field(default_factory=lambda: ["y", ""])
 
     def __getattribute__(self, name: str) -> Any:

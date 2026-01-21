@@ -1,4 +1,6 @@
 import sys
+import time
+
 from direct.showbase import DirectObject
 from direct.showbase.MessengerGlobal import messenger
 from otp.otpbase import OTPGlobals
@@ -10,6 +12,9 @@ from direct.gui.DirectGui import *
 from panda3d.core import *
 from otp.chat import ChatManager
 from .TTChatInputSpeedChat import TTChatInputSpeedChat
+from ..archipelago.util import global_text_properties
+from ..spellbook import MagicWordConfig
+
 
 class HackedDirectRadioButton(DirectCheckButton):
 
@@ -91,6 +96,7 @@ class ToontownChatManager(ChatManager.ChatManager):
     def enterMainMenu(self):
         messenger.send("ChatMgr-enterMainMenu")
         ChatManager.ChatManager.enterMainMenu(self)
+        self.accept(ToontownGlobals.CommandHotkey, self.openChatWithCommandPrefix)
 
     def exitOpenChatWarning(self):
         self.openChatWarning.hide()
@@ -365,9 +371,30 @@ class ToontownChatManager(ChatManager.ChatManager):
                 base.localAvatar.chatbox.setWhisperTarget(None)
             self.fsm.request('speedChat')
 
+    def openChatWithCommandPrefix(self):
+        messenger.send('wakeup')
+        if self.fsm.getCurrentState().getName() == 'normalChat':
+            return
+        self.fsm.request('normalChat')
+        base.localAvatar.chatbox.setWhisperTarget(None)
+        base.localAvatar.chatbox.setPrefix(global_text_properties.get_colored_string('execute ', 'yellow'))
+        base.localAvatar.chatbox.setInputText(MagicWordConfig.PREFIX_DEFAULT)
+
     def enterNormalChat(self):
-        result = ChatManager.ChatManager.enterNormalChat(self)
-        if result == None:
+        super().enterNormalChat()
+        # Prevent spamming the chatbox too fast
+        result = True
+        if self.lastSendTime + self.CHATBOX_REOPEN_DELAY > time.time():
+            # Hack to allow the chatbox to still function when this fires, only really happens if chat is bound
+            # to enter
+            self.acceptOnce('enterNormalChat', self.fsm.request, ['normalChat'])
+            self.acceptOnce(ToontownGlobals.CommandHotkey, self.openChatWithCommandPrefix)
+            result = False
+
+        base.localAvatar.chatbox.activate()
+        base.localAvatar.disableControls()
+        messenger.send("disable-hotkeys")
+        if not result:
             self.notify.warning('something went wrong in enterNormalChat, falling back to main menu')
             self.fsm.request('mainMenu')
         return

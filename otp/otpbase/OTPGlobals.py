@@ -240,6 +240,7 @@ InventoryHotkeyOff = 'InventoryHotkeyOff'
 GalleryHotkeyOn = 'GalleryHotkeyOn'
 GalleryHotkeyOff = 'GalleryHotkeyOff'
 SpeedchatHotkey = 'SpeedchatHotkey'
+CommandHotkey = 'CommandHotkey'
 DetectGarbageHotkey = 'shift-f11'
 PrintCamPosHotkey = 'f12'
 GlobalDialogColor = (1,

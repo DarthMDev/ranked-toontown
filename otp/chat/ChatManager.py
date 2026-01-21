@@ -339,17 +339,6 @@ class ChatManager(DirectObject.DirectObject):
         self.chatInputSpeedChat.hide()
 
     def enterNormalChat(self) -> None:
-
-        # Prevent spamming the chatbox too fast
-        if self.lastSendTime + self.CHATBOX_REOPEN_DELAY > time.time():
-            # Hack to allow the chatbox to still function when this fires, only really happens if chat is bound
-            # to enter
-            self.acceptOnce('enterNormalChat', self.fsm.request, ['normalChat'])
-            return False
-
-        base.localAvatar.chatbox.activate()
-        base.localAvatar.disableControls()
-        messenger.send("disable-hotkeys")
         return True
 
     def exitNormalChat(self) -> None:

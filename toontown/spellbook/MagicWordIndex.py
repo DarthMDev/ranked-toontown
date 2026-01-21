@@ -780,7 +780,6 @@ class Help(MagicWord):
             mw_prefix = MagicWordConfig.PREFIX_DEFAULT
         else:
             # we're actually client; get the actual prefix, or '~' if invalid
-            idx = settings.get('magic-word-activator')
             mw_prefix = MagicWordConfig.PREFIX_DEFAULT
         return "Refer to your Shticker Book for a list of all commands! Some may require a higher access level. Clicking a Toon's nametag and then using 2 '{}' characters will run a command on them.".format(
             mw_prefix)

@@ -15,6 +15,7 @@ from panda3d.core import TextNode, PGButton, MouseButton, PGMouseWatcherParamete
 
 from toontown.archipelago.util import global_text_properties
 from toontown.archipelago.util.global_text_properties import MinimalJsonMessagePart
+from toontown.spellbook import MagicWordConfig
 
 
 @dataclasses.dataclass
@@ -271,13 +272,13 @@ class ChatContainer(DirectScrolledFrame):
         self._whisperTarget = target
 
         if target is not None:
-            self.setPrefix(global_text_properties.get_colored_string(f" To: {self._whisperTarget.name}: ", color='magenta'))
+            self.setPrefix(global_text_properties.get_colored_string(f" To {self._whisperTarget.name}: ", color='magenta'))
         else:
             self.setPrefix(self.INITIAL_PREFIX)
 
     def setInputText(self, text: str):
         self._input.set(f"{self._input_prefix}{text}")
-        self._input.setCursorPosition(len(self._input.get(plain=True))-1)
+        self._input.setCursorPosition(len(self._input.get(plain=True)))
 
     def __start_tracking_message(self, message: ChatContainerMessage):
         """
@@ -374,7 +375,15 @@ class ChatContainer(DirectScrolledFrame):
         """
         Handler for when the chatbox is typed into.
         """
-        pass
+        mw_prefix = global_text_properties.get_colored_string('execute ', 'yellow')
+        if self._input.get().replace(self._input_prefix, '').startswith(MagicWordConfig.PREFIX_DEFAULT):
+            if self._whisperTarget is not None:
+                self.setWhisperTarget(None)
+
+            if self._input_prefix != mw_prefix:
+                self.setPrefix(mw_prefix)
+        elif self._input_prefix == mw_prefix:
+            self.setPrefix(self.INITIAL_PREFIX)
 
     def __onErase(self, mw: PGMouseWatcherParameter):
         """
@@ -385,6 +394,8 @@ class ChatContainer(DirectScrolledFrame):
             self._input.setCursorPosition(self._starting_cursor_position)
             if self._whisperTarget is not None:
                 self.setWhisperTarget(None)
+            if self._input_prefix != self.INITIAL_PREFIX:
+                self.setPrefix(self.INITIAL_PREFIX)
 
     def __handleEscapePressedWhileTyping(self):
         """

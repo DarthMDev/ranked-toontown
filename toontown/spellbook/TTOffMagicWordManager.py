@@ -25,10 +25,6 @@ class TTOffMagicWordManager(DistributedObject.DistributedObject):
 
     def announceGenerate(self):
         DistributedObject.DistributedObject.announceGenerate(self)
-        activatorIndex = base.settings.get('magic-word-activator')
-        if 0 <= activatorIndex <= (len(PREFIX_ALLOWED) - 1):
-            self.chatPrefix = PREFIX_ALLOWED[activatorIndex]
-
         self.accept(INCOMING_CHAT_MESSAGE_NAME, self.checkMagicWord)
         self.accept('clickedNametag', self.__handleClickedNametag)
 
