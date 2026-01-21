@@ -4,7 +4,7 @@ from direct.gui.DirectGui import *
 
 from direct.showbase.DirectObject import DirectObject
 from toontown.minigame.craning import CraneGameGlobals
-from toontown.minigame.craning.objects.DistributedCashbotBossCrane import DistributedCashbotBossCrane
+from toontown.minigame.craning.objects.DistributedCashbotCrane import DistributedCashbotCrane
 from toontown.suit.Suit import *
 from direct.task.Task import Task
 from direct.interval.IntervalGlobal import *
@@ -356,7 +356,7 @@ class CashbotBossScoreboardToonRow(DirectObject):
         
         avId = toon.getDoId()
         for obj in base.cr.doId2do.values():
-            if isinstance(obj, DistributedCashbotBossCrane):
+            if isinstance(obj, DistributedCashbotCrane):
                 # Check if this crane is controlled by the toon we're checking
                 if hasattr(obj, 'avId') and obj.avId == avId:
                     # Check if the crane is in the controlled state

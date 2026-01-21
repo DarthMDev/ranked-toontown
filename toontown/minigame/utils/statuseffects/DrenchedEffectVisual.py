@@ -50,8 +50,8 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
                 self.notify.info("Detected CFO boss - applying larger, wider water effect")
             else:
                 # Check if this is a safe (not CFO)
-                from ...craning.objects import DistributedCashbotBossSafe
-                if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe):
+                from ...craning.objects import DistributedCashbotSafe
+                if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe):
                     isSafe = True
                     self.notify.info("Detected safe - will apply blue glow color")
         except:
@@ -516,10 +516,10 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 if hasattr(self.obj, '_drenchedGlowColor'):
                     # Use centralized color management system
                     if hasattr(self.obj, 'registerColorModification'):
@@ -548,10 +548,10 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):
                     self.obj.unregisterColorModification('drenched', priority='elemental')
@@ -580,10 +580,10 @@ class DrenchedEffectVisual(StatusEffectVisualBase):
         
         try:
             # Check if this is a safe (not CFO)
-            from ...craning.objects import DistributedCashbotBossSafe
+            from ...craning.objects import DistributedCashbotSafe
             from ..boss import BossCog
 
-            if isinstance(self.obj, DistributedCashbotBossSafe.DistributedCashbotBossSafe) and not isinstance(self.obj, BossCog.BossCog):
+            if isinstance(self.obj, DistributedCashbotSafe.DistributedCashbotSafe) and not isinstance(self.obj, BossCog.BossCog):
                 # Use centralized color management system
                 if hasattr(self.obj, 'unregisterColorModification'):
                     self.obj.unregisterColorModification('drenched', priority='elemental')

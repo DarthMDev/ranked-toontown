@@ -8,18 +8,26 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.interval.FunctionInterval import Func, Wait
 from direct.interval.LerpInterval import LerpPosHprInterval
 from direct.interval.MetaInterval import Parallel, Sequence
-from direct.showbase.MessengerGlobal import messenger
 from otp.otpbase.PythonUtil import reduceAngle
 from direct.task.TaskManagerGlobal import taskMgr
 from panda3d.core import CollisionPlane, Plane, Vec3, Point3, CollisionNode, NodePath, CollisionPolygon, BitMask32, \
     VBase3, VBase4, ColorBlendAttrib, GeomVertexData, GeomVertexWriter, Geom, GeomTrifans, GeomNode, GeomVertexFormat, CollisionRay, \
-    CollisionHandlerQueue, CollisionTube, TextNode, Vec4
+    CollisionHandlerQueue, CollisionTube, TextNode
 from panda3d.physics import LinearVectorForce, ForceNode, LinearEulerIntegrator, PhysicsManager
 
 from libotp.nametag import NametagGlobals
 from otp.otpbase import OTPGlobals
 from toontown.minigame.craning.CraneGameGlobals import RED_COUNTDOWN_COLOR, ORANGE_COUNTDOWN_COLOR, \
     YELLOW_COUNTDOWN_COLOR
+from toontown.minigame.craning.managers.client.DroneManager import DroneManager
+from toontown.minigame.craning.managers.client.ForfeitRestartManager import ForfeitRestartManager
+from toontown.minigame.craning.managers.client.ModifierManager import ModifierManager
+from toontown.minigame.craning.managers.client.PlayerManager import PlayerManager
+from toontown.minigame.craning.managers.client.RoundManager import RoundManager
+from toontown.minigame.craning.ui.ModifierPanelUI import ModifierPanelUI
+from toontown.minigame.craning.ui.DroneSelectionUI import DroneSelectionUI
+from toontown.minigame.craning.ui.GameButtonsUI import GameButtonsUI
+from toontown.minigame.craning.ui.ForfeitRestartDialogsUI import ForfeitRestartDialogsUI
 from toontown.minigame.utils.boss.BossSpeedrunTimer import BossSpeedrunTimedTimer, BossSpeedrunTimer
 from toontown.minigame.craning.boss.CashbotBossScoreboard import CashbotBossScoreboard
 from toontown.coghq.CraneLeagueHeatDisplay import CraneLeagueHeatDisplay
@@ -28,10 +36,6 @@ from toontown.minigame.craning.CraneWalk import CraneWalk
 from toontown.toonbase import TTLocalizer, ToontownGlobals
 from toontown.minigame.craning.CraneGameSettingsPanel import CraneGameSettingsPanel
 from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystem import DistributedStatusEffectSystem
-from direct.gui.DirectGui import DGG, DirectFrame
-from direct.gui.DirectScrolledList import DirectScrolledList
-from direct.gui.DirectLabel import DirectLabel
-from direct.gui.DirectButton import DirectButton
 from direct.showbase.ShowBaseGlobal import aspect2d
 from direct.task import Task
 from toontown.minigame.craning import CraneGameGlobals
@@ -67,41 +71,35 @@ class DistributedCraneGame(DistributedMinigame):
         self.rulesPanelToggleButton = None
         self.playButton = None
         self.participantsButton = None
-        self.bestOfButton = None
+        
+        # Initialize managers
+        self.playerManager = PlayerManager(self)
+        self.modifierManager = ModifierManager(self)
+        self.droneManager = DroneManager(self)
+        self.roundManager = RoundManager(self)
+        self.forfeitRestartManager = ForfeitRestartManager(self)
+        
+        # Initialize UI components
+        self.modifierPanelUI = ModifierPanelUI(self, self.modifierManager)
+        self.droneSelectionUI = DroneSelectionUI(self, self.droneManager)
+        self.gameButtonsUI = GameButtonsUI(self, self.roundManager, self.modifierPanelUI)
+        self.forfeitRestartDialogsUI = ForfeitRestartDialogsUI(self, self.forfeitRestartManager)
+        
+        # Expose properties for backward compatibility (only what's actually used)
         self.participantsPanel = None
         self.participantsList = None
         self.participantsPanelVisible = False
-        self.bestOfValue = 1  # Default to Best of 1
-        self.currentRound = 1
-        self.roundWins = {}  # Maps avId -> number of rounds won
-        self.pendingForfeitRequester = None  # avId of player who requested forfeit
-        self.forfeitConsents = set()  # Set of avIds who have consented
-        self.forfeitDialog = None  # Dialog for forfeit confirmation (for non-requesters)
-        self.forfeitRequesterDialog = None  # Dialog for requester (shows status and cancel)
-        self.pendingRestartRequester = None  # avId of player who requested restart
-        self.restartConsents = set()  # Set of avIds who have consented
-        self.restartDialog = None  # Dialog for restart confirmation (for non-requesters)
-        self.restartRequesterDialog = None  # Dialog for requester (shows status and cancel)
+        
+        # bestOfButton is needed by RoundManager - keep it synced
+        self.bestOfButton = None
         
         self.boss = None
         self.bossRequest = None
         self.ruleset = CraneGameGlobals.CraneGameRuleset()  # Setup a default ruleset as a fallback
-        self.modifiers = []
         self.heatDisplay = CraneLeagueHeatDisplay()
         self.heatDisplay.hide()
         self.endVault = None
         self.statusIndicators = {}  # Dictionary to store status indicators for each toon
-        self.droneCooldowns = {}  # Track drone cooldowns per slot {avId: {slotIndex: (startTime, duration)}}
-        self.selectedDroneTypes = {}  # Track selected drone types per player {avId: [slot0Type, slot1Type, slot2Type]}
-        
-        # Drone cooldown UI elements (shown near leave button when on crane)
-        self.droneCooldownIndicator = None
-        self.droneCooldownText = None
-        self.droneCooldownTask = None
-        
-        # Drone selection UI elements (shown during rules phase)
-        self.droneSelectionSlots = []  # List of 3 slot UI elements
-        self.droneSelectionDialog = None
         
         # Status effect system will be set via setStatusEffectSystemId
         self.statusEffectSystem : DistributedStatusEffectSystem | None = None
@@ -115,7 +113,8 @@ class DistributedCraneGame(DistributedMinigame):
 
         self.latency = 0.5  # default latency for updating object posHpr
 
-        self.toonSpawnpointOrder = [i for i in range(16)]
+        # Spawn order managed by PlayerManager
+        self.toonSpawnpointOrder = self.playerManager.toonSpawnpointOrder
         self.stunEndTime = 0
         self.myHits = []
         self.tempHp = self.ruleset.CFO_MAX_HP
@@ -170,12 +169,7 @@ class DistributedCraneGame(DistributedMinigame):
 
         self.overtimeActive = False
 
-        # Initialize modifiers panel variables
-        self.modifiersPanel = None
-        self.modifiersPanelVisible = False
-        
-        # Initialize modifier config dialog variable
-        self.modifierConfigDialog = None
+        # Modifier UI managed by ModifierPanelUI - no backward compatibility needed
 
     def getTitle(self):
         return TTLocalizer.CraneGameTitle
@@ -647,1081 +641,84 @@ class DistributedCraneGame(DistributedMinigame):
 
     def __generateRulesPanel(self):
         panel = CraneGameSettingsPanel(self.getTitle(), self.rulesDoneEvent)
-        # Create toggle button
-        from direct.gui.DirectButton import DirectButton
-        btnGeom = loader.loadModel('phase_3/models/gui/quit_button')
-
-        # Create play button next to settings
-        self.playButton = DirectButton(
-            parent=base.a2dTopLeft,
-            relief=None,
-            text='Play',
-            text_scale=0.055,
-            text_pos=(0, -0.02),
-            geom=(btnGeom.find('**/QuitBtn_UP'),
-                  btnGeom.find('**/QuitBtn_DN'),
-                  btnGeom.find('**/QuitBtn_RLVR')),
-            geom_scale=(0.7, 1, 1),
-            pos=(0.7, 0, -0.2),
-            command=self.__handlePlayButton
-        )
-        self.playButton.hide()  # Play button starts hidden
-        
-        # Create modifiers button next to play button (was participants)
-        self.modifiersButton = DirectButton(
-            parent=base.a2dTopLeft,
-            relief=None,
-            text='Modifiers',
-            text_scale=0.055,
-            text_pos=(0, -0.02),
-            geom=(btnGeom.find('**/QuitBtn_UP'),
-                  btnGeom.find('**/QuitBtn_DN'),
-                  btnGeom.find('**/QuitBtn_RLVR')),
-            geom_scale=(0.7, 1, 1),
-            pos=(1, 0, -0.2),
-            command=self.__handleModifiersButton
-        )
-        self.modifiersButton.hide()  # Modifiers button starts hidden
-        
-        # Create best of button next to modifiers button
-        self.bestOfButton = DirectButton(
-            parent=base.a2dTopLeft,
-            relief=None,
-            text=f'Best of {self.bestOfValue}',
-            text_scale=0.055,
-            text_pos=(0, -0.02),
-            geom=(btnGeom.find('**/QuitBtn_UP'),
-                  btnGeom.find('**/QuitBtn_DN'),
-                  btnGeom.find('**/QuitBtn_RLVR')),
-            geom_scale=(0.7, 1, 1),
-            pos=(1.3, 0, -0.2),
-            command=self.__handleBestOfButton
-        )
-        self.bestOfButton.hide()  # Best of button starts hidden
-        btnGeom.removeNode()
+        # Create buttons via GameButtonsUI
+        if hasattr(self, 'gameButtonsUI'):
+            self.gameButtonsUI.createButtons(self.rulesDoneEvent)
+            # Sync bestOfButton for RoundManager compatibility
+            if hasattr(self.gameButtonsUI, 'bestOfButton'):
+                self.bestOfButton = self.gameButtonsUI.bestOfButton
         return panel
 
-    def __handlePlayButton(self):
-        # Clean up the ready timeout timer when play is pressed
-        self._destroyReadyTimeoutTimer()
-        messenger.send(self.rulesDoneEvent)
-
-    def __handleModifiersButton(self):
-        """Toggle the modifiers panel visibility"""
-        if self.modifiersPanelVisible:
-            self.__hideModifiersPanel()
-        else:
-            self.__showModifiersPanel()
+    # Button handlers now delegated to GameButtonsUI
+    # Old methods removed - see GameButtonsUI class
     
-    def __showModifiersPanel(self):
-        """Create and show the modifiers panel"""
-        if self.modifiersPanel is None:
-            self.__createModifiersPanel()
-        
-        self.modifiersPanel.show()
-        self.modifiersPanelVisible = True
+    # Modifier panel state sync removed - not needed, UI class manages its own state
     
-    def __hideModifiersPanel(self):
-        """Hide the modifiers panel"""
-        if self.modifiersPanel is not None:
-            self.modifiersPanel.hide()
-        self.modifiersPanelVisible = False
-    
-    def __createModifiersPanel(self):
-        """Create the modifiers management panel using proper game UI conventions"""
-        
-        # Create the main panel frame using proper dialog styling
-        self.modifiersPanel = DirectFrame(
-            relief=None,
-            image=DGG.getDefaultDialogGeom(),
-            image_color=ToontownGlobals.GlobalDialogColor,
-            image_scale=(1.6, 1, 1.4),
-            pos=(0, 0, 0),
-            parent=aspect2d,
-            sortOrder=DGG.NO_FADE_SORT_INDEX
-        )
-        
-        # Title label
-        titleLabel = DirectLabel(
-            parent=self.modifiersPanel,
-            relief=None,
-            text="Manage Modifiers",
-            text_scale=0.08,
-            text_pos=(0, 0.55),
-            text_fg=(0.1, 0.1, 0.4, 1),
-            text_font=ToontownGlobals.getInterfaceFont()
-        )
-        
-        # Instructions label
-        instructionsLabel = DirectLabel(
-            parent=self.modifiersPanel,
-            relief=None,
-            text="Add and remove modifiers for the game",
-            text_scale=0.05,
-            text_pos=(0, 0.45),
-            text_fg=(0.3, 0.3, 0.3, 1),
-            text_font=ToontownGlobals.getInterfaceFont()
-        )
-        
-        # Load GUI assets for scroll list
-        gui = loader.loadModel('phase_3.5/models/gui/friendslist_gui')
-        
-        # Current modifiers section
-        currentModsLabel = DirectLabel(
-            parent=self.modifiersPanel,
-            relief=None,
-            text="Current Modifiers:",
-            text_scale=0.06,
-            text_pos=(-0.75, 0.3),
-            text_fg=(0.2, 0.2, 0.6, 1),
-            text_font=ToontownGlobals.getInterfaceFont(),
-            text_align=TextNode.ALeft
-        )
-        
-        # Create scrolled list for current modifiers
-        self.currentModifiersList = DirectScrolledList(
-            parent=self.modifiersPanel,
-            relief=DGG.SUNKEN,
-            frameColor=(0.85, 0.95, 1, 1),
-            borderWidth=(0.01, 0.01),
-            pos=(-0.35, 0, 0.2),
-            frameSize=(-0.4, 0.2, -0.24, 0.0),
-            numItemsVisible=4,
-            forceHeight=0.06,
-            itemFrame_frameSize=(-0.38, 0.38, -0.03, 0.03),
-            itemFrame_pos=(0, 0, -0.032),
-            itemFrame_relief=None,
-            # Scroll buttons using proper assets
-            incButton_image=(gui.find('**/FndsLst_ScrollUp'),
-                           gui.find('**/FndsLst_ScrollDN'),
-                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
-                           gui.find('**/FndsLst_ScrollUp')),
-            incButton_relief=None,
-            incButton_scale=(0.3, 0.3, -1.1),
-            incButton_pos=(0.15, 0, -0.26),
-            incButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6),
-            decButton_image=(gui.find('**/FndsLst_ScrollUp'),
-                           gui.find('**/FndsLst_ScrollDN'),
-                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
-                           gui.find('**/FndsLst_ScrollUp')),
-            decButton_relief=None,
-            decButton_scale=(0.3, 0.3, 1.1),
-            decButton_pos=(0.15, 0, 0.03),
-            decButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6)
-        )
-        
-        # Available modifiers section
-        availableModsLabel = DirectLabel(
-            parent=self.modifiersPanel,
-            relief=None,
-            text="Available Modifiers:",
-            text_scale=0.06,
-            text_pos=(0.1, 0.3),
-            text_fg=(0.2, 0.2, 0.6, 1),
-            text_font=ToontownGlobals.getInterfaceFont(),
-            text_align=TextNode.ALeft
-        )
-        
-        # Create scrolled list for available modifiers
-        self.availableModifiersList = DirectScrolledList(
-            parent=self.modifiersPanel,
-            relief=DGG.SUNKEN,
-            frameColor=(0.95, 0.85, 1, 1),
-            borderWidth=(0.01, 0.01),
-            pos=(0.5, 0, 0.2),
-            frameSize=(-0.4, 0.2, -0.24, 0.0),
-            numItemsVisible=4,
-            forceHeight=0.06,
-            itemFrame_frameSize=(-0.38, 0.38, -0.03, 0.03),
-            itemFrame_pos=(0, 0, -0.032),
-            itemFrame_relief=None,
-            # Scroll buttons using proper assets
-            incButton_image=(gui.find('**/FndsLst_ScrollUp'),
-                           gui.find('**/FndsLst_ScrollDN'),
-                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
-                           gui.find('**/FndsLst_ScrollUp')),
-            incButton_relief=None,
-            incButton_scale=(0.3, 0.3, -1.1),
-            incButton_pos=(0.15, 0, -0.26),
-            incButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6),
-            decButton_image=(gui.find('**/FndsLst_ScrollUp'),
-                           gui.find('**/FndsLst_ScrollDN'),
-                           gui.find('**/FndsLst_ScrollUp_Rllvr'),
-                           gui.find('**/FndsLst_ScrollUp')),
-            decButton_relief=None,
-            decButton_scale=(0.3, 0.3, 1.1),
-            decButton_pos=(0.15, 0, 0.03),
-            decButton_image3_color=Vec4(0.6, 0.6, 0.6, 0.6)
-        )
-        
-        # Load button assets
-        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
-        closeButtonImage = (buttons.find('**/CloseBtn_UP'), 
-                          buttons.find('**/CloseBtn_DN'), 
-                          buttons.find('**/CloseBtn_Rllvr'))
-        
-        # Close button using proper styling
-        closeButton = DirectButton(
-            parent=self.modifiersPanel,
-            relief=None,
-            image=closeButtonImage,
-            text="Close",
-            text_scale=0.05,
-            text_pos=(0, -0.1),
-            pos=(0, 0, -0.55),
-            command=self.__hideModifiersPanel
-        )
-        
-        # Clean up loaded models
-        gui.removeNode()
-        buttons.removeNode()
-        
-        # Populate the lists with current and available modifiers
-        self.__updateModifiersLists()
-        
-        # Initially hide the panel
-        self.modifiersPanel.hide()
-    
-    def __updateModifiersLists(self):
-        """Update the modifiers lists with current and available modifiers"""
-        if self.currentModifiersList is None or self.availableModifiersList is None:
-            return
-            
-        # Clear existing items
-        self.currentModifiersList.removeAllItems()
-        self.availableModifiersList.removeAllItems()
-        
-        # Load button assets for add/remove buttons
-        gui = loader.loadModel('phase_3.5/models/gui/friendslist_gui')
-        addButtonImage = (gui.find('**/Horiz_Arrow_UP'),
-                         gui.find('**/Horiz_Arrow_DN'),
-                         gui.find('**/Horiz_Arrow_Rllvr'),
-                         gui.find('**/Horiz_Arrow_UP'))
-        removeButtonImage = (gui.find('**/Horiz_Arrow_UP'),
-                           gui.find('**/Horiz_Arrow_DN'),
-                           gui.find('**/Horiz_Arrow_Rllvr'),
-                           gui.find('**/Horiz_Arrow_UP'))
-        
-        # Populate current modifiers list
-        for i, mod in enumerate(self.modifiers):
-            itemFrame = DirectFrame(
-                relief=None,
-                frameSize=(-0.38, 0.38, -0.03, 0.03)
-            )
-            
-            # Modifier name label
-            nameLabel = DirectLabel(
-                parent=itemFrame,
-                relief=None,
-                text=mod.getName(),
-                text_scale=0.025,
-                text_pos=(-0.35, 0, 0),
-                text_fg=mod.TITLE_COLOR,
-                text_font=ToontownGlobals.getInterfaceFont(),
-                text_align=TextNode.ALeft
-            )
-            
-            # Remove button
-            removeButton = DirectButton(
-                parent=itemFrame,
-                relief=None,
-                image=removeButtonImage,
-                image_scale=(0.3, 1, 0.3),
-                image_hpr=(0, 0, 180),  # Rotate to make it a remove arrow
-                pos=(0.17, 0, 0),
-                command=self.__removeModifier,
-                extraArgs=[i]
-            )
-            
-            self.currentModifiersList.addItem(itemFrame)
-
-        currentModEnums = [mod.MODIFIER_ENUM for mod in self.modifiers]
-        availableModClasses = []
-        
-        # Get all modifier classes and filter out currently active ones
-        for modEnum, modClass in CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.items():
-            if modEnum not in currentModEnums:
-                availableModClasses.append(modClass)
-        
-        # Sort by type (Helpful, Hurtful, Special)
-        availableModClasses.sort(key=lambda x: (x.MODIFIER_TYPE, x.MODIFIER_ENUM))
-        
-        # Populate available modifiers list
-        for i, modClass in enumerate(availableModClasses):
-            mod = modClass()  # Create instance for display
-            
-            itemFrame = DirectFrame(
-                relief=None,
-                frameSize=(-0.38, 0.38, -0.03, 0.03)
-            )
-            
-            # Modifier name label
-            nameLabel = DirectLabel(
-                parent=itemFrame,
-                relief=None,
-                text=mod.getName(),
-                text_scale=0.025,
-                text_pos=(-0.35, 0, 0),
-                text_fg=mod.TITLE_COLOR,
-                text_font=ToontownGlobals.getInterfaceFont(),
-                text_align=TextNode.ALeft
-            )
-            
-            # Add button
-            addButton = DirectButton(
-                parent=itemFrame,
-                relief=None,
-                image=addButtonImage,
-                image_scale=(0.3, 1, 0.3),
-                pos=(0.17, 0, 0),
-                command=self.__addModifier,
-                extraArgs=[modClass.MODIFIER_ENUM]
-            )
-            
-            self.availableModifiersList.addItem(itemFrame)
-        
-        # Clean up loaded model
-        gui.removeNode()
-    
-    def __addModifier(self, modifierEnum):
-        """Add a modifier to the game"""
-        if self.isLocalToonHost():
-            # Check if this modifier has configurable parameters
-            if self.__modifierHasParameters(modifierEnum):
-                self.__showModifierConfigDialog(modifierEnum)
-            else:
-                # Add directly with default tier 1
-                self.sendUpdate('addModifier', [modifierEnum, 1])
-    
-    def __modifierHasParameters(self, modifierEnum):
-        # Get the modifier class
-        modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
-        if not modifierClass:
-            return False
-        
-        # Create a temporary instance to check if it uses tiers meaningfully
-        tempMod = modifierClass()
-        
-        # Check some common modifiers that have meaningful tier differences
-        tieredModifiers = [
-            27,  # ModifierTimerEnabler (Margin Call)
-            2,   # ModifierCFOHPIncreaser (Financial Aid)
-            3,   # ModifierCFOHPDecreaser (Budget Cuts)
-            0,   # ModifierComboExtender (Chains of Finesse)
-            1,   # ModifierComboShortener (Chain Locker)
-            4,   # ModifierDesafeImpactIncreaser (Strong/Tough/Reinforced Safes)
-            9,   # ModifierGoonDamageInflictIncreaser (Goon damage)
-            10,  # ModifierSafeDamageInflictIncreaser (Safe damage)
-            11,  # ModifierGoonSpeedIncreaser (Goon speed)
-            12,  # ModifierGoonCapIncreaser (Goon cap)
-            16,  # ModifierTreasureHealDecreaser (Treasure heal decrease)
-            17,  # ModifierTreasureRNG (Treasure drop chance)
-            18,  # ModifierTreasureCapDecreaser (Treasure cap)
-            19,  # ModifierUberBonusIncreaser (Uber bonus)
-            29,  # ModifierLaffDrain (Leaky Laff)
-        ]
-        
-        return modifierEnum in tieredModifiers
-    
-    def __showModifierConfigDialog(self, modifierEnum):
-        """Show configuration dialog for a modifier"""
-        # Get the modifier class
-        modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES.get(modifierEnum)
-        if not modifierClass:
-            return
-        
-        # Hide the modifiers panel temporarily
-        if self.modifiersPanel:
-            self.modifiersPanel.hide()
-        
-        # Create configuration dialog - make it wider for two-column layout
-        self.modifierConfigDialog = DirectFrame(
-            relief=None,
-            image=DGG.getDefaultDialogGeom(),
-            image_color=ToontownGlobals.GlobalDialogColor,
-            image_scale=(1.8, 1, 1.4),  # Made wider for two columns
-            pos=(0, 0, 0),
-            parent=aspect2d,
-            sortOrder=DGG.NO_FADE_SORT_INDEX + 1
-        )
-        
-        # Create a sample modifier to get information
-        sampleMod = modifierClass()
-        
-        # Title
-        titleLabel = DirectLabel(
-            parent=self.modifierConfigDialog,
-            relief=None,
-            text=f"Configure {sampleMod.getName()}",
-            text_scale=0.07,
-            text_pos=(0, 0.55),
-            text_fg=sampleMod.TITLE_COLOR,
-            text_font=ToontownGlobals.getInterfaceFont()
-        )
-        
-        # Instructions
-        instructionsLabel = DirectLabel(
-            parent=self.modifierConfigDialog,
-            relief=None,
-            text="Choose the intensity/duration:",
-            text_scale=0.05,
-            text_pos=(0, 0.45),
-            text_fg=(0.3, 0.3, 0.3, 1),
-            text_font=ToontownGlobals.getInterfaceFont()
-        )
-        
-        # Load button assets
-        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
-        buttonImage = (buttons.find('**/ChtBx_OKBtn_UP'), 
-                      buttons.find('**/ChtBx_OKBtn_DN'), 
-                      buttons.find('**/ChtBx_OKBtn_Rllvr'))
-        
-        cancelButtonImage = (buttons.find('**/CloseBtn_UP'), 
-                          buttons.find('**/CloseBtn_DN'), 
-                          buttons.find('**/CloseBtn_Rllvr'))
-        
-        # Create tier selection options based on modifier type
-        self.__createTierOptions(modifierEnum, modifierClass, buttonImage)
-        
-        # Cancel button
-        cancelButton = DirectButton(
-            parent=self.modifierConfigDialog,
-            relief=None,
-            image=cancelButtonImage,
-            text="Cancel",
-            text_scale=0.05,
-            text_pos=(0, -0.1),
-            pos=(0, 0, -0.5),
-            command=self.__cancelModifierConfig
-        )
-        
-        buttons.removeNode()
-    
-    def __createTierOptions(self, modifierEnum, modifierClass, buttonImage):
-        """Create tier selection options with two-column layout"""
-        
-        # Special handling for different modifier types
-        if modifierEnum == 27:  # ModifierTimerEnabler (Margin Call)
-            self.__createTimeSelectionOptions(modifierEnum, buttonImage)
-        elif modifierEnum in [2, 3]:  # HP modifiers
-            self.__createPercentageOptions(modifierEnum, modifierClass, buttonImage, "HP")
-        elif modifierEnum in [0, 1]:  # Combo modifiers
-            self.__createPercentageOptions(modifierEnum, modifierClass, buttonImage, "Combo Duration")
-        elif modifierEnum == 29:  # ModifierLaffDrain (Leaky Laff)
-            self.__createLaffDrainOptions(modifierEnum, buttonImage)
-        else:
-            # Generic tier options (1-5)
-            self.__createGenericTierOptions(modifierEnum, modifierClass, buttonImage)
-    
-    def __createTimeSelectionOptions(self, modifierEnum, buttonImage):
-        """Create time selection options for Margin Call modifier"""
-        timeOptions = [
-            (1, "1 minute"),
-            (2, "2 minutes"), 
-            (3, "3 minutes"),
-            (5, "5 minutes"),
-            (10, "10 minutes")
-        ]
-        
-        startY = 0.3
-        for i, (tier, label) in enumerate(timeOptions):
-            currentY = startY - i * 0.08
-            
-            # Description label on the left
-            descLabel = DirectLabel(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                text=label,
-                text_scale=0.045,
-                text_pos=(-0.35, currentY),
-                text_fg=(0.2, 0.2, 0.2, 1),
-                text_font=ToontownGlobals.getInterfaceFont(),
-                text_align=TextNode.ALeft
-            )
-            
-            # Selection button on the right
-            selectButton = DirectButton(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                image=buttonImage,
-                pos=(0.4, 0, currentY+0.015),
-                scale=(0.7, 1, 0.7),
-                command=self.__confirmModifierConfig,
-                extraArgs=[modifierEnum, tier]
-            )
-    
-    def __createPercentageOptions(self, modifierEnum, modifierClass, buttonImage, statName):
-        """Create percentage-based tier options"""
-        
-        # Create sample modifiers to get percentage values
-        tiers = [1, 2, 3, 4, 5]
-        startY = 0.3
-        
-        for i, tier in enumerate(tiers):
-            try:
-                sampleMod = modifierClass(tier)
-                currentY = startY - i * 0.08
-                
-                # Get the percentage or value for display
-                if hasattr(sampleMod, '_perc_increase'):
-                    value = sampleMod._perc_increase()
-                    description = f"Tier {tier}: +{value}% {statName}"
-                elif hasattr(sampleMod, '_perc_decrease'):
-                    value = sampleMod._perc_decrease()
-                    description = f"Tier {tier}: -{value}% {statName}"
-                elif hasattr(sampleMod, '_duration'):
-                    value = sampleMod._duration()
-                    description = f"Tier {tier}: +{value}% {statName}"
-                else:
-                    description = f"Tier {tier}"
-                
-                # Description label on the left
-                descLabel = DirectLabel(
-                    parent=self.modifierConfigDialog,
-                    relief=None,
-                    text=description,
-                    text_scale=0.04,
-                    text_pos=(-0.4, currentY),
-                    text_fg=(0.2, 0.2, 0.2, 1),
-                    text_font=ToontownGlobals.getInterfaceFont(),
-                    text_align=TextNode.ALeft
-                )
-                
-                # Selection button on the right
-                selectButton = DirectButton(
-                    parent=self.modifierConfigDialog,
-                    relief=None,
-                    image=buttonImage,
-                    pos=(0.4, 0, currentY+0.015),
-                    scale=(0.7, 1, 0.7),
-                    command=self.__confirmModifierConfig,
-                    extraArgs=[modifierEnum, tier]
-                )
-            except:
-                # Fallback for tiers that might not work
-                break
-    
-    def __createLaffDrainOptions(self, modifierEnum, buttonImage):
-        """Create laff drain rate selection options"""
-        drainOptions = [
-            (1, "Every 1.0 seconds"),
-            (2, "Every 1.0 seconds"),
-            (3, "Every 0.75 seconds"),
-            (4, "Every 0.5 seconds"),
-            (5, "Every 0.25 seconds"),
-            (6, "Every 0.1 seconds")
-        ]
-        
-        startY = 0.3
-        for i, (tier, label) in enumerate(drainOptions):
-            currentY = startY - i * 0.08
-            description = f"Tier {tier}: {label}"
-            
-            # Description label on the left
-            descLabel = DirectLabel(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                text=description,
-                text_scale=0.04,
-                text_pos=(-0.4, currentY),
-                text_fg=(0.2, 0.2, 0.2, 1),
-                text_font=ToontownGlobals.getInterfaceFont(),
-                text_align=TextNode.ALeft
-            )
-            
-            # Selection button on the right
-            selectButton = DirectButton(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                image=buttonImage,
-                pos=(0.4, 0, currentY+0.015),
-                scale=(0.7, 1, 0.7),
-                command=self.__confirmModifierConfig,
-                extraArgs=[modifierEnum, tier]
-            )
-    
-    def __createGenericTierOptions(self, modifierEnum, modifierClass, buttonImage):
-        """Create generic tier 1-5 options with descriptions"""
-        tiers = [1, 2, 3, 4, 5]
-        startY = 0.3
-        
-        for i, tier in enumerate(tiers):
-            currentY = startY - i * 0.08
-            
-            # Try to get a meaningful description
-            try:
-                sampleMod = modifierClass(tier)
-                if hasattr(sampleMod, '_perc_increase'):
-                    value = sampleMod._perc_increase()
-                    description = f"Tier {tier}: +{value}% effect"
-                elif hasattr(sampleMod, '_perc_decrease'):
-                    value = sampleMod._perc_decrease()
-                    description = f"Tier {tier}: -{value}% effect"
-                elif hasattr(sampleMod, 'getDescription'):
-                    # Get the description and try to extract meaningful info
-                    desc = sampleMod.getDescription()
-                    description = f"Tier {tier}: {sampleMod.getName()}"
-                else:
-                    description = f"Tier {tier}: Standard intensity"
-            except:
-                description = f"Tier {tier}: Standard intensity"
-            
-            # Description label on the left
-            descLabel = DirectLabel(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                text=description,
-                text_scale=0.04,
-                text_pos=(-0.4, currentY),
-                text_fg=(0.2, 0.2, 0.2, 1),
-                text_font=ToontownGlobals.getInterfaceFont(),
-                text_align=TextNode.ALeft
-            )
-            
-            # Selection button on the right
-            selectButton = DirectButton(
-                parent=self.modifierConfigDialog,
-                relief=None,
-                image=buttonImage,
-                pos=(0.4, 0, currentY+0.015),
-                scale=(0.7, 1, 0.7),
-                command=self.__confirmModifierConfig,
-                extraArgs=[modifierEnum, tier]
-            )
-    
-    def __confirmModifierConfig(self, modifierEnum, tier):
-        """Confirm the modifier configuration and add it"""
-        # Clean up the config dialog
-        self.__cancelModifierConfig()
-        
-        # Add the modifier with the selected tier
-        self.sendUpdate('addModifier', [modifierEnum, tier])
-    
-    def __cancelModifierConfig(self):
-        """Cancel modifier configuration"""
-        if hasattr(self, 'modifierConfigDialog') and self.modifierConfigDialog:
-            self.modifierConfigDialog.destroy()
-            self.modifierConfigDialog = None
-        
-        # Show the modifiers panel again
-        if self.modifiersPanel and self.modifiersPanelVisible:
-            self.modifiersPanel.show()
+    # Modifier panel UI methods now delegated to ModifierPanelUI
+    # Old methods removed - see ModifierPanelUI class
 
     def __cleanupRulesPanel(self):
         self.ignore(self.rulesDoneEvent)
         self.ignore('spotStatusChanged')
-        if self.playButton is not None:
-            self.playButton.destroy()
-            self.playButton = None
-        if self.modifiersButton is not None:
-            self.modifiersButton.destroy()
-            self.modifiersButton = None
-        if self.bestOfButton is not None:
-            self.bestOfButton.destroy()
-            self.bestOfButton = None
-        if self.modifiersPanel is not None:
-            self.modifiersPanel.destroy()
-            self.modifiersPanel = None
-            self.currentModifiersList = None
-            self.availableModifiersList = None
-        self.modifiersPanelVisible = False
-        # Clean up modifier config dialog if it exists
-        if hasattr(self, 'modifierConfigDialog') and self.modifierConfigDialog is not None:
-            self.modifierConfigDialog.destroy()
-            self.modifierConfigDialog = None
+        # Clean up buttons via GameButtonsUI
+        if hasattr(self, 'gameButtonsUI'):
+            self.gameButtonsUI.cleanup()
+            # Sync bestOfButton for RoundManager compatibility
+            if hasattr(self.gameButtonsUI, 'bestOfButton'):
+                self.bestOfButton = self.gameButtonsUI.bestOfButton
+        # Clean up modifier panel UI
+        if hasattr(self, 'modifierPanelUI'):
+            self.modifierPanelUI.cleanup()
         if self.rulesPanel is not None:
             self.rulesPanel.cleanup()
             self.rulesPanel = None
     
     def __createDroneSelectionUI(self):
-        """Create the drone selection UI with 3 slots at the bottom of the screen."""
-        from toontown.minigame.craning import CraneGameGlobals
-        
-        # Initialize selected drone types for local toon (default: Laser, Heal, Explodey)
-        localAvId = base.localAvatar.doId
-        if localAvId not in self.selectedDroneTypes:
-            self.selectedDroneTypes[localAvId] = [
-                CraneGameGlobals.DroneType.LASER,
-                CraneGameGlobals.DroneType.HEAL,
-                CraneGameGlobals.DroneType.EXPLODEY
-            ]
-        
-        # Create container frame for all slots
-        self.droneSelectionFrame = DirectFrame(
-            relief=None,
-            parent=aspect2d,
-            pos=(0, 0, -0.85),  # Bottom of screen
-            sortOrder=DGG.NO_FADE_SORT_INDEX
-        )
-        
-        # Get keybinds from settings for the 3 slots
-        slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
-        slotKeys = [base.settings.getControl(keyName) for keyName in slotKeyNames]
-        slotSpacing = 0.25  # Space between slots
-        
-        # Helper function to format keybind for display
-        def formatKeybindDisplay(keybind):
-            """Format a keybind string for display in the UI."""
-            if len(keybind) == 1:
-                # Single character key -> uppercase
-                return keybind.upper()
-            elif keybind.startswith('arrow_'):
-                # Arrow keys -> show arrow symbol
-                direction = keybind.replace('arrow_', '')
-                arrowMap = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
-                return arrowMap.get(direction, keybind.upper())
-            elif keybind.startswith('page_'):
-                # Page keys
-                return keybind.replace('page_', 'Pg').upper()
-            elif keybind in ['control', 'shift', 'alt']:
-                # Modifier keys
-                return keybind.capitalize()
-            else:
-                # Other keys -> uppercase first letter of each word
-                return keybind.replace('_', ' ').title()
-        
-        self.droneSelectionSlots = []
-        self.droneSlotKeybinds = []  # Store keybinds for cleanup
-        for i in range(3):
-            slotType = self.selectedDroneTypes[localAvId][i]
-            slotKey = slotKeys[i]
-            self.droneSlotKeybinds.append(slotKey)
-            
-            # Create slot button (was a frame before but redundant)
-            slotButton = DirectButton(
-                relief=DGG.RAISED,
-                frameSize=(-0.12, 0.12, -0.08, 0.08),
-                frameColor=(0.2, 0.2, 0.2, 0.8),
-                borderWidth=(0.01, 0.01),
-                parent=self.droneSelectionFrame,
-                pos=(-0.25 + i * slotSpacing, 0, 0),
-                command = self.__handleDroneSlotClick,
-                extraArgs = [i]
-            )
-            
-            # Keybind label (top right)
-            keybindText = OnscreenText(
-                text=formatKeybindDisplay(slotKey),
-                pos=(0.1, 0.06),
-                scale=0.04,
-                fg=(1, 1, 1, 0.7),
-                align=TextNode.ARight,
-                parent=slotButton,
-                mayChange=True  # Allow changes if keybind updates
-            )
-            
-            # Drone icon/name (center)
-            droneName = OnscreenText(
-                text=slotType.getName(),
-                pos=(0, -0.01),
-                scale=0.03,
-                fg=slotType.getHatColor(),
-                align=TextNode.ACenter,
-                parent=slotButton,
-                mayChange=True
-            )
-            
-            # Cooldown text (bottom of slot, shows remaining time or "Ready")
-            cooldownText = OnscreenText(
-                text='Ready',
-                pos=(0, -0.06),
-                scale=0.025,
-                fg=(0.3, 1.0, 0.3, 1),
-                align=TextNode.ACenter,
-                parent=slotButton,
-                mayChange=True
-            )
-            
-            slotData = {
-                'keybindText': keybindText,
-                'droneName': droneName,
-                'cooldownText': cooldownText,
-                'button': slotButton,
-                'slotIndex': i,
-                'cooldownTask': None
-            }
-            self.droneSelectionSlots.append(slotData)
+        """Create the drone selection UI - delegate to DroneSelectionUI"""
+        self.droneSelectionUI.createSelectionUI()
+    
+    # Drone selection state sync removed - not needed, UI class manages its own state
     
     def __cleanupDroneSelectionUI(self):
-        """Clean up the drone selection UI."""
-        if hasattr(self, 'droneSelectionSlots'):
-            for slot in self.droneSelectionSlots:
-                if slot.get('button'):
-                    slot['button'].destroy()
-            self.droneSelectionSlots = []
-        
-        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
-            self.droneSelectionFrame.destroy()
-            self.droneSelectionFrame = None
-        
-        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
-            self.droneSelectionDialog.destroy()
-            self.droneSelectionDialog = None
+        """Clean up the drone selection UI - delegate to DroneSelectionUI"""
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.cleanup()
     
-    def __openDroneSelectionDialog(self, slotIndex):
-        """Open dialog to select drone type for a slot."""
-        from toontown.minigame.craning import CraneGameGlobals
-        
-        # Clean up existing dialog
-        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
-            self.droneSelectionDialog.destroy()
-        
-        # Create selection dialog
-        self.droneSelectionDialog = DirectFrame(
-            relief=None,
-            image=DGG.getDefaultDialogGeom(),
-            image_color=ToontownGlobals.GlobalDialogColor,
-            image_scale=(1.0, 1, 0.8),
-            pos=(0, 0, 0),
-            parent=aspect2d,
-            sortOrder=DGG.NO_FADE_SORT_INDEX + 2
-        )
-        
-        # Title
-        titleLabel = DirectLabel(
-            parent=self.droneSelectionDialog,
-            relief=None,
-            text=f"Select Drone Type (Slot {slotIndex + 1})",
-            text_scale=0.06,
-            text_pos=(0, 0.3),
-            text_fg=(0.1, 0.1, 0.4, 1),
-            text_font=ToontownGlobals.getInterfaceFont()
-        )
-        
-        # Load button assets
-        buttons = loader.loadModel('phase_3/models/gui/dialog_box_buttons_gui')
-        buttonImage = (buttons.find('**/ChtBx_OKBtn_UP'), 
-                      buttons.find('**/ChtBx_OKBtn_DN'), 
-                      buttons.find('**/ChtBx_OKBtn_Rllvr'))
-        closeButtonImage = (buttons.find('**/CloseBtn_UP'), 
-                          buttons.find('**/CloseBtn_DN'), 
-                          buttons.find('**/CloseBtn_Rllvr'))
-        
-        # Create buttons for each drone type - dynamically get all drone types from enum
-        droneTypes = list(CraneGameGlobals.DroneType)
-
-        for i, droneType in enumerate(droneTypes):
-            currentY = i // 4 * -.15 + .1
-            currentX = i % 4 * .2 - .3
-            
-            # Drone type button
-            typeButton = DirectButton(
-                parent=self.droneSelectionDialog,
-                relief=None,
-                image=buttonImage,
-                text=droneType.getName(),
-                text_scale=0.04,
-                text_pos=(0, -0.02),
-                text_fg=droneType.getHatColor(),
-                pos=(currentX, 0, currentY),
-                command=self.__selectDroneType,
-                extraArgs=[slotIndex, droneType]
-            )
-        
-        # Close button
-        closeButton = DirectButton(
-            parent=self.droneSelectionDialog,
-            relief=None,
-            image=closeButtonImage,
-            text="Cancel",
-            text_scale=0.05,
-            text_pos=(0, -0.1),
-            pos=(0, 0, -0.3),
-            command=self.__closeDroneSelectionDialog
-        )
-        
-        buttons.removeNode()
-    
-    def __handleDroneSlotClick(self, slotIndex):
-        """Handle clicking on a drone slot - behavior depends on game state."""
-        # Check if drones are enabled
-        if not self.__areDronesEnabled():
-            return
-        
-        # Check if we're in rules phase (can change drone) or play phase (deploy drone)
-        if hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
-            currentState = self.frameworkFSM.getCurrentState().getName()
-            if currentState == 'frameworkRules':
-                # During rules phase - open selection dialog
-                self.__openDroneSelectionDialog(slotIndex)
-            else:
-                # During play phase - deploy the drone
-                self.__deployDrone(slotIndex)
-        else:
-            # Fallback: if we can't determine state, try to deploy
-            self.__deployDrone(slotIndex)
-    
-    def __selectDroneType(self, slotIndex, droneType):
-        """Select a drone type for a slot. Prevents duplicates by swapping."""
-        from toontown.minigame.craning import CraneGameGlobals
-        
-        localAvId = base.localAvatar.doId
-        if localAvId not in self.selectedDroneTypes:
-            self.selectedDroneTypes[localAvId] = [
-                CraneGameGlobals.DroneType.LASER,
-                CraneGameGlobals.DroneType.HEAL,
-                CraneGameGlobals.DroneType.EXPLODEY
-            ]
-        
-        # Check if this drone type is already in another slot
-        currentSlots = self.selectedDroneTypes[localAvId]
-        for otherSlotIndex, otherDroneType in enumerate(currentSlots):
-            if otherSlotIndex != slotIndex and otherDroneType == droneType:
-                # Swap: put the current slot's drone type into the other slot
-                oldDroneType = currentSlots[slotIndex]
-                currentSlots[otherSlotIndex] = oldDroneType
-                # Update UI for the swapped slot
-                self.__updateDroneSlotUI(otherSlotIndex)
-                # Send update for swapped slot
-                self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, otherSlotIndex, oldDroneType.value])
-                break
-        
-        # Update local selection
-        self.selectedDroneTypes[localAvId][slotIndex] = droneType
-        
-        # Update UI
-        self.__updateDroneSlotUI(slotIndex)
-        
-        # Send to server (avId, slotIndex, droneTypeValue)
-        self.sendUpdate('setDroneTypeForToon', [base.localAvatar.doId, slotIndex, droneType.value])
-        
-        # Save the updated setup to the toon's database
-        self.__saveDroneSetupToToon()
-        
-        # Close dialog
-        self.__closeDroneSelectionDialog()
-    
-    def __closeDroneSelectionDialog(self):
-        """Close the drone selection dialog."""
-        if hasattr(self, 'droneSelectionDialog') and self.droneSelectionDialog:
-            self.droneSelectionDialog.destroy()
-            self.droneSelectionDialog = None
-    
-    def __loadDroneSetupFromToon(self):
-        """Load the saved drone setup from the local toon."""
-        if not hasattr(base, 'localAvatar') or not base.localAvatar:
-            return
-        
-        # Get saved setup from toon
-        if hasattr(base.localAvatar, 'droneSetup') and base.localAvatar.droneSetup:
-            savedSetup = base.localAvatar.droneSetup
-            if len(savedSetup) == 3:
-                from toontown.minigame.craning import CraneGameGlobals
-                localAvId = base.localAvatar.doId
-                # Convert uint8 values to DroneType enums
-                self.selectedDroneTypes[localAvId] = [
-                    CraneGameGlobals.DroneType(savedSetup[0]),
-                    CraneGameGlobals.DroneType(savedSetup[1]),
-                    CraneGameGlobals.DroneType(savedSetup[2])
-                ]
-                # Send to server to sync with other clients
-                for i, droneType in enumerate(self.selectedDroneTypes[localAvId]):
-                    self.sendUpdate('setDroneTypeForToon', [localAvId, i, droneType.value])
-    
-    def __saveDroneSetupToToon(self):
-        """Save the current drone setup to the local toon's database."""
-        if not hasattr(base, 'localAvatar') or not base.localAvatar:
-            return
-        
-        localAvId = base.localAvatar.doId
-        if localAvId not in self.selectedDroneTypes:
-            return
-        
-        # Convert DroneType enums to uint8 values
-        setup = [droneType.value for droneType in self.selectedDroneTypes[localAvId]]
-        
-        # Save to toon (this will persist to database via sendUpdate)
-        # The AI will handle the database save via b_setDroneSetup
-        base.localAvatar.sendUpdate('setDroneSetup', [setup])
+    # Drone selection UI methods now delegated to DroneSelectionUI
+    # Old methods removed - see DroneSelectionUI class
     
     def __areDronesEnabled(self):
         """Check if drones are enabled via the modifier system."""
+        if hasattr(self, 'droneSelectionUI'):
+            return self.droneSelectionUI._areDronesEnabled()
+        # Fallback if UI doesn't exist yet
         if not hasattr(self, 'ruleset') or not self.ruleset:
             return False
-        enabled = getattr(self.ruleset, 'WANT_DRONES', False)
-        self.notify.debug(f"__areDronesEnabled: {enabled}, ruleset.WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
-        return enabled
+        return getattr(self.ruleset, 'WANT_DRONES', False)
     
     def __updateDroneUIVisibility(self):
-        """Update drone UI visibility based on whether drones are enabled."""
-        # Create UI if it doesn't exist and drones are enabled
-        if (not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None) and self.__areDronesEnabled():
-            self.__loadDroneSetupFromToon()
-            self.__createDroneSelectionUI()
-        
-        if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
-            return
-        
-        if self.__areDronesEnabled():
-            # Show drone UI if we're in play state or rules state
-            if hasattr(self, 'gameFSM') and self.gameFSM.getCurrentState():
-                currentState = self.gameFSM.getCurrentState().getName()
-                if currentState == 'play':
-                    self.droneSelectionFrame.show()
-                elif currentState == 'frameworkRules':
-                    self.droneSelectionFrame.show()
-                else:
-                    self.droneSelectionFrame.hide()
-            elif hasattr(self, 'frameworkFSM') and self.frameworkFSM.getCurrentState():
-                # Check framework FSM if game FSM doesn't exist yet
-                frameworkState = self.frameworkFSM.getCurrentState().getName()
-                if frameworkState == 'frameworkRules':
-                    self.droneSelectionFrame.show()
-                else:
-                    self.droneSelectionFrame.hide()
-        else:
-            # Hide drone UI if drones are disabled
-            self.droneSelectionFrame.hide()
+        """Update drone UI visibility - delegate to DroneSelectionUI"""
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.updateVisibility()
     
     def __updateDroneSlotUI(self, slotIndex):
-        """Update the UI for a specific drone slot."""
-
-        if slotIndex >= len(self.droneSelectionSlots):
-            return
-        
-        # Use spectated player's data if spectating, otherwise use local toon's data
-        localAvId = base.localAvatar.doId
-        targetAvId = localAvId
-        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
-            spectatedAvId = self.scoreboard.getSpectatedAvId()
-            if spectatedAvId is not None:
-                targetAvId = spectatedAvId
-        
-        if targetAvId not in self.selectedDroneTypes:
-            return
-        
-        slot = self.droneSelectionSlots[slotIndex]
-        droneType = self.selectedDroneTypes[targetAvId][slotIndex]
-        
-        # Update drone name
-        if slot.get('droneName'):
-            slot['droneName']['text'] = droneType.getName()
-            slot['droneName']['fg'] = droneType.getHatColor()
+        """Update the UI for a specific drone slot - delegate to DroneSelectionUI"""
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.updateSlotUI(slotIndex)
     
     def setDroneTypeForToon(self, avId, slotIndex, droneTypeValue):
-        """Receive drone type update from server."""
-        from toontown.minigame.craning import CraneGameGlobals
+        """Delegate to DroneManager"""
+        self.droneManager.setDroneTypeForToon(avId, slotIndex, droneTypeValue)
         
-        droneType = CraneGameGlobals.DroneType(droneTypeValue)
+        # Update UI if it's the local toon or the spectated player
+        localAvId = base.localAvatar.doId
+        spectatedAvId = None
+        if hasattr(self, 'scoreboard') and self.scoreboard is not None:
+            spectatedAvId = self.scoreboard.getSpectatedAvId()
         
-        if avId not in self.selectedDroneTypes:
-            self.selectedDroneTypes[avId] = [
-                CraneGameGlobals.DroneType.LASER,
-                CraneGameGlobals.DroneType.HEAL,
-                CraneGameGlobals.DroneType.EXPLODEY
-            ]
-        
-        if slotIndex >= 0 and slotIndex < 3:
-            self.selectedDroneTypes[avId][slotIndex] = droneType
-            
-            # Update UI if it's the local toon or the spectated player
-            localAvId = base.localAvatar.doId
-            spectatedAvId = None
-            if hasattr(self, 'scoreboard') and self.scoreboard is not None:
-                spectatedAvId = self.scoreboard.getSpectatedAvId()
-            
-            if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
-                self.__updateDroneSlotUI(slotIndex)
+        if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
+            if hasattr(self, 'droneSelectionUI'):
+                self.droneSelectionUI.updateSlotUI(slotIndex)
 
     def updateRequiredElements(self):
         # Clean up existing timer if it exists
@@ -1748,7 +745,7 @@ class DistributedCraneGame(DistributedMinigame):
             self.heatDisplay = CraneLeagueHeatDisplay()
             self.heatDisplay.hide()
         
-        self.heatDisplay.update(self.modifiers)
+        self.heatDisplay.update(self.modifierManager.modifiers)
 
         if self.boss is not None:
             self.boss.setRuleset(self.ruleset)
@@ -1767,7 +764,8 @@ class DistributedCraneGame(DistributedMinigame):
         self.notify.debug(f"setRawRuleset: WANT_DRONES = {getattr(self.ruleset, 'WANT_DRONES', 'NOT_SET')}")
         self.updateRulesetDependencies()
         # Update drone UI visibility when ruleset changes
-        self.__updateDroneUIVisibility()
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.updateVisibility()
 
     def getRawRuleset(self):
         return self.ruleset.asStruct()
@@ -1798,21 +796,11 @@ class DistributedCraneGame(DistributedMinigame):
         self.__checkSpectatorState(spectate=False)
         self.__cleanupRulesPanel()
         # Clean up drone UI
-        self.__cleanupDroneSelectionUI()
-        # Clean up forfeit dialogs
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
-        # Clean up restart dialogs
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.cleanup()
+        # Clean up forfeit/restart dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.cleanup()
 
     def exitOff(self):
         pass
@@ -1897,40 +885,28 @@ class DistributedCraneGame(DistributedMinigame):
         if self.__areDronesEnabled():
             # Enable drone deployment keybinds for 3 slots from settings (both binds)
             slotKeyNames = ['DRONE_SLOT_0_KEY', 'DRONE_SLOT_1_KEY', 'DRONE_SLOT_2_KEY']
-            self.droneSlotKeybinds = []
-            for i, keyName in enumerate(slotKeyNames):
-                # Get both binds for this slot
-                binds = base.settings.getControlBinds(keyName)
-                for bind in binds:
-                    if bind:
-                        self.droneSlotKeybinds.append(bind)
-                        self.accept(bind, self.__deployDrone, [i])
+            if hasattr(self, 'droneSelectionUI'):
+                self.droneSelectionUI.droneSlotKeybinds = []
+                for i, keyName in enumerate(slotKeyNames):
+                    # Get both binds for this slot
+                    binds = base.settings.getControlBinds(keyName)
+                    for bind in binds:
+                        if bind:
+                            self.droneSelectionUI.droneSlotKeybinds.append(bind)
+                            self.accept(bind, self.__deployDrone, [i])
             
             # Move drone UI next to laff meter (right side) and show it
             # If drone UI doesn't exist (shouldn't happen, but be safe), create it
-            if not hasattr(self, 'droneSelectionFrame') or self.droneSelectionFrame is None:
-                self.__createDroneSelectionUI()
+            if not hasattr(self, 'droneSelectionUI') or self.droneSelectionUI.droneSelectionFrame is None:
+                self.droneSelectionUI.createSelectionUI()
             
-            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
+            if self.droneSelectionUI.droneSelectionFrame:
                 # Laff meter is at base.a2dBottomLeft with pos around (0.133-0.153, 0.0, 0.13)
-                # Laff meter width ~0.15, so it extends to ~0.283 (non-monkey) or ~0.303 (monkey)
-                # Position drone UI to the right of it with sufficient spacing to avoid overlap
-                # First slot is at framePos - 0.25 relative to frame, and slot width is 0.24 (from -0.12 to +0.12),
-                # so first slot extends from framePos - 0.37 to framePos - 0.13 in world space.
-                # To avoid overlap with laff meter ending at ~0.303, we need framePos - 0.37 >= 0.35,
-                # which means framePos >= 0.72. Using 0.72 to provide comfortable spacing.
-                self.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
-                self.droneSelectionFrame.setPos(0.72, 0.0, 0.13)
-                # Update slot positions to be horizontal with more spacing (0.2 instead of 0.15)
-                slotSpacing = 0.25
-                if hasattr(self, 'droneSelectionSlots'):
-                    for i, slot in enumerate(self.droneSelectionSlots):
-                        if slot.get('button'):
-                            # Slots are already positioned correctly relative to frame during creation
-                            # No need to reposition them here
-                            pass
+                # Position drone UI to the right of it with sufficient spacing
+                self.droneSelectionUI.droneSelectionFrame.reparentTo(base.a2dBottomLeft)
+                self.droneSelectionUI.droneSelectionFrame.setPos(0.72, 0.0, 0.13)
                 # Show the UI
-                self.droneSelectionFrame.show()
+                self.droneSelectionUI.droneSelectionFrame.show()
             
             # Initialize cooldown displays for all slots
             # Use spectated player's data if spectating, otherwise use local toon's data
@@ -1942,15 +918,15 @@ class DistributedCraneGame(DistributedMinigame):
                     targetAvId = spectatedAvId
             
             for i in range(3):
-                if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
-                    startTime, duration = self.droneCooldowns[targetAvId][i]
-                    self.__updateDroneSlotCooldown(i, startTime, duration)
+                if targetAvId in self.droneManager.droneCooldowns and i in self.droneManager.droneCooldowns[targetAvId]:
+                    startTime, duration = self.droneManager.droneCooldowns[targetAvId][i]
+                    self.droneSelectionUI.updateSlotCooldown(i, startTime, duration)
                 else:
-                    self.__updateDroneSlotCooldown(i, None, None)
+                    self.droneSelectionUI.updateSlotCooldown(i, None, None)
         else:
             # Drones disabled - hide UI if it exists
-            if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
-                self.droneSelectionFrame.hide()
+            if hasattr(self, 'droneSelectionUI') and self.droneSelectionUI.droneSelectionFrame:
+                self.droneSelectionUI.droneSelectionFrame.hide()
 
         if base.WANT_FOV_EFFECTS and base.localAvatar.isSprinting:
             base.localAvatar.lerpFov(base.localAvatar.fov, base.localAvatar.fallbackFov + base.localAvatar.currentMovementMode[base.localAvatar.FOV_INCREASE_ENUM])
@@ -1965,8 +941,8 @@ class DistributedCraneGame(DistributedMinigame):
         # Check if this specific slot is on cooldown
         currentTime = globalClock.getFrameTime()
         localAvId = base.localAvatar.doId
-        if localAvId in self.droneCooldowns and slotIndex in self.droneCooldowns[localAvId]:
-            startTime, duration = self.droneCooldowns[localAvId][slotIndex]
+        if localAvId in self.droneManager.droneCooldowns and slotIndex in self.droneManager.droneCooldowns[localAvId]:
+            startTime, duration = self.droneManager.droneCooldowns[localAvId][slotIndex]
             endTime = startTime + duration
             if currentTime < endTime:
                 # Still on cooldown, don't send request
@@ -1985,22 +961,23 @@ class DistributedCraneGame(DistributedMinigame):
 
         self.walkStateData.exit()
         
-        # Clean up drone slot cooldown tasks
-        if hasattr(self, 'droneSelectionSlots'):
-            for slot in self.droneSelectionSlots:
-                if slot.get('cooldownTask'):
-                    taskMgr.remove(slot['cooldownTask'])
-                    slot['cooldownTask'] = None
-        
-        # Hide drone UI when exiting play
-        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
-            self.droneSelectionFrame.hide()
+        # Clean up drone UI (includes cooldown tasks)
+        if hasattr(self, 'droneSelectionUI'):
+            # Note: We don't fully cleanup here, just hide, as UI may be needed in next round
+            if self.droneSelectionUI.droneSelectionFrame:
+                self.droneSelectionUI.droneSelectionFrame.hide()
+            # Clean up cooldown tasks
+            if self.droneSelectionUI.droneSelectionSlots:
+                for slot in self.droneSelectionUI.droneSelectionSlots:
+                    if slot.get('cooldownTask'):
+                        taskMgr.remove(slot['cooldownTask'])
+                        slot['cooldownTask'] = None
         
         # Disable drone deployment keybinds
-        if hasattr(self, 'droneSlotKeybinds'):
-            for keybind in self.droneSlotKeybinds:
+        if hasattr(self, 'droneSelectionUI') and self.droneSelectionUI.droneSlotKeybinds:
+            for keybind in self.droneSelectionUI.droneSlotKeybinds:
                 self.ignore(keybind)
-            self.droneSlotKeybinds = []
+            self.droneSelectionUI.droneSlotKeybinds = []
         
 
         # Clean up all status effects when exiting play state
@@ -2008,11 +985,8 @@ class DistributedCraneGame(DistributedMinigame):
             self.statusEffectSystem.cleanup()
     
     def setDroneCooldown(self, avId, slotIndex, duration):
-        """Receive drone cooldown from server and update UI."""
-        startTime = globalClock.getFrameTime()
-        if avId not in self.droneCooldowns:
-            self.droneCooldowns[avId] = {}
-        self.droneCooldowns[avId][slotIndex] = (startTime, duration)
+        """Delegate to DroneManager"""
+        self.droneManager.setDroneCooldown(avId, slotIndex, duration)
         
         # Update UI for local toon or spectated player
         localAvId = base.localAvatar.doId
@@ -2021,15 +995,19 @@ class DistributedCraneGame(DistributedMinigame):
             spectatedAvId = self.scoreboard.getSpectatedAvId()
         
         if avId == localAvId or (spectatedAvId is not None and avId == spectatedAvId):
-            self.__updateDroneSlotCooldown(slotIndex, startTime, duration)
+            # Get cooldown info from manager
+            if avId in self.droneManager.droneCooldowns and slotIndex in self.droneManager.droneCooldowns[avId]:
+                startTime, duration = self.droneManager.droneCooldowns[avId][slotIndex]
+                if hasattr(self, 'droneSelectionUI'):
+                    self.droneSelectionUI.updateSlotCooldown(slotIndex, startTime, duration)
     
     def clearAllDroneCooldowns(self):
-        """Clear all drone cooldowns (called by server on round restart)."""
-        self.droneCooldowns.clear()
+        """Delegate to DroneManager"""
+        self.droneManager.clearAllDroneCooldowns()
         # Update all slot cooldown displays
-        if hasattr(self, 'droneSelectionSlots'):
+        if hasattr(self, 'droneSelectionUI'):
             for i in range(3):
-                self.__updateDroneSlotCooldown(i, None, None)
+                self.droneSelectionUI.updateSlotCooldown(i, None, None)
     
     def __onSpectatedPlayerChanged(self, avId):
         """Called when the spectator switches to a different player."""
@@ -2042,68 +1020,22 @@ class DistributedCraneGame(DistributedMinigame):
         targetAvId = avId if avId is not None else localAvId
         
         # Update all slots
-        for i in range(3):
-            # Update drone type display
-            self.__updateDroneSlotUI(i)
-            
-            # Update cooldown display
-            if targetAvId in self.droneCooldowns and i in self.droneCooldowns[targetAvId]:
-                startTime, duration = self.droneCooldowns[targetAvId][i]
-                self.__updateDroneSlotCooldown(i, startTime, duration)
-            else:
-                self.__updateDroneSlotCooldown(i, None, None)
+        if hasattr(self, 'droneSelectionUI'):
+            for i in range(3):
+                # Update drone type display
+                self.droneSelectionUI.updateSlotUI(i)
+                
+                # Update cooldown display
+                if targetAvId in self.droneManager.droneCooldowns and i in self.droneManager.droneCooldowns[targetAvId]:
+                    startTime, duration = self.droneManager.droneCooldowns[targetAvId][i]
+                    self.droneSelectionUI.updateSlotCooldown(i, startTime, duration)
+                else:
+                    self.droneSelectionUI.updateSlotCooldown(i, None, None)
 
     def __updateDroneSlotCooldown(self, slotIndex, startTime, duration):
-        """Update the cooldown display for a specific drone slot."""
-        if not hasattr(self, 'droneSelectionSlots') or slotIndex >= len(self.droneSelectionSlots):
-            return
-        
-        slot = self.droneSelectionSlots[slotIndex]
-        if not slot.get('cooldownText'):
-            return
-        
-        # Clean up existing task for this slot
-        if slot.get('cooldownTask'):
-            taskMgr.remove(slot['cooldownTask'])
-            slot['cooldownTask'] = None
-        
-        if startTime is None or duration is None:
-            # No cooldown - show "Ready"
-            slot['cooldownText']['text'] = 'Ready'
-            slot['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
-            return
-        
-        # Start update task for this slot
-        def updateTask(task, slotIdx=slotIndex, start=startTime, dur=duration):
-            if slotIdx >= len(self.droneSelectionSlots):
-                return task.done
-            slotData = self.droneSelectionSlots[slotIdx]
-            if not slotData.get('cooldownText'):
-                return task.done
-            
-            currentTime = globalClock.getFrameTime()
-            elapsed = currentTime - start
-            remaining = max(0, dur - elapsed)
-            
-            if remaining <= 0:
-                slotData['cooldownText']['text'] = 'Ready'
-                slotData['cooldownText']['fg'] = (0.3, 1.0, 0.3, 1)
-                slotData['cooldownTask'] = None
-                return task.done
-            else:
-                # Show remaining time (MM:SS format)
-                minutes = int(remaining // 60)
-                seconds = int(remaining % 60)
-                slotData['cooldownText']['text'] = f'{minutes}:{seconds:02d}'
-                slotData['cooldownText']['fg'] = (1.0, 0.3, 0.3, 1)  # Red when on cooldown
-                return task.cont
-        
-        slot['cooldownTask'] = taskMgr.add(
-            updateTask,
-            f'droneSlotCooldown{slotIndex}',
-            extraArgs=[],
-            appendTask=True
-        )
+        """Update the cooldown display for a specific drone slot - delegate to DroneSelectionUI"""
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI.updateSlotCooldown(slotIndex, startTime, duration)
     
     def __showDroneCooldownIndicator(self, startTime, duration):
         """Display the drone cooldown indicator near the leave button."""
@@ -2177,8 +1109,10 @@ class DistributedCraneGame(DistributedMinigame):
         """Initialize the drone indicator at the start of play."""
         # Check if local toon has an active cooldown
         localAvId = base.localAvatar.doId
-        if localAvId in self.droneCooldowns:
-            startTime, duration = self.droneCooldowns[localAvId]
+        # Note: This method seems to expect a single cooldown, but we now have per-slot cooldowns
+        # This method may need refactoring, but for now we'll check the first slot
+        if localAvId in self.droneManager.droneCooldowns and 0 in self.droneManager.droneCooldowns[localAvId]:
+            startTime, duration = self.droneManager.droneCooldowns[localAvId][0]
             # If cooldown is still active, show it
             self.__showDroneCooldownIndicator(startTime, duration)
         else:
@@ -2214,8 +1148,8 @@ class DistributedCraneGame(DistributedMinigame):
         # Clean up all drones when round ends
         self.__cleanupAllDrones()
         
-        # Clear local cooldown cache
-        self.droneCooldowns.clear()
+        # Clear local cooldown cache (delegated to DroneManager)
+        self.droneManager.clearAllDroneCooldowns()
         
         # Clean up drone slot cooldown tasks
         if hasattr(self, 'droneSelectionSlots'):
@@ -2239,10 +1173,10 @@ class DistributedCraneGame(DistributedMinigame):
         victor.setAnimState("victory")
 
         # Check if this is a multi-round match
-        if self.bestOfValue > 1:
+        if self.roundManager.bestOfValue > 1:
             # Check round wins
-            roundWins = self.roundWins.get(self.victor, 0)
-            winsNeeded = (self.bestOfValue + 1) // 2
+            roundWins = self.roundManager.roundWins.get(self.victor, 0)
+            winsNeeded = (self.roundManager.bestOfValue + 1) // 2
             if roundWins >= winsNeeded:
                 # Match is over - use normal victory flow
                 taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("craneGameVictory"), extraArgs=[])
@@ -2273,26 +1207,15 @@ class DistributedCraneGame(DistributedMinigame):
         self.notify.debug("enterCleanup")
         self.__cleanupRulesPanel()
         
-        # Clean up forfeit dialogs
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
-        # Clean up restart dialogs
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
+        # Clean up forfeit/restart dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.cleanup()
         
         # Clean up all drones when entering cleanup
         self.__cleanupAllDrones()
         
-        # Clear local cooldown cache
-        self.droneCooldowns.clear()
+        # Clear local cooldown cache (delegated to DroneManager)
+        self.droneManager.clearAllDroneCooldowns()
         
         # Clean up drone slot cooldown tasks
         if hasattr(self, 'droneSelectionSlots'):
@@ -2385,14 +1308,7 @@ class DistributedCraneGame(DistributedMinigame):
             if self.bossSpeedrunTimer:
                 self.bossSpeedrunTimer.hide_overtime()
 
-    def setModifiers(self, mods):
-        modsToSet = []  # A list of CFORulesetModifierBase subclass instances
-        for modStruct in mods:
-            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
-
-        self.modifiers = modsToSet
-        self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
-        self.heatDisplay.update(self.modifiers)
+    # setModifiers now delegated to ModifierManager - see method at line 2321
 
     def restart(self):
         """
@@ -2542,13 +1458,12 @@ class DistributedCraneGame(DistributedMinigame):
 
 
 
-        # Show the play button for all players (everyone needs to ready up)
-        self.playButton.show()
-        
-        # Only show the modifiers, and best-of buttons for the leader
-        if self.isLocalToonHost():
-            self.modifiersButton.show()
-            self.bestOfButton.show()
+        # Show buttons via GameButtonsUI
+        if hasattr(self, 'gameButtonsUI'):
+            self.gameButtonsUI.showButtons()
+            # Sync bestOfButton for RoundManager compatibility
+            if hasattr(self.gameButtonsUI, 'bestOfButton'):
+                self.bestOfButton = self.gameButtonsUI.bestOfButton
 
         # Position toons in the rules formation
         self.setToonsToRulesPositions()
@@ -2572,7 +1487,9 @@ class DistributedCraneGame(DistributedMinigame):
         
         # Always load saved drone setup from toon (even if drones aren't enabled yet)
         # This ensures the setup is ready when the modifier is added
-        self.__loadDroneSetupFromToon()
+        # Load drone setup via DroneSelectionUI
+        if hasattr(self, 'droneSelectionUI'):
+            self.droneSelectionUI._loadDroneSetupFromToon()
         
         # Always create drone selection UI (it will be hidden if drones aren't enabled)
         self.__createDroneSelectionUI()
@@ -2596,8 +1513,8 @@ class DistributedCraneGame(DistributedMinigame):
         self.removeStatusIndicators()
         self.__cleanupRulesPanel()
         # Don't destroy drone UI - just hide it, we'll show it again in enterPlay
-        if hasattr(self, 'droneSelectionFrame') and self.droneSelectionFrame:
-            self.droneSelectionFrame.hide()
+        if hasattr(self, 'droneSelectionUI') and self.droneSelectionUI.droneSelectionFrame:
+            self.droneSelectionUI.droneSelectionFrame.hide()
 
     def handleMouseClick(self):
         """Handle mouse clicks during the rules state to detect clicks on spotlights."""
@@ -2817,72 +1734,40 @@ class DistributedCraneGame(DistributedMinigame):
         self.waitingStartLabel.show()
 
     def setToonSpawnpointOrder(self, order):
-        """Receive updated spawn order from server"""
-        self.toonSpawnpointOrder = order[:]
-        self.notify.info(f"Received spawn order update: {self.toonSpawnpointOrder}")
+        """Delegate to PlayerManager"""
+        self.playerManager.setToonSpawnpointOrder(order)
+        # Sync for backward compatibility
+        self.toonSpawnpointOrder = self.playerManager.toonSpawnpointOrder
 
-    def __handleBestOfButton(self):
-        """Handle the "Best of" button click"""
-        # Cycle through Best of 1, 3, 5, 7
-        if self.bestOfValue == 1:
-            self.bestOfValue = 3
-        elif self.bestOfValue == 3:
-            self.bestOfValue = 5
-        elif self.bestOfValue == 5:
-            self.bestOfValue = 7
-        else:
-            self.bestOfValue = 1
-        
-        # Update button text
-        self.bestOfButton['text'] = f'Best of {self.bestOfValue}'
-        
-        # Send update to server if we're the leader
-        if self.isLocalToonHost():
-            self.sendUpdate('setBestOf', [self.bestOfValue])
+    # Best-of button handler now delegated to GameButtonsUI
+    # Old method removed - see GameButtonsUI._onBestOfButton
 
     def setBestOf(self, value):
-        """Receive best-of setting from server"""
-        self.bestOfValue = value
-        if self.bestOfButton:
-            self.bestOfButton['text'] = f'Best of {self.bestOfValue}'
-        self.notify.info(f"Best of value set to: {self.bestOfValue}")
+        """Delegate to RoundManager"""
+        self.roundManager.setBestOf(value)
+        # Update UI button
+        if hasattr(self, 'gameButtonsUI'):
+            self.gameButtonsUI.updateBestOfButton(value)
+            # Sync bestOfButton for RoundManager compatibility
+            if hasattr(self.gameButtonsUI, 'bestOfButton'):
+                self.bestOfButton = self.gameButtonsUI.bestOfButton
 
     def setRoundInfo(self, currentRound, roundWins):
-        """Receive round information from server"""
-        self.currentRound = currentRound
-        
-        # Convert roundWins list back to dict using avIdList
-        self.roundWins = {}
-        for i, avId in enumerate(self.avIdList):
-            if i < len(roundWins):
-                self.roundWins[avId] = roundWins[i]
-        
-        # Update scoreboard with round information
-        # Pass avIdList to ensure correct order matching server
-        if self.scoreboard:
-            self.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue, self.avIdList)
+        """Delegate to RoundManager"""
+        self.roundManager.setRoundInfo(currentRound, roundWins)
+        # No sync needed - managers handle their own state
 
     def setModifiers(self, mods):
-        """Receive modifier updates from the server"""
-        modsToSet = []  # A list of CFORulesetModifierBase subclass instances
-        for modStruct in mods:
-            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
-
-        self.modifiers = modsToSet
-        self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
-        self.heatDisplay.update(self.modifiers)
-        
-        # Update the modifiers panel if it's visible
-        if self.modifiersPanelVisible and self.currentModifiersList is not None:
-            self.__updateModifiersLists()
+        """Delegate to ModifierManager"""
+        self.modifierManager.setModifiers(mods)
 
     def __nextRound(self, task=None):
         """Transition to the next round"""
         # Clean up all drones when round restarts
         self.__cleanupAllDrones()
         
-        # Clear local cooldown cache for next round
-        self.droneCooldowns.clear()
+        # Clear local cooldown cache for next round (delegated to DroneManager)
+        self.droneManager.clearAllDroneCooldowns()
         
         # The server will handle the transition to the next round automatically
         # We just need to clean up the victory state
@@ -2890,375 +1775,78 @@ class DistributedCraneGame(DistributedMinigame):
 
     def __removeModifier(self, modifierIndex):
         """Remove a modifier from the game"""
-        if self.isLocalToonHost() and modifierIndex < len(self.modifiers):
-            modifierEnum = self.modifiers[modifierIndex].MODIFIER_ENUM
+        if self.isLocalToonHost() and modifierIndex < len(self.modifierManager.modifiers):
+            modifierEnum = self.modifierManager.modifiers[modifierIndex].MODIFIER_ENUM
             self.sendUpdate('removeModifier', [modifierEnum])
     
     def setRequestForfeit(self, requesterAvId):
-        """Receive forfeit request from server"""
-        self.pendingForfeitRequester = requesterAvId
-        self.forfeitConsents.clear()
-        self.forfeitConsents.add(requesterAvId)  # Requester automatically consents
-        
-        requesterToon = self.cr.getDo(requesterAvId)
-        if not requesterToon:
-            self.notify.warning(f"Could not find requester toon {requesterAvId}")
-            return
-        
-        requesterName = requesterToon.getName()
-        requesterDNA = requesterToon.getStyle()
-        
-        # Clean up any existing dialogs
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
-        
-        # Check if local player is a spectator - don't show dialog to spectators
-        if base.localAvatar.doId in self.getSpectators():
-            self.notify.info(f"Forfeit requested by {requesterName} (spectator, no dialog shown)")
-            return
-        
-        # Show different dialogs based on whether this is the requester
-        from toontown.toontowngui import ToonHeadDialog
-        from toontown.toontowngui import TTDialog
-        from otp.otpbase import OTPLocalizer
-
-        if requesterAvId == base.localAvatar.doId:
-            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
-            participants = self.getParticipantIdsNotSpectating()
-            numNeeded = len(participants)
-            message = f"Forfeit requested!\n\n"
-            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
-            
-            # Create dialog with desired scale
-            desiredScale = 0.4
-            self.forfeitRequesterDialog = ToonHeadDialog.ToonHeadDialog(
-                dna=requesterDNA,
-                text=message,
-                style=TTDialog.CancelOnly,
-                buttonTextList=[OTPLocalizer.GuildInviterCancel],
-                command=self.__handleForfeitRequesterDialog,
-                image_color=(1.0, 0.89, 0.77, 1.0),
-                geom_scale=0.2,
-                geom_pos=(-0.1, 0, -0.025),
-                pad=(0.075, 0.075),
-                topPad=0,
-                midPad=0,
-                pos=(0.45, 0, 0.75),
-                scale=desiredScale
-            )
-            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
-            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
-            # but we can create our own animation that runs and overrides it.
-            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
-            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
-            # Create our custom animation that ends at desiredScale instead of 1.0
-            # We'll start it immediately to compete with/override the default animation
-            self.forfeitRequesterDialog.setScale(0.01)  # Match the default animation's start
-            customAnim = Sequence(
-                LerpScaleInterval(self.forfeitRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
-                LerpScaleInterval(self.forfeitRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
-            )
-            customAnim.start()
-            self.forfeitRequesterDialog.show()
-        else:
-            # Other players see confirmation dialog (like GroupInvitee)
-            message = f"{requesterName} has requested to FORFEIT the match.\n\n"
-            
-            # Create dialog with desired scale
-            desiredScale = 0.5
-            self.forfeitDialog = ToonHeadDialog.ToonHeadDialog(
-                dna=requesterDNA,
-                text=message,
-                style=TTDialog.TwoChoice,
-                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
-                command=self.__handleForfeitDialog,
-                image_color=(1.0, 0.89, 0.77, 1.0),
-                geom_scale=0.2,
-                geom_pos=(-0.1, 0, -0.025),
-                pad=(0.075, 0.075),
-                text_wordwrap=14,
-                topPad=0,
-                midPad=0,
-                pos=(0.45, 0, 0.75),
-                scale=desiredScale
-            )
-            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
-            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
-            # but we can create our own animation that runs and overrides it.
-            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
-            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
-            # Create our custom animation that ends at desiredScale instead of 1.0
-            # We'll start it immediately to compete with/override the default animation
-            self.forfeitDialog.setScale(0.01)  # Match the default animation's start
-            customAnim = Sequence(
-                LerpScaleInterval(self.forfeitDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
-                LerpScaleInterval(self.forfeitDialog, 0.09, desiredScale, blendType='easeInOut')
-            )
-            customAnim.start()
-            self.forfeitDialog.show()
-        
-        self.notify.info(f"Forfeit requested by {requesterName}")
+        """Delegate to ForfeitRestartManager and show dialog via UI"""
+        self.forfeitRestartManager.setRequestForfeit(requesterAvId)
+        # Show dialog via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.showForfeitDialog(requesterAvId)
     
     def setUpdateForfeitConsents(self, consentAvIds):
-        """Receive updated consent list from server"""
-        self.forfeitConsents = set(consentAvIds)
-        
-        participants = self.getParticipantIdsNotSpectating()
-        numConsented = len(self.forfeitConsents)
-        numNeeded = len(participants)
-        
-        if numConsented < numNeeded:
-            # Update requester dialog to show progress
-            if self.forfeitRequesterDialog and not self.forfeitRequesterDialog.isEmpty():
-                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
-                requesterDNA = requesterToon.getStyle() if requesterToon else None
-                if requesterDNA:
-                    message = f"Forfeit requested!\n\n"
-                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
-                    self.forfeitRequesterDialog['text'] = message
-            
-            # Update non-requester dialog to show progress
-            if self.forfeitDialog and not self.forfeitDialog.isEmpty():
-                requesterToon = self.cr.getDo(self.pendingForfeitRequester)
-                requesterName = requesterToon.getName() if requesterToon else "Unknown"
-                message = f"{requesterName} has requested to FORFEIT the match.\n\n"
-                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
-                self.forfeitDialog['text'] = message
+        """Update forfeit consent status and UI"""
+        # Update manager state
+        self.forfeitRestartManager.forfeitConsents = set(consentAvIds)
+        # Update dialog via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.updateForfeitConsents(list(consentAvIds))
     
     def setCancelForfeit(self):
-        """Receive forfeit cancellation from server"""
-        self.pendingForfeitRequester = None
-        self.forfeitConsents.clear()
-        
-        # Clean up dialogs
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
+        """Delegate to ForfeitRestartManager"""
+        self.forfeitRestartManager.setCancelForfeit()
+        # Clean up dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI._cleanupForfeitDialogs()
         
         base.localAvatar.setSystemMessage(0, "Forfeit request has been cancelled.")
     
     def setCleanupForfeitDialogs(self):
         """Clean up forfeit dialogs without showing cancellation message (used when forfeit is executed)"""
-        self.pendingForfeitRequester = None
-        self.forfeitConsents.clear()
-        
-        # Clean up dialogs without showing message
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
+        # Clean up dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI._cleanupForfeitDialogs()
     
-    def __handleForfeitDialog(self, value):
-        """Handle forfeit dialog button click (for non-requesters)"""
-        from direct.gui.DirectGui import DGG
-        
-        if self.forfeitDialog:
-            self.forfeitDialog.cleanup()
-            self.forfeitDialog = None
-        
-        if value == DGG.DIALOG_OK:  # OK/Yes button
-            self.sendUpdate('confirmForfeit', [])
-        else:  # No button - reject the forfeit
-            self.sendUpdate('rejectForfeit', [])
-    
-    def __handleForfeitRequesterDialog(self, value):
-        """Handle forfeit requester dialog button click (cancel button)"""
-        if self.forfeitRequesterDialog:
-            self.forfeitRequesterDialog.cleanup()
-            self.forfeitRequesterDialog = None
-        
-        # Cancel button was clicked - send cancel request to server
-        self.sendUpdate('cancelForfeitRequest', [])
+    # Forfeit dialog handlers now delegated to ForfeitRestartDialogsUI
+    # Old methods removed - see ForfeitRestartDialogsUI class
     
     def setRequestRestart(self, requesterAvId):
-        """Receive restart request from server"""
-        self.pendingRestartRequester = requesterAvId
-        self.restartConsents.clear()
-        self.restartConsents.add(requesterAvId)  # Requester automatically consents
+        """Update manager state, then show UI dialogs"""
+        # Update manager state
+        self.forfeitRestartManager.pendingRestartRequester = requesterAvId
+        self.forfeitRestartManager.restartConsents.clear()
+        self.forfeitRestartManager.restartConsents.add(requesterAvId)  # Requester automatically consents
         
-        requesterToon = self.cr.getDo(requesterAvId)
-        if not requesterToon:
-            self.notify.warning(f"Could not find requester toon {requesterAvId}")
-            return
-        
-        requesterName = requesterToon.getName()
-        requesterDNA = requesterToon.getStyle()
-        
-        # Clean up any existing dialogs
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
-        
-        # Check if local player is a spectator - don't show dialog to spectators
-        if base.localAvatar.doId in self.getSpectators():
-            self.notify.info(f"Restart requested by {requesterName} (spectator, no dialog shown)")
-            return
-        
-        # Show different dialogs based on whether this is the requester
-        from toontown.toontowngui import ToonHeadDialog
-        from toontown.toontowngui import TTDialog
-        from otp.otpbase import OTPLocalizer
-
-        if requesterAvId == base.localAvatar.doId:
-            # Requester sees status dialog with cancel button (like BoardingGroupInvitingPanel)
-            participants = self.getParticipantIdsNotSpectating()
-            numNeeded = len(participants)
-            message = f"Restart requested!\n\n"
-            message += f"Waiting for {numNeeded - 1} other player(s) to confirm."
-            
-            # Create dialog with desired scale
-            desiredScale = 0.4
-            self.restartRequesterDialog = ToonHeadDialog.ToonHeadDialog(
-                dna=requesterDNA,
-                text=message,
-                style=TTDialog.CancelOnly,
-                buttonTextList=[OTPLocalizer.GuildInviterCancel],
-                command=self.__handleRestartRequesterDialog,
-                image_color=(1.0, 0.89, 0.77, 1.0),
-                geom_scale=0.2,
-                geom_pos=(-0.1, 0, -0.025),
-                pad=(0.075, 0.075),
-                topPad=0,
-                midPad=0,
-                pos=(0.45, 0, 0.75),
-                scale=desiredScale
-            )
-            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
-            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
-            # but we can create our own animation that runs and overrides it.
-            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
-            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
-            # Create our custom animation that ends at desiredScale instead of 1.0
-            # We'll start it immediately to compete with/override the default animation
-            self.restartRequesterDialog.setScale(0.01)  # Match the default animation's start
-            customAnim = Sequence(
-                LerpScaleInterval(self.restartRequesterDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
-                LerpScaleInterval(self.restartRequesterDialog, 0.09, desiredScale, blendType='easeInOut')
-            )
-            customAnim.start()
-            self.restartRequesterDialog.show()
-        else:
-            # Other players see confirmation dialog (like GroupInvitee)
-            message = f"{requesterName} has requested to restart the match.\n\n"
-            
-            # Create dialog with desired scale
-            desiredScale = 0.5
-            self.restartDialog = ToonHeadDialog.ToonHeadDialog(
-                dna=requesterDNA,
-                text=message,
-                style=TTDialog.TwoChoice,
-                buttonTextList=[OTPLocalizer.FriendInviteeOK, OTPLocalizer.FriendInviteeNo],
-                command=self.__handleRestartDialog,
-                image_color=(1.0, 0.89, 0.77, 1.0),
-                geom_scale=0.2,
-                geom_pos=(-0.1, 0, -0.025),
-                pad=(0.075, 0.075),
-                topPad=0,
-                midPad=0,
-                pos=(0.45, 0, 0.75),
-                scale=desiredScale
-            )
-            # The default OTPDialog animation is hardcoded to animate to scale 1.0, which overrides
-            # our scale parameter. We can't easily stop it since it starts in OTPDialog.__init__,
-            # but we can create our own animation that runs and overrides it.
-            # The default animation: 0.2s to 1.1, then 0.09s to 1.0 (total ~0.29s)
-            from direct.interval.IntervalGlobal import Sequence, LerpScaleInterval, Wait
-            # Create our custom animation that ends at desiredScale instead of 1.0
-            # We'll start it immediately to compete with/override the default animation
-            self.restartDialog.setScale(0.01)  # Match the default animation's start
-            customAnim = Sequence(
-                LerpScaleInterval(self.restartDialog, 0.2, desiredScale * 1.1, 0.01, blendType='easeInOut'),
-                LerpScaleInterval(self.restartDialog, 0.09, desiredScale, blendType='easeInOut')
-            )
-            customAnim.start()
-            self.restartDialog.show()
-        
-        self.notify.info(f"Restart requested by {requesterName}")
+        # Show dialog via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.showRestartDialog(requesterAvId)
     
     def setUpdateRestartConsents(self, consentAvIds):
-        """Receive updated consent list from server"""
-        self.restartConsents = set(consentAvIds)
-        
-        participants = self.getParticipantIdsNotSpectating()
-        numConsented = len(self.restartConsents)
-        numNeeded = len(participants)
-        
-        if numConsented < numNeeded:
-            # Update requester dialog to show progress
-            if self.restartRequesterDialog and not self.restartRequesterDialog.isEmpty():
-                requesterToon = self.cr.getDo(self.pendingRestartRequester)
-                requesterDNA = requesterToon.getStyle() if requesterToon else None
-                if requesterDNA:
-                    message = f"Restart requested!\n\n"
-                    message += f"Progress: {numConsented}/{numNeeded} players confirmed."
-                    self.restartRequesterDialog['text'] = message
-            
-            # Update non-requester dialog to show progress
-            if self.restartDialog and not self.restartDialog.isEmpty():
-                requesterToon = self.cr.getDo(self.pendingRestartRequester)
-                requesterName = requesterToon.getName() if requesterToon else "Unknown"
-                message = f"{requesterName} has requested to restart the match.\n\n"
-                message += f"Progress: {numConsented}/{numNeeded} players confirmed"
-                self.restartDialog['text'] = message
+        """Update restart consent status and UI"""
+        # Update manager state
+        self.forfeitRestartManager.restartConsents = set(consentAvIds)
+        # Update dialog via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI.updateRestartConsents(list(consentAvIds))
     
     def setCancelRestart(self):
-        """Receive restart cancellation from server"""
-        self.pendingRestartRequester = None
-        self.restartConsents.clear()
-        
-        # Clean up dialogs
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
+        """Delegate to ForfeitRestartManager"""
+        self.forfeitRestartManager.setCancelRestart()
+        # Clean up dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI._cleanupRestartDialogs()
         
         base.localAvatar.setSystemMessage(0, "Restart request has been cancelled.")
     
     def setCleanupRestartDialogs(self):
         """Clean up restart dialogs without showing cancellation message (used when restart is executed)"""
-        self.pendingRestartRequester = None
-        self.restartConsents.clear()
-        
-        # Clean up dialogs without showing message
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
+        # Clean up dialogs via UI
+        if hasattr(self, 'forfeitRestartDialogsUI'):
+            self.forfeitRestartDialogsUI._cleanupRestartDialogs()
     
-    def __handleRestartDialog(self, value):
-        """Handle restart dialog button click (for non-requesters)"""
-        from direct.gui.DirectGui import DGG
-        
-        if self.restartDialog:
-            self.restartDialog.cleanup()
-            self.restartDialog = None
-        
-        if value == DGG.DIALOG_OK:  # OK/Yes button
-            self.sendUpdate('confirmRestart', [])
-        else:  # No button - reject the restart
-            self.sendUpdate('rejectRestart', [])
+    # Restart dialog handlers now delegated to ForfeitRestartDialogsUI
+    # Old methods removed - see ForfeitRestartDialogsUI class
     
-    def __handleRestartRequesterDialog(self, value):
-        """Handle restart requester dialog button click (cancel button)"""
-        if self.restartRequesterDialog:
-            self.restartRequesterDialog.cleanup()
-            self.restartRequesterDialog = None
-        
-        # Cancel button was clicked - send cancel request to server
-        self.sendUpdate('cancelRestartRequest', [])
+    # Sync methods removed - not needed. Only bestOfButton is synced where actually used (RoundManager)
