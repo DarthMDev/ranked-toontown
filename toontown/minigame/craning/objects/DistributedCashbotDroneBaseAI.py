@@ -132,6 +132,12 @@ class DistributedCashbotDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
     
     def vanishWithPoof(self, task=None):
         """Vanish the drone with a poof effect."""
+        # Prevent double deletion
+        if self.isDeleted():
+            if task:
+                return Task.done
+            return
+        
         self.sendUpdate('vanishWithPoof', [])
         self.requestDelete()
         if task:
@@ -141,6 +147,8 @@ class DistributedCashbotDroneBaseAI(DistributedGoonAI.DistributedGoonAI):
         """Destroy the drone (called when hit by safe)."""
         # Prevent duplicate destruction
         if hasattr(self, '_isDestroyed') and self._isDestroyed:
+            return
+        if self.isDeleted():
             return
         self._isDestroyed = True
         
