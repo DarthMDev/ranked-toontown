@@ -1625,6 +1625,10 @@ class EndCFO(MagicWord):
         if craneGame is None:
             return "You aren't in a crane round!"
 
+        # Check if the game is in the play state
+        if not craneGame.gameFSM.getCurrentState() or craneGame.gameFSM.getCurrentState().getName() != 'play':
+            return "You can only forfeit during an active game!"
+
         # Get the action argument (if provided)
         action = args[0].lower() if len(args) > 0 and args[0] else ""
         

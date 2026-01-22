@@ -1627,6 +1627,30 @@ class ModifierRemoveImpactCap(CFORulesetModifierBase):
         cfoRuleset.REMOVE_IMPACT_CAP = True
 
 
+class ModifierFirstToXWins(CFORulesetModifierBase):
+    # The enum used by astron to know the type
+    MODIFIER_ENUM = 39
+    MODIFIER_TYPE = CFORulesetModifierBase.SPECIAL
+
+    TITLE_COLOR = CFORulesetModifierBase.DARK_PURPLE
+    DESCRIPTION_COLOR = CFORulesetModifierBase.PURPLE
+
+    def getName(self):
+        return f'First to {self.tier} Win{"s" if self.tier > 1 else ""}'
+
+    def getDescription(self):
+        return 'Match continues until a player wins %(color_start)s' + str(self.tier) + ' round%(color_end)s'
+
+    def getHeat(self):
+        return 0  # Neutral modifier, doesn't affect difficulty
+
+    def apply(self, cfoRuleset):
+        # This modifier doesn't modify the ruleset directly
+        # Instead, it's read by RoundManagerAI to determine match format
+        # The tier represents the number of wins needed
+        pass
+
+
 # Any implemented subclasses of CFORulesetModifierBase cannot go past this point
 # Loop through all the classes that extend the base modifier class and map an enum to the class for easier construction
 for subclass in CFORulesetModifierBase.__subclasses__():

@@ -7,7 +7,7 @@ from direct.showbase.ShowBaseGlobal import base
 
 
 class GameButtonsUI:
-    """Manages game control buttons: play, modifiers, and best-of."""
+    """Manages game control buttons: play and modifiers."""
     
     def __init__(self, game, roundManager, modifierPanelUI):
         self.game = game
@@ -17,7 +17,6 @@ class GameButtonsUI:
         # UI elements
         self.playButton = None
         self.modifiersButton = None
-        self.bestOfButton = None
     
     def createButtons(self, rulesDoneEvent):
         """Create all game buttons as part of rules panel generation"""
@@ -55,21 +54,8 @@ class GameButtonsUI:
         )
         self.modifiersButton.hide()  # Modifiers button starts hidden
         
-        # Create best of button next to modifiers button
-        self.bestOfButton = DirectButton(
-            parent=base.a2dTopLeft,
-            relief=None,
-            text=f'Best of {self.roundManager.bestOfValue}',
-            text_scale=0.055,
-            text_pos=(0, -0.02),
-            geom=(btnGeom.find('**/QuitBtn_UP'),
-                  btnGeom.find('**/QuitBtn_DN'),
-                  btnGeom.find('**/QuitBtn_RLVR')),
-            geom_scale=(0.7, 1, 1),
-            pos=(1.3, 0, -0.2),
-            command=self._onBestOfButton
-        )
-        self.bestOfButton.hide()  # Best of button starts hidden
+        # Best Of button removed - now handled by First to X Wins modifier
+        self.bestOfButton = None
         btnGeom.removeNode()
     
     def _onPlayButton(self):
@@ -89,38 +75,10 @@ class GameButtonsUI:
         if hasattr(self.game, '_syncModifierPanelState'):
             self.game._syncModifierPanelState()
     
-    def _onBestOfButton(self):
-        """Handle best-of button click - cycle through values"""
-        # Cycle through Best of 1, 3, 5, 7
-        currentValue = self.roundManager.bestOfValue
-        if currentValue == 1:
-            newValue = 3
-        elif currentValue == 3:
-            newValue = 5
-        elif currentValue == 5:
-            newValue = 7
-        else:
-            newValue = 1
-        
-        # Update button text
-        if self.bestOfButton:
-            self.bestOfButton['text'] = f'Best of {newValue}'
-        
-        # Update manager state
-        self.roundManager.bestOfValue = newValue
-        
-        # Send update to server if we're the leader
-        if self.game.isLocalToonHost():
-            self.game.sendUpdate('setBestOf', [newValue])
-        
-        # Sync for backward compatibility
-        if hasattr(self.game, 'bestOfValue'):
-            self.game.bestOfValue = newValue
-    
+    # Best Of button removed - now handled by First to X Wins modifier
     def updateBestOfButton(self, value):
-        """Update best-of button text when value changes from server"""
-        if self.bestOfButton:
-            self.bestOfButton['text'] = f'Best of {value}'
+        """Deprecated: Best Of is now handled by First to X Wins modifier"""
+        pass
     
     def showButtons(self):
         """Show buttons based on game state"""
@@ -128,12 +86,10 @@ class GameButtonsUI:
         if self.playButton:
             self.playButton.show()
         
-        # Only show the modifiers and best-of buttons for the leader
+        # Only show the modifiers button for the leader
         if self.game.isLocalToonHost():
             if self.modifiersButton:
                 self.modifiersButton.show()
-            if self.bestOfButton:
-                self.bestOfButton.show()
     
     def cleanup(self):
         """Clean up all buttons"""
@@ -143,6 +99,4 @@ class GameButtonsUI:
         if self.modifiersButton:
             self.modifiersButton.destroy()
             self.modifiersButton = None
-        if self.bestOfButton:
-            self.bestOfButton.destroy()
-            self.bestOfButton = None
+        # Best Of button removed

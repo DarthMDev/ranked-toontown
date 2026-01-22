@@ -90,7 +90,7 @@ class DistributedCraneGame(DistributedMinigame):
         self.participantsList = None
         self.participantsPanelVisible = False
         
-        # bestOfButton is needed by RoundManager - keep it synced
+        # bestOfButton removed - First to X Wins is now handled by modifier
         self.bestOfButton = None
         
         self.boss = None
@@ -644,9 +644,6 @@ class DistributedCraneGame(DistributedMinigame):
         # Create buttons via GameButtonsUI
         if hasattr(self, 'gameButtonsUI'):
             self.gameButtonsUI.createButtons(self.rulesDoneEvent)
-            # Sync bestOfButton for RoundManager compatibility
-            if hasattr(self.gameButtonsUI, 'bestOfButton'):
-                self.bestOfButton = self.gameButtonsUI.bestOfButton
         return panel
 
     # Button handlers now delegated to GameButtonsUI
@@ -663,9 +660,6 @@ class DistributedCraneGame(DistributedMinigame):
         # Clean up buttons via GameButtonsUI
         if hasattr(self, 'gameButtonsUI'):
             self.gameButtonsUI.cleanup()
-            # Sync bestOfButton for RoundManager compatibility
-            if hasattr(self.gameButtonsUI, 'bestOfButton'):
-                self.bestOfButton = self.gameButtonsUI.bestOfButton
         # Clean up modifier panel UI
         if hasattr(self, 'modifierPanelUI'):
             self.modifierPanelUI.cleanup()
@@ -1461,9 +1455,6 @@ class DistributedCraneGame(DistributedMinigame):
         # Show buttons via GameButtonsUI
         if hasattr(self, 'gameButtonsUI'):
             self.gameButtonsUI.showButtons()
-            # Sync bestOfButton for RoundManager compatibility
-            if hasattr(self.gameButtonsUI, 'bestOfButton'):
-                self.bestOfButton = self.gameButtonsUI.bestOfButton
 
         # Position toons in the rules formation
         self.setToonsToRulesPositions()
@@ -1740,17 +1731,11 @@ class DistributedCraneGame(DistributedMinigame):
         self.toonSpawnpointOrder = self.playerManager.toonSpawnpointOrder
 
     # Best-of button handler now delegated to GameButtonsUI
-    # Old method removed - see GameButtonsUI._onBestOfButton
-
     def setBestOf(self, value):
-        """Delegate to RoundManager"""
+        """Deprecated: Best Of is now controlled by the First to X Wins modifier"""
+        # This method is kept for backward compatibility but does nothing
+        # The modifier system now handles this
         self.roundManager.setBestOf(value)
-        # Update UI button
-        if hasattr(self, 'gameButtonsUI'):
-            self.gameButtonsUI.updateBestOfButton(value)
-            # Sync bestOfButton for RoundManager compatibility
-            if hasattr(self.gameButtonsUI, 'bestOfButton'):
-                self.bestOfButton = self.gameButtonsUI.bestOfButton
 
     def setRoundInfo(self, currentRound, roundWins):
         """Delegate to RoundManager"""

@@ -375,6 +375,8 @@ class ModifierPanelUI:
         # Special handling for different modifier types
         if modifierEnum == 27:  # ModifierTimerEnabler (Margin Call)
             self._createTimeSelectionOptions(modifierEnum, buttonImage)
+        elif modifierEnum == 39:  # ModifierFirstToXWins
+            self._createFirstToXWinsOptions(modifierEnum, buttonImage)
         elif modifierEnum in [2, 3]:  # HP modifiers
             self._createPercentageOptions(modifierEnum, modifierClass, buttonImage, "HP")
         elif modifierEnum in [0, 1]:  # Combo modifiers
@@ -420,6 +422,44 @@ class ModifierPanelUI:
                 scale=(0.7, 1, 0.7),
                 command=self._onConfirmConfig,
                 extraArgs=[modifierEnum, tier]
+            )
+    
+    def _createFirstToXWinsOptions(self, modifierEnum, buttonImage):
+        """Create First to X Wins selection options"""
+        # Allow selecting from 1 to 10 wins
+        winOptions = [
+            (1, "First to 1 Win (BO1)"),
+            (2, "First to 2 Wins (BO3)"),
+            (3, "First to 3 Wins (BO5)"),
+            (4, "First to 4 Wins (BO7)"),
+            (5, "First to 5 Wins (BO9)")
+        ]
+        
+        startY = 0.35
+        for i, (wins, label) in enumerate(winOptions):
+            currentY = startY - i * 0.07
+            
+            # Description label on the left
+            descLabel = DirectLabel(
+                parent=self.modifierConfigDialog,
+                relief=None,
+                text=label,
+                text_scale=0.04,
+                text_pos=(-0.35, currentY),
+                text_fg=(0.2, 0.2, 0.2, 1),
+                text_font=ToontownGlobals.getInterfaceFont(),
+                text_align=TextNode.ALeft
+            )
+            
+            # Selection button on the right
+            selectButton = DirectButton(
+                parent=self.modifierConfigDialog,
+                relief=None,
+                image=buttonImage,
+                pos=(0.4, 0, currentY+0.015),
+                scale=(0.7, 1, 0.7),
+                command=self._onConfirmConfig,
+                extraArgs=[modifierEnum, wins]
             )
     
     def _createPercentageOptions(self, modifierEnum, modifierClass, buttonImage, statName):
@@ -619,6 +659,7 @@ class ModifierPanelUI:
         # Check some common modifiers that have meaningful tier differences
         tieredModifiers = [
             27,  # ModifierTimerEnabler (Margin Call)
+            39,  # ModifierFirstToXWins (First to X Wins)
             2,   # ModifierCFOHPIncreaser (Financial Aid)
             3,   # ModifierCFOHPDecreaser (Budget Cuts)
             0,   # ModifierComboExtender (Chains of Finesse)

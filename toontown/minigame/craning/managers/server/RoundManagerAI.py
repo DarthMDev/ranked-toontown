@@ -7,36 +7,54 @@ from toontown.minigame.craning import CraneGameGlobals
 
 
 class RoundManagerAI:
-    """Manages round progression, best-of matches, and round wins."""
+    """Manages round progression, first-to-X-wins matches, and round wins."""
     
     def __init__(self, game):
         self.game = game
-        self.bestOfValue = 1  # Default to Best of 1
+        self._bestOfValue = 1  # Internal storage, kept for backward compatibility
         self.currentRound = 1
         self.roundWins = {}  # Maps avId -> number of rounds won
         self.originalSpawnOrder = []  # Store original spawn order for rotation
         self._inMultiRoundMatch = False
     
+    def getWinsNeeded(self):
+        """Get the number of wins needed from the First to X Wins modifier, or 1 if not set"""
+        if not hasattr(self.game, 'modifierManager'):
+            return 1
+        
+        # Look for the First to X Wins modifier
+        for modifier in self.game.modifierManager.modifiers:
+            if modifier.MODIFIER_ENUM == CraneGameGlobals.ModifierFirstToXWins.MODIFIER_ENUM:
+                return modifier.tier
+        
+        # Default to 1 if modifier not found
+        return 1
+    
+    @property
+    def bestOfValue(self):
+        """Property to get wins needed (reads from modifier for backward compatibility)"""
+        return self.getWinsNeeded()
+    
+    @bestOfValue.setter
+    def bestOfValue(self, value):
+        """Setter kept for backward compatibility but does nothing"""
+        self._bestOfValue = value
+    
+    @property
+    def winsNeeded(self):
+        """Property to get wins needed (reads from modifier)"""
+        return self.getWinsNeeded()
+    
     def setBestOf(self, value):
-        """Handle best-of setting from the leader"""
-        # Verify the sender is the leader (first player in avIdList)
-        senderId = self.game.air.getAvatarIdFromSender()
-        if senderId != self.game.avIdList[0]:
-            self.game.notify.warning(f"Non-leader {senderId} tried to set best-of value")
-            return
-            
-        # Validate the value
-        if value not in [1, 3, 5, 7]:
-            self.game.notify.warning(f"Invalid best-of value from {senderId}: {value}")
-            return
-            
-        self.bestOfValue = value
-        self.d_setBestOf()
-        self.game.notify.info(f"Best-of value set to {value} by leader {senderId}")
+        """Deprecated: Best Of is now controlled by the First to X Wins modifier"""
+        # This method is kept for backward compatibility but does nothing
+        # The modifier system now handles this
+        self.game.notify.warning("setBestOf is deprecated - use First to X Wins modifier instead")
     
     def d_setBestOf(self):
-        """Send best-of value to all clients"""
-        self.game.sendUpdate('setBestOf', [self.bestOfValue])
+        """Send wins needed value to all clients (for backward compatibility)"""
+        winsNeeded = self.getWinsNeeded()
+        self.game.sendUpdate('setBestOf', [winsNeeded])
     
     def d_setRoundInfo(self):
         """Send round information to all clients"""
@@ -47,9 +65,10 @@ class RoundManagerAI:
         self.game.sendUpdate('setRoundInfo', [self.currentRound, roundWinsList])
     
     def nextRound(self):
-        """Handle transition to next round in best-of matches"""
-        if self.bestOfValue <= 1:
-            return  # Not a best-of match
+        """Handle transition to next round in first-to-X-wins matches"""
+        winsNeeded = self.getWinsNeeded()
+        if winsNeeded <= 1:
+            return  # Single round match
         
         self.currentRound += 1
         self._inMultiRoundMatch = True  # Flag to indicate we're in a multi-round match
@@ -107,18 +126,19 @@ class RoundManagerAI:
     
     def recordRoundWin(self, victorId):
         """Record a round win for a player"""
-        if self.bestOfValue <= 1:
-            return  # Not a best-of match
+        winsNeeded = self.getWinsNeeded()
+        if winsNeeded <= 1:
+            return  # Single round match
         
         self.roundWins[victorId] = self.roundWins.get(victorId, 0) + 1
         self.d_setRoundInfo()
     
     def isMatchComplete(self, victorId):
         """Check if the match is complete (player has enough wins)"""
-        if self.bestOfValue <= 1:
+        winsNeeded = self.getWinsNeeded()
+        if winsNeeded <= 1:
             return True  # Single round match is always "complete"
         
-        winsNeeded = (self.bestOfValue + 1) // 2
         return self.roundWins.get(victorId, 0) >= winsNeeded
     
     def getWinners(self):

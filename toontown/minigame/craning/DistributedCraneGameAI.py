@@ -381,8 +381,8 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         # Clear any pending forfeit/restart requests
         self.forfeitRestartManager.reset()
         
-        # Initialize best-of settings
-        self.roundManager.d_setBestOf()
+        # Initialize first-to-X-wins settings (reads from modifier)
+        self.roundManager.d_setBestOf()  # For backward compatibility
         self.roundManager.d_setRoundInfo()
 
     def setupRuleset(self):
@@ -396,8 +396,16 @@ class DistributedCraneGameAI(DistributedMinigameAI):
     def applyModifier(self, modifier: CraneGameGlobals.CFORulesetModifierBase, updateClient=False):
         self.modifierManager.applyModifier(modifier, updateClient)
     
-    def removeModifier(self, modifierClass):
-        self.modifierManager.removeModifier(modifierClass)
+    def removeModifier(self, modifierEnum):
+        """Handle request to remove a modifier from the client"""
+        # Only allow the leader to remove modifiers
+        avId = self.air.getAvatarIdFromSender()
+        if not self.hasHost() or avId != self.getHost():
+            self.notify.warning(f"Non-leader {avId} attempted to remove modifier")
+            return
+        
+        # Delegate to ModifierManager's removeModifierByEnum method
+        self.modifierManager.removeModifierByEnum(modifierEnum)
     
     def d_setRawRuleset(self):
         self.modifierManager.d_setRawRuleset()
@@ -981,9 +989,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         self.__updateSkillProfile()
 
-        # Send round info to clients if this is a best-of match
+        # Send round info to clients if this is a first-to-X-wins match
         # Note: roundWins should persist across restarts (don't reset on restart)
-        if self.roundManager.bestOfValue > 1:
+        if self.roundManager.getWinsNeeded() > 1:
             self.roundManager.d_setRoundInfo()
         
         # Calculate how long we should wait to actually start the game.
@@ -1274,8 +1282,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         victorId = highest_scorers[0]
         self.getScoringContext().get_round(self.roundManager.currentRound).set_winners(highest_scorers)
 
-        # Handle best-of matches
-        if self.roundManager.bestOfValue > 1:
+        # Handle first-to-X-wins matches
+        winsNeeded = self.roundManager.getWinsNeeded()
+        if winsNeeded > 1:
             # Track round wins
             self.roundManager.recordRoundWin(victorId)
             

@@ -2,27 +2,41 @@
 RoundManager - Handles client-side round management and UI.
 """
 
+from toontown.minigame.craning import CraneGameGlobals
+
 
 class RoundManager:
-    """Manages client-side round progression, best-of matches, and UI."""
+    """Manages client-side round progression, first-to-X-wins matches, and UI."""
     
     def __init__(self, game):
         self.game = game
-        self.bestOfValue = 1  # Default to Best of 1
+        self.bestOfValue = 1  # Kept for backward compatibility, now reads from modifier
         self.currentRound = 1
         self.roundWins = {}  # Maps avId -> number of rounds won
-        # Note: bestOfButton is kept on game for UI access
+    
+    def getWinsNeeded(self):
+        """Get the number of wins needed from the First to X Wins modifier, or 1 if not set"""
+        if not hasattr(self.game, 'modifierManager'):
+            return 1
+        
+        # Look for the First to X Wins modifier
+        for modifier in self.game.modifierManager.modifiers:
+            if modifier.MODIFIER_ENUM == CraneGameGlobals.ModifierFirstToXWins.MODIFIER_ENUM:
+                return modifier.tier
+        
+        # Default to 1 if modifier not found
+        return 1
+    
+    @property
+    def winsNeeded(self):
+        """Property to get wins needed (reads from modifier)"""
+        return self.getWinsNeeded()
     
     def setBestOf(self, value):
-        """Receive best-of setting from server"""
+        """Deprecated: Best Of is now controlled by the First to X Wins modifier"""
+        # This method is kept for backward compatibility but does nothing
+        # The modifier system now handles this
         self.bestOfValue = value
-        # Update UI button if it exists (button is on game instance, not manager)
-        if hasattr(self.game, 'bestOfButton') and self.game.bestOfButton:
-            self.game.bestOfButton['text'] = f'Best of {self.bestOfValue}'
-        # Also update via GameButtonsUI if available
-        if hasattr(self.game, 'gameButtonsUI') and self.game.gameButtonsUI.bestOfButton:
-            self.game.gameButtonsUI.updateBestOfButton(value)
-        self.game.notify.info(f"Best of value set to: {self.bestOfValue}")
     
     def setRoundInfo(self, currentRound, roundWins):
         """Receive round information from server"""
@@ -36,4 +50,5 @@ class RoundManager:
         
         # Update scoreboard with round information
         if hasattr(self.game, 'scoreboard') and self.game.scoreboard:
-            self.game.scoreboard.setRoundInfo(currentRound, roundWins, self.bestOfValue, self.game.avIdList)
+            winsNeeded = self.getWinsNeeded()
+            self.game.scoreboard.setRoundInfo(currentRound, roundWins, winsNeeded, self.game.avIdList)
