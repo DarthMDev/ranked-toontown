@@ -8,7 +8,8 @@ from direct.gui.DirectButton import DirectButton
 from direct.gui.DirectFrame import DirectFrame
 from direct.gui.DirectLabel import DirectLabel
 from direct.gui import DirectGuiGlobals
-from panda3d.core import Vec4, TextNode
+from direct.task.TaskManagerGlobal import taskMgr
+from panda3d.core import Vec4, TextNode, Point3
 
 from toontown.minigame.golfgreen import GolfGreenGlobals
 from toontown.minigame.golfgreen.GolfGreenBoard import GolfGreenBoard
@@ -59,12 +60,13 @@ class GolfGreenBoardEditor(GolfGreenBoard):
 
     def _createEditorUI(self):
         """Create the editor UI"""
-        # Main editor frame
+        # Main editor frame - disable mouse blocking so clicks pass through to the 3D board
         self.editorUI = DirectFrame(
             frameSize=(-1.5, 1.5, -1.0, 1.0),
             frameColor=(0.2, 0.2, 0.2, 0.8),
-            pos=(0, 0, 0.8),
-            relief=DirectGuiGlobals.FLAT
+            pos=(0, 0, 0.0),
+            relief=DirectGuiGlobals.FLAT,
+            state=DirectGuiGlobals.DISABLED  # Don't block mouse events
         )
 
         # Title
@@ -105,14 +107,14 @@ class GolfGreenBoardEditor(GolfGreenBoard):
                 frameColor=color,
                 pos=(x, 0, y),
                 command=self._selectBallType,
-                extraArgs=[typeId, char, btn],
+                extraArgs=[typeId, char],
                 relief=DirectGuiGlobals.RAISED
             )
             self.ballTypeButtons.append(btn)
 
         # Select first button by default
         if self.ballTypeButtons:
-            self._selectBallType(0, 'r', self.ballTypeButtons[0])
+            self._selectBallType(0, 'r')
 
         # Export button
         self.exportButton = DirectButton(
@@ -161,30 +163,36 @@ class GolfGreenBoardEditor(GolfGreenBoard):
         self.ballTypeButtons = []
         self.selectedButton = None
 
-    def _selectBallType(self, typeId, char, button):
+    def _selectBallType(self, typeId, char):
         """Select a ball type to place"""
         self.selectedBallType = typeId
         self.selectedBallChar = char
 
-        # Reset all button frames
-        for btn in self.ballTypeButtons:
-            btn['relief'] = DirectGuiGlobals.RAISED
+        # Find which button was clicked by matching the typeId
+        for i, (btnTypeId, btnChar, color, name) in enumerate(self.ballTypes):
+            if btnTypeId == typeId and btnChar == char:
+                # Reset all button frames
+                for btn in self.ballTypeButtons:
+                    btn['relief'] = DirectGuiGlobals.RAISED
 
-        # Highlight selected button
-        button['relief'] = DirectGuiGlobals.SUNKEN
-        self.selectedButton = button
+                # Highlight selected button
+                self.ballTypeButtons[i]['relief'] = DirectGuiGlobals.SUNKEN
+                self.selectedButton = self.ballTypeButtons[i]
+                break
 
     def setup(self):
         """Setup the editor board"""
         super().setup()
 
-        # Override mouse handling for editor
-        self.accept('mouse1', self._handleEditorClick)
-        self.accept('mouse3', self._handleEditorRightClick)
-
         # Don't start the game loop or countdown
         self.stopCountDown()
-        self.__stop()
+        # Stop the game loop task but DON'T ignore mouse events yet
+        taskMgr.remove('GolfGreenGameTask')
+        self.running = 0
+
+        # NOW set up our editor mouse handling
+        self.accept('mouse1', self._handleEditorClick)
+        self.accept('mouse3', self._handleEditorRightClick)
 
     def _handleEditorClick(self):
         """Handle left click to place a ball"""
@@ -194,10 +202,6 @@ class GolfGreenBoardEditor(GolfGreenBoard):
 
         # Convert screen coords to world coords and find grid cell
         mpos = base.mouseWatcherNode.getMouse()
-
-        # Simple raycast to find which grid cell was clicked
-        # We'll use a simplified approach: map screen to grid coordinates
-        pickerNode = base.camera.getChild(0)
 
         # Get mouse position in 3D space relative to the board
         nearPoint = Point3()
@@ -274,6 +278,9 @@ class GolfGreenBoardEditor(GolfGreenBoard):
         if self.selectedBallType is not None:
             newSprite = self.addSprite(self.block, found=1, color=self.selectedBallType)
             self.placeIntoGrid(newSprite, gridX, gridZ)
+            # Make the sprite face the camera properly
+            if newSprite.nodeObj:
+                newSprite.face()
             self.colorGrid()
 
     def _removeBall(self, gridX, gridZ):
@@ -365,20 +372,22 @@ class GolfGreenBoardEditor(GolfGreenBoard):
         # Setup board
         self.setup()
 
+        # Raise the board up to avoid clipping with ground
+        if self.baseNode:
+            self.baseNode.setZ(10)
+            # The frame is already pitched 90 degrees in the load() method,
+            # which makes it appear flat when viewed from above
+
         # Show everything
         self.show()
 
-        # Position camera
+        # Position camera - looking down at the board from above
         camera.setPos(0, 0, 0)
         camera.setH(0)
-        camera.setP(-70)
+        camera.setP(-70)  # Look straight down
         camera.reparentTo(self.focusPoint)
         base.camLens.setMinFov(46.8265)
-        self.focusPoint.setPos(0, 12, 27)
+        self.focusPoint.setPos(0, 12, 27)  # Position camera above the board
         self.focusPoint.setH(180)
 
         base.localAvatar.setChatAbsolute("Golf Green Board Editor opened!", 0)
-
-
-# Import Point3 for editor
-from panda3d.core import Point3
