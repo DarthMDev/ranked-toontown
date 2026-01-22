@@ -1,4 +1,5 @@
-#!/bin/sh
+# In macOS to start in the current directory we need to run this command
+cd "$(dirname "$0")"
 echo "Toontown Ranked: Dedicated Server Launcher"
 echo
 export PPYTHON_PATH=$(cat ../PPYTHON_PATH)
