@@ -82,12 +82,12 @@ class Nametag(ClickablePopup):
             v3 = self.m_contents & self.m_group.getContents()
             v4 = self.m_group.m_chat_flags
 
-            # if v4 & CFSpeech:
-            #     if v3 & Nametag.CSpeech:
-            #         return Nametag.CSpeech
-            #
-            # elif v4 & CFThought and v3 & Nametag.CThought:
-            #     return Nametag.CThought
+            if v4 & CFSpeech:
+                if v3 & Nametag.CSpeech:
+                    return Nametag.CSpeech
+
+            elif v4 & CFThought and v3 & Nametag.CThought:
+                return Nametag.CThought
 
             if v3 & Nametag.CName and self.m_group.getName() and NametagGlobals._master_nametags_visible:
                 return Nametag.CName
