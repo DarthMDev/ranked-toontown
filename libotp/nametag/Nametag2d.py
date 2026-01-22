@@ -107,6 +107,14 @@ class Nametag2d(Nametag, MarginPopup):
 
         return result
 
+    def determineContents(self):
+        if self.m_group and self.m_group.isManaged():
+            v3 = self.m_contents & self.m_group.getContents()
+            if v3 & Nametag.CName and self.m_group.getName() and NametagGlobals._master_nametags_visible:
+                return Nametag.CName
+        return 0
+
+
     def updateContents(self):
         self.stopFlash()
         if self.m_group:
