@@ -73,7 +73,7 @@ class PurchaseManagerAI(DistributedObjectAI.DistributedObjectAI):
         return
 
     def getInstantLeaveFlag(self):
-        return self.previousHost is None or self.previousHost == 0
+        return True
 
     def d_setInstantLeaveFlag(self):
         self.sendUpdate('setInstantLeaveFlag', [self.getInstantLeaveFlag()])
