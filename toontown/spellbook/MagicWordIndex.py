@@ -784,7 +784,6 @@ class Help(MagicWord):
         return "Refer to your Shticker Book for a list of all commands! Some may require a higher access level. Clicking a Toon's nametag and then using 2 '{}' characters will run a command on them.".format(
             mw_prefix)
 
-
 class ToggleSleeping(MagicWord):
     aliases = ["sleep", "sleeping"]
     desc = "Enables or disables sleeping for your current session. This does not affect other Toons."
@@ -3081,6 +3080,49 @@ class DebugCountMostInstances(MagicWord):
 #         pos = base.localAvatar.getPos()
 #         b.setPos(pos[0]+5, pos[1], pos[2])
 #         return "Spawned a barrel"
+
+
+class GolfBoardEditor(MagicWord):
+    aliases = ["golfeditor", "editgolf"]
+    desc = "Opens the Golf Green Board Editor for creating custom boards."
+    execLocation = MagicWordConfig.EXEC_LOC_CLIENT
+    accessLevel = 'USER'
+
+    def handleWord(self, invoker, avId, toon, *args):
+        from ..minigame.golfgreen.GolfGreenBoardEditor import GolfGreenBoardEditor
+
+        # Stop camera updates
+        if hasattr(base.localAvatar, 'stopUpdateSmartCamera'):
+            base.localAvatar.stopUpdateSmartCamera()
+
+        # Create editor instance
+        editor = GolfGreenBoardEditor()
+
+        # Setup base node
+        baseNode = render.attachNewNode('GolfGreenEditorBase')
+
+        # Load models
+        model = loader.loadModel('phase_5.5/models/gui/package_delivery_panel')
+        model1 = loader.loadModel('phase_3.5/models/gui/matching_game_gui')
+
+        # Load sounds
+        sounds = {
+            'fire': base.loader.loadSfx('phase_6/audio/sfx/Golf_Hit_Ball.ogg'),
+            'land': base.loader.loadSfx('phase_4/audio/sfx/MG_maze_pickup.ogg'),
+            'burst': base.loader.loadSfx('phase_5/audio/sfx/Toon_bodyfall_synergy.ogg'),
+            'bomb': base.loader.loadSfx('phase_4/audio/sfx/MG_cannon_fire_alt.ogg'),
+            'lose': base.loader.loadSfx('phase_11/audio/sfx/LB_capacitor_discharge_3.ogg'),
+            'win': base.loader.loadSfx('phase_4/audio/sfx/MG_pairing_match_bonus_both.ogg'),
+            'done': base.loader.loadSfx('phase_3/audio/sfx/GUI_create_toon_back.ogg'),
+            'move': base.loader.loadSfx('phase_3.5/audio/sfx/SA_shred.ogg'),
+        }
+
+        # Initialize editor
+        models = {'model': model, 'model1': model1}
+        editor.load(baseNode, models, sounds)
+        editor.startEditor()
+
+        return "Golf Board Editor opened! Click to place balls, right-click to remove."
 
 
 # Loop through every registered subclass of MagicWord and instantiate it.
