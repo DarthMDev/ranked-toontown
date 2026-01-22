@@ -11,4 +11,4 @@ class DistributedCashbotSideCraneAI(DistributedCashbotCraneAI.DistributedCashbot
         return 'SideCrane-%s' % self.index
 
     def getPointsForStun(self):
-        return self.boss.ruleset.POINTS_SIDESTUN
+        return self.boss.ruleset.POINTS_SIDE_STUN

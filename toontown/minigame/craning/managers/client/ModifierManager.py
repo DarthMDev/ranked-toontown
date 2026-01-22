@@ -20,9 +20,18 @@ class ModifierManager:
     
     def setModifiers(self, mods):
         """Receive modifier updates from the server"""
-        modsToSet = []  # A list of CFORulesetModifierBase subclass instances
+        modsToSet = []  # A list of CFORulesetModifierBase instances
         for modStruct in mods:
-            modsToSet.append(CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct))
+            modifierEnum = modStruct[0] if isinstance(modStruct, (list, tuple)) else modStruct
+            
+            # Deserialize as crane-specific modifier
+            try:
+                modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+            except Exception as e:
+                self.game.notify.warning(f"Failed to deserialize modifier {modStruct}: {e}")
+                continue
+            
+            modsToSet.append(modifier)
 
         self.modifiers = modsToSet
         self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)

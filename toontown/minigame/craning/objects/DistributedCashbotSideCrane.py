@@ -41,7 +41,7 @@ class DistributedCashbotSideCrane(DistributedCashbotCrane.DistributedCashbotCran
             DistributedCashbotCrane.DistributedCashbotCrane.grabObject(self, obj)
 
     def getPointsForStun(self):
-        return self.boss.ruleset.POINTS_SIDESTUN
+        return self.boss.ruleset.POINTS_SIDE_STUN
 
     # Override base method, always wake up goons
     def considerObjectState(self, obj):

@@ -40,6 +40,7 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         # UI elements
         self.interface: GroupInterface | None = None
         self.going_text: DirectLabel | None = None
+        self.modifiersButton = None  # Modifiers button at top left of screen
         
         # Other state
         self.currentInvite: GroupInvitee | None = None
@@ -88,6 +89,8 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         """
         Returns True if the local toon is currently in a group.
         """
+        if not hasattr(base, 'localAvatar') or base.localAvatar is None:
+            return False
         return self.groupId != GroupBase.NoGroup and base.localAvatar.getDoId() in self.getMemberIds()
 
     def __readyCheck(self, task):
@@ -109,6 +112,9 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         Attempt to kick this toon from the boarding group we are currently in.
         """
         if not self.isInGroup():
+            return
+        
+        if not hasattr(base, 'localAvatar') or base.localAvatar is None:
             return
 
         # Are we the leader of our group and not trying to kick ourselves?
@@ -139,7 +145,7 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
 
     def requestGameSwitch(self, minigameId: int):
         self.Notify.debug(f"Attempting to switch the game to {minigameId}")
-        if self.isInGroup() and self.getLeader() == base.localAvatar.getDoId():
+        if self.isInGroup() and hasattr(base, 'localAvatar') and base.localAvatar and self.getLeader() == base.localAvatar.getDoId():
             self.d_requestMinigameSwitch(minigameId)
 
     def updateStatus(self, code: int):
@@ -151,7 +157,7 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             return
 
         # If we are the leader we don't need to update the ID. We are in charge of starting the group anyway.
-        if self.isInGroup() and self.getLeader() == base.localAvatar.getDoId():
+        if self.isInGroup() and hasattr(base, 'localAvatar') and base.localAvatar and self.getLeader() == base.localAvatar.getDoId():
             return
 
         # Only update if we're actually in a group
@@ -188,9 +194,41 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
     def d_requestMinigameSwitch(self, minigameId: int):
         self.sendUpdate('requestMinigameSwitch', [minigameId])
     
+    def d_requestSetModifiers(self, minigameId: int, modifierBlob: bytes):
+        """Request server to set modifiers for a minigame"""
+        self.sendUpdate("requestSetModifiers", [minigameId, modifierBlob])
+    
+    def d_requestGetModifiers(self, minigameId: int):
+        """Request server to get current modifiers for a minigame"""
+        self.sendUpdate("requestGetModifiers", [minigameId])
+    
     def d_requestGroupDebug(self):
         """Request group debug data from AI"""
         self.sendUpdate('requestGroupDebug', [])
+    
+    def __onModifiersClicked(self):
+        """
+        Called when the modifiers button is clicked.
+        """
+        # Only leader can configure modifiers
+        if not self.isInGroup() or not hasattr(base, 'localAvatar') or base.localAvatar is None or self.getLeader() != base.localAvatar.getDoId():
+            return
+        
+        # Show the modifier panel
+        if not hasattr(self, 'modifierPanelUI'):
+            from toontown.groups.GroupModifierPanelUI import GroupModifierPanelUI
+            self.modifierPanelUI = GroupModifierPanelUI(self)
+        
+        self.modifierPanelUI.showPanel()
+    
+    def __updateModifiersButtonVisibility(self):
+        """Update modifiers button visibility based on leadership and group membership"""
+        if self.modifiersButton is not None:
+            isLeader = self.isInGroup() and hasattr(base, 'localAvatar') and base.localAvatar and self.getLeader() == base.localAvatar.getDoId()
+            if isLeader:
+                self.modifiersButton.show()
+            else:
+                self.modifiersButton.hide()
     
     def setMinigameZone(self, minigameZone, minigameGameId):
         """
@@ -238,10 +276,63 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
     def setMinigameType(self, minigameType):
         """
         Called from the AI when the minigame type changes.
+        This is a direct update method (separate from setGroupState).
         """
-        self.Notify.debug(f"setMinigameType: Called with minigameType={minigameType}")
+        oldType = getattr(self, 'minigameType', None)
+        self.Notify.debug(f"setMinigameType: Called with minigameType={minigameType} (old: {oldType})")
         self.minigameType = minigameType
+        # Always send the event to ensure UI updates
         messenger.send('group-minigame-updated')
+    
+    def setModifiers(self, minigameId: int, modifierStructs: list):
+        """
+        Called from the AI when modifiers are received.
+        Updates the modifier panel UI data, regardless of whether the panel is visible.
+        This ensures modifiers persist when the panel is reopened.
+        modifierStructs is a list of [enum, tier] lists from Astron's MinigameModifier[] struct array.
+        """
+        # modifierStructs is already deserialized by Astron from MinigameModifier[] struct array
+        
+        # Use the minigameId parameter, not self.minigameType (which might be different)
+        actualMinigameId = minigameId if minigameId in ToontownGlobals.ValidMinigameIds else self.minigameType
+        
+        # Always update modifier panel data, even if panel isn't visible
+        # This ensures modifiers persist when the panel is reopened
+        if not hasattr(self, 'modifierPanelUI'):
+            return
+        
+        # Update the modifier panel with received modifiers
+        self.modifierPanelUI.currentModifiers = []
+        
+        # Get the appropriate ModifierBase for this minigame
+        modifierBase = None
+        if actualMinigameId == ToontownGlobals.CraneGameId:
+            from toontown.minigame.craning import CraneGameGlobals
+            modifierBase = CraneGameGlobals.CFORulesetModifierBase
+        elif actualMinigameId == ToontownGlobals.PieGameId:
+            from toontown.minigame.pie import PieGameGlobals
+            modifierBase = PieGameGlobals.PieGameModifierBase
+        elif actualMinigameId == ToontownGlobals.ScaleGameId:
+            from toontown.minigame.scale import ScaleGameGlobals
+            modifierBase = ScaleGameGlobals.ScaleGameModifierBase
+        elif actualMinigameId == ToontownGlobals.SeltzerGameId:
+            from toontown.minigame.seltzer import SeltzerGameGlobals
+            modifierBase = SeltzerGameGlobals.SeltzerGameModifierBase
+        elif actualMinigameId == ToontownGlobals.GolfGreenGameId:
+            from toontown.minigame.golfgreen import GolfGreenGlobals
+            modifierBase = GolfGreenGlobals.GolfGreenGameModifierBase
+        
+        for modStruct in modifierStructs:
+            try:
+                if modifierBase and hasattr(modifierBase, 'fromStruct'):
+                    modifier = modifierBase.fromStruct(modStruct)
+                    self.modifierPanelUI.currentModifiers.append(modifier)
+            except Exception as e:
+                self.Notify.warning(f"Failed to deserialize modifier {modStruct}: {e}")
+        
+        # Only update the UI if the panel is currently visible
+        if self.modifierPanelUI.modifiersPanelVisible:
+            self.modifierPanelUI.updateLists()
 
     def setGroupState(self, groupId: int, members: list[list[int, int, int, bool]], capacity: int, minigameType: int):
         """
@@ -255,11 +346,15 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             self.leaveGroup()
             return
         
-        # Check if minigame type changed
+        # Update modifiers button visibility
+        self.__updateModifiersButtonVisibility()
+        
+        # Check if minigame type changed (before updating it)
         minigameTypeChanged = hasattr(self, 'minigameType') and self.minigameType != minigameType
         
-        # Update group ID
+        # Update group ID and minigame type
         self.groupId = groupId
+        oldMinigameType = getattr(self, 'minigameType', None)
         self.minigameType = minigameType
         
         # Format members
@@ -276,14 +371,32 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         self.setLeader(leader.avId if leader is not None else GroupBase.NoLeader)
         self.setCapacity(capacity)
         
-        self.Notify.debug(f"setGroupState: Updated group state. Members: {self.getMemberIds()}, Leader: {self.getLeader()}")
+        self.Notify.debug(f"setGroupState: Updated group state. Members: {self.getMemberIds()}, Leader: {self.getLeader()}, Minigame: {minigameType}")
         
         # Notify interface if minigame type changed
-        if minigameTypeChanged:
+        # Always send the event to ensure UI updates, even if we think it didn't change
+        # (sometimes the check might fail due to timing)
+        if minigameTypeChanged or oldMinigameType is None:
+            self.Notify.debug(f"setGroupState: Minigame type changed from {oldMinigameType} to {minigameType}, sending update event")
+            messenger.send('group-minigame-updated')
+        else:
+            # Even if we think it didn't change, send the event anyway to ensure UI is in sync
+            # This handles edge cases where the check might have failed
+            self.Notify.debug(f"setGroupState: Minigame type appears unchanged ({minigameType}), but sending update event to ensure UI sync")
             messenger.send('group-minigame-updated')
         
-        # Render the UI
+        # Render the UI (this will also update the minigame label if interface exists)
         self.render()
+        
+        # Also directly update the minigame label if interface exists (backup to event system)
+        # Note: __updateMinigameLabel is name-mangled, so we need to use the mangled name
+        if hasattr(self, 'interface') and self.interface is not None:
+            try:
+                updateMethod = getattr(self.interface, '_GroupInterface__updateMinigameLabel', None)
+                if updateMethod is not None:
+                    updateMethod()
+            except (AttributeError, TypeError):
+                pass
     
     def leaveGroup(self):
         """
@@ -357,9 +470,45 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
             self.Notify.debug(f"render: Creating new interface")
             self.__makeNewInterface()
         
+        # Safety check: ensure interface is valid before updating
+        if self.interface is None or not hasattr(self.interface, 'updateMembers'):
+            self.Notify.debug(f"render: Interface not ready, skipping update")
+            return
+        
+        # Explicitly show the interface to ensure it's visible
+        # This is important during rapid transitions (e.g., instaLeave from purchase manager)
+        if hasattr(self.interface, 'show'):
+            self.interface.show()
+        
         # Update interface with current members
         self.Notify.debug(f"render: Updating interface with {len(self.getMembers())} members")
-        self.interface.updateMembers(self.getMembers())
+        try:
+            self.interface.updateMembers(self.getMembers())
+            # Also update minigame button label to ensure it's in sync
+            # Note: __updateMinigameLabel is name-mangled, so we need to use the mangled name
+            # The event system should handle it, but we call it directly as backup
+            try:
+                # Access the name-mangled method directly
+                updateMethod = getattr(self.interface, '_GroupInterface__updateMinigameLabel', None)
+                if updateMethod is not None:
+                    updateMethod()
+            except (AttributeError, TypeError):
+                # Method doesn't exist or can't be called, that's okay - event system should handle it
+                pass
+        except (IndexError, AttributeError) as e:
+            self.Notify.warning(f"render: Error updating interface members: {e}")
+            import traceback
+            traceback.print_exc()
+        except Exception as e:
+            self.Notify.error(f"render: Unexpected error updating interface: {e}")
+            import traceback
+            traceback.print_exc()
+            # If update fails, try to recreate the interface
+            self.__deleteInterface()
+            if self.isInGroup():
+                self.__makeNewInterface()
+        # Update modifiers button visibility when members change
+        self.__updateModifiersButtonVisibility()
     
     def __hookMinigameSetParticipants(self):
         """
@@ -393,8 +542,44 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         Called when the place changes. Re-renders the interface if we're in a group.
         This ensures the interface is shown/hidden when entering/exiting minigames or playgrounds.
         """
+        # When entering a playground, request group state refresh to ensure we have the latest data
+        place = base.cr.playGame.getPlace()
+        isInPlayground = place is not None and isinstance(place, Playground.Playground)
+        
+        if isInPlayground and self.isInGroup():
+            # Request group state refresh to ensure we have the latest data
+            # This handles cases where we return from purchase manager and state might be stale
+            self.Notify.debug(f"__onPlaceChanged: Entered playground, requesting group state refresh")
+            # The server should automatically send group state when status is updated,
+            # but we'll also trigger render after a short delay to ensure state is received
+            # Use a longer delay for instaLeave cases to ensure place is fully initialized
+            taskMgr.doMethodLater(0.2, self.__delayedRender, self.uniqueName('delayedRender'))
+        
         if self.isInGroup():
+            # Also render immediately, but the delayed render will catch cases where
+            # the place isn't fully initialized yet (e.g., instaLeave transitions)
             self.render()
+    
+    def __delayedRender(self, task):
+        """Delayed render to ensure group state has been received and place is fully initialized"""
+        if self.isInGroup():
+            place = base.cr.playGame.getPlace()
+            isInPlayground = place is not None and isinstance(place, Playground.Playground)
+            if isInPlayground:
+                self.Notify.debug(f"__delayedRender: Rendering interface after state refresh (place fully initialized)")
+                self.render()
+            else:
+                # Place still not ready, try again after a short delay
+                # Only retry a few times to avoid infinite loops
+                retryCount = getattr(task, 'retryCount', 0)
+                if retryCount < 5:  # Try up to 5 times (0.5 seconds total)
+                    self.Notify.debug(f"__delayedRender: Place not ready yet, retrying in 0.1s (attempt {retryCount + 1}/5)")
+                    newTask = taskMgr.doMethodLater(0.1, self.__delayedRender, self.uniqueName('delayedRender'))
+                    newTask.retryCount = retryCount + 1
+                    return task.done
+                else:
+                    self.Notify.warning(f"__delayedRender: Place not ready after 5 attempts, giving up")
+        return task.done
     
     def __makeNewInterface(self):
         """
@@ -425,6 +610,34 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
                 command=self.requestGroupDebug
             )
             
+            # Modifiers button - positioned at top left of screen, outside group interface
+            # Only visible to the leader
+            model = loader.loadModel(GroupInterface.GUI_MODEL_PATH)
+            selectGameTexture = model.find('**/button-selectgame')
+            uiFont2 = loader.loadFont('phase_3/models/fonts/Vipnagorgialla-Bd-It.otf')
+            from toontown.ui.UIHelpers import px_to_scale
+            self.modifiersButton = DirectButton(
+                parent=base.a2dTopLeft,
+                text='Modifiers',
+                text_font=uiFont2,
+                text_fg=(1, 1, 1, 1),
+                text_shadow=(0, 0, 0, 1),
+                text_scale=(0.06, 0.06, 1),  # Smaller text
+                text_pos=(-0.018, -0.02, 0),
+                image_scale=px_to_scale(200, 50),  # Smaller button
+                pos=(0.3, 0, -0.08),  # More to the right, slightly smaller offset
+                relief=None,
+                image=selectGameTexture,
+                command=self.__onModifiersClicked
+            )
+            model.removeNode()
+            self.__updateModifiersButtonVisibility()
+            
+            # Explicitly show the interface to ensure it's visible
+            # This is important during rapid transitions (e.g., instaLeave from purchase manager)
+            if hasattr(self.interface, 'show'):
+                self.interface.show()
+            
             self.Notify.debug(f"__makeNewInterface: Interface created successfully")
         except Exception as e:
             self.Notify.error(f"__makeNewInterface: Failed to create interface: {e}")
@@ -438,12 +651,20 @@ class GroupManager(DistributedObjectGlobal, GroupBase):
         if self.interface is not None:
             self.interface.destroy()
             self.interface = None
+        
+        # Clean up modifier panel UI if it exists
+        if hasattr(self, 'modifierPanelUI'):
+            self.modifierPanelUI.destroy()
+            del self.modifierPanelUI
         if self.going_text is not None:
             self.going_text.destroy()
             self.going_text = None
         if hasattr(self, 'debugGroupButton') and self.debugGroupButton is not None:
             self.debugGroupButton.destroy()
             self.debugGroupButton = None
+        if self.modifiersButton is not None:
+            self.modifiersButton.destroy()
+            self.modifiersButton = None
 
     def sendInvite(self, sender: int, groupId: int):
 

@@ -5,7 +5,7 @@ from direct.directnotify import DirectNotifyGlobal
 from direct.distributed.ClockDelta import globalClockDelta
 from direct.task.TaskManagerGlobal import taskMgr
 
-from toontown.coghq import SeltzerLeagueGlobals
+from toontown.minigame.seltzer import SeltzerGameGlobals
 from toontown.minigame.utils.boss import BossCogGlobals
 from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
 from toontown.toonbase import ToontownGlobals
@@ -16,7 +16,7 @@ class DistributedBossbotBossAI(DistributedBossCogAI):
 
     def __init__(self, air, game):
         DistributedBossCogAI.__init__(self, air, game, 'c')
-        self.ruleset = SeltzerLeagueGlobals.CEORuleset()
+        self.ruleset = SeltzerGameGlobals.SeltzerGameRuleset()
         self.threatDict = {}
         self.battleFourStart = 0
         self.movingToTable = False

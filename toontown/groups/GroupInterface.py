@@ -65,7 +65,7 @@ class GroupInterface(DirectFrame):
         self.initialiseoptions(GroupInterface)
 
         # Create any other elements that should be on this frame immediately when it is created.
-        self.gameSettingsButton = DirectButton(parent=base.aspect2d, text='Crane Game', text_font=uiFont2, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(0.08, 0.08, 1), text_pos=(-0.018, -0.02, 0), image_scale=px_to_scale(308, 78), pos=coords_to_pos(208.5734, 757.75), relief=None,image=selectGameTexture, command=self.__onGameSettingsClicked)
+        self.gameSettingsButton = DirectButton(parent=base.aspect2d, text='Crane Game', text_font=uiFont2, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(0.08, 0.08, 1), text_pos=(-0.018, -0.02, 0), textMayChange=1, image_scale=px_to_scale(308, 78), pos=coords_to_pos(208.5734, 757.75), relief=None,image=selectGameTexture, command=self.__onGameSettingsClicked)
         self.__updateMinigameLabel()
         self.leaveButton = DirectButton(parent=base.aspect2d, image_scale=px_to_scale(78,78), relief=None, pos=coords_to_pos(323.5082, 842.75), image=leaveTexture, command=self.__onLeaveClicked)
         self.startButton = DirectButton(parent=base.aspect2d, text='Start!', text_font=uiFont2, text_pos=(-0.01, -0.02, 0), text_scale=(0.09, 0.09, 1), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), relief=None, image=playGameTexture, pos=coords_to_pos(166.6386, 842.75), image_scale=px_to_scale(224,78), command=self.__onPlayClicked)
@@ -83,36 +83,82 @@ class GroupInterface(DirectFrame):
         # Cleanup.
         model.removeNode()
 
+        # Update minigame button label when minigame changes
         self.accept('group-minigame-updated', self.__updateMinigameLabel)
+        
+        # Update modifier panel when minigame changes
+        self.accept('group-minigame-updated', self.__onMinigameChanged)
+        
+        # Initialize the button text with current minigame type
+        self.__updateMinigameLabel()
 
     def updateMembers(self, members: list[GroupMemberStruct]):
         self.clearMembers()
         for index, member in enumerate(members):
             if index >= GroupInterface.MEMBER_ROWS:
                 return
+            # Safety check: ensure self.rows has enough elements
+            if index >= len(self.rows):
+                return
             row = self.rows[index]
             row.setAvatar(member)
             row.updateStatus(member.status)
             row.updateStateFromGroup(self.groupManager)
-
+        
     def clearMembers(self):
+        # Safety check: ensure rows exist before clearing
+        if not hasattr(self, 'rows') or not self.rows:
+            return
         for row in self.rows:
-            row.clearAvatar()
-            row.updateStateFromGroup(self.groupManager)
+            if row is not None:
+                row.clearAvatar()
+                row.updateStateFromGroup(self.groupManager)
 
     """
     Button Handlers
     """
 
     def __updateMinigameLabel(self):
-        self.gameSettingsButton.setText(ToontownGlobals.MinigameId2Name.get(self.groupManager.minigameType, "???"))
-
-        if "\n" in self.gameSettingsButton['text']:
-            self.gameSettingsButton['text_scale'] = (0.055, 0.055, 1)
-            self.gameSettingsButton['text_pos'] = (-0.01, 0.02, 0)
+        """Update the minigame button text when the minigame type changes"""
+        if not hasattr(self, 'gameSettingsButton') or self.gameSettingsButton is None:
+            return
+        
+        if not hasattr(self, 'groupManager') or self.groupManager is None:
+            return
+        
+        minigameId = self.groupManager.minigameType
+        newText = ToontownGlobals.MinigameId2Name.get(minigameId, "???")
+        
+        # Adjust text scale and position based on whether text has newlines
+        if "\n" in newText:
+            textScale = (0.055, 0.055, 1)
+            textPos = (-0.01, 0.02, 0)
         else:
-            self.gameSettingsButton['text_scale'] = (0.08, 0.08, 1)
-            self.gameSettingsButton['text_pos'] = (-0.01, -0.02, 0)
+            textScale = (0.08, 0.08, 1)
+            textPos = (-0.01, -0.02, 0)
+        
+        # Update text and properties using configure() and dictionary access
+        self.gameSettingsButton.configure(
+            text=newText,
+            text_scale=textScale,
+            text_pos=textPos
+        )
+        self.gameSettingsButton['text'] = newText
+        self.gameSettingsButton['text_scale'] = textScale
+        self.gameSettingsButton['text_pos'] = textPos
+        
+        # Force the button to refresh its display
+        self.gameSettingsButton.updateFrameStyle()
+        
+        # Update text nodes directly for all button states (normal, rollover, pressed, disabled)
+        # This ensures the text updates even if configure() doesn't fully refresh
+        for stateName in ['text0', 'text1', 'text2', 'text3']:
+            try:
+                textComponent = self.gameSettingsButton.component(stateName)
+                if textComponent is not None and hasattr(textComponent, 'textNode'):
+                    textComponent.textNode.setText(newText)
+            except (AttributeError, TypeError, KeyError):
+                continue
 
     def __onGameSettingsClicked(self):
         try:
@@ -136,6 +182,12 @@ class GroupInterface(DirectFrame):
         Called via a button press when the start game button is pressed.
         """
         self.groupManager.attemptStart()
+    
+    def __onMinigameChanged(self):
+        """Called when the minigame type changes - reload modifiers"""
+        if hasattr(self.groupManager, 'modifierPanelUI') and self.groupManager.modifierPanelUI.modifiersPanelVisible:
+            self.groupManager.modifierPanelUI.loadModifiersFromGroup()
+            self.groupManager.modifierPanelUI.updateLists()
     
     def __onHoverRow(self, row, event=None):
         # Hide every single row.

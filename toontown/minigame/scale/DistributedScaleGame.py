@@ -15,7 +15,7 @@ from libotp import NametagGroup, CFSpeech, CFTimeout
 from libotp.nametag import NametagGlobals
 from toontown.minigame.utils.elevator import ElevatorConstants
 from toontown.minigame.utils.elevator.ElevatorConstants import ELEVATOR_CJ
-from toontown.coghq import ScaleLeagueGlobals
+from toontown.minigame.scale import ScaleGameGlobals
 from toontown.minigame.utils.boss.BossSpeedrunTimer import BossSpeedrunTimer
 from toontown.minigame.utils.boss.CogBossScoreboard import CogBossScoreboard
 from toontown.minigame.DistributedMinigame import DistributedMinigame
@@ -43,7 +43,7 @@ class DistributedScaleGame(DistributedMinigame):
         self.scoreboard.hide()
 
         self.boss = None
-        self.ruleset = ScaleLeagueGlobals.CJRuleset()
+        self.ruleset = ScaleGameGlobals.ScaleGameRuleset()
         self.weightPerToon = 1
         self.baseColStashed = False
         self.bonusTimer = None
@@ -697,7 +697,7 @@ class DistributedScaleGame(DistributedMinigame):
         # self.heatDisplay.update(self.calculateHeat(), self.modifiers)
 
     def setRawRuleset(self, attrs):
-        self.ruleset = ScaleLeagueGlobals.CJRuleset.fromStruct(attrs)
+        self.ruleset = ScaleGameGlobals.ScaleGameRuleset.fromStruct(attrs)
         self.updateRequiredElements()
         print(('ruleset updated: ' + str(self.ruleset)))
 

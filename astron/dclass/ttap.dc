@@ -1007,6 +1007,11 @@ struct GroupMember {
   bool leader;
 }
 
+struct MinigameModifier {
+  int32 ENUM;
+  int32 TIER;
+};
+
 dclass GroupManager : DistributedObject {
 
   // The client requesting to invite some avId
@@ -1021,12 +1026,15 @@ dclass GroupManager : DistributedObject {
   requestStart() airecv clsend;
   requestTeamSwap(uint32 avId) airecv clsend;
   requestMinigameSwitch(uint32 minigameId) airecv clsend;
+  requestGetModifiers(uint32 minigameId) airecv clsend;
+  requestSetModifiers(uint32 minigameId, MinigameModifier[]) airecv clsend;
   updateStatus(uint8 code) airecv clsend;
   requestGroupDebug() airecv clsend;
   setCurrentGroup(int32 groupId);
   // New method: sends complete group state through global object (works across zones)
   setGroupState(int32 groupId, GroupMember [], int32 capacity, uint32 minigameType);
   setMinigameZone(uint32 zoneId, uint16 gameId);
+  setModifiers(uint32 minigameId, MinigameModifier[]);
 };
 
 dclass DistributedSuitBase : DistributedObject {
@@ -1068,11 +1076,6 @@ dclass DistributedBossCog: DistributedNode {
   showZapToon(uint32, int16/10, int16/10, int16/10, int16/10, int16/10, int16/10, uint8, int16) broadcast;
 };
 
-struct CraneLeagueModifier {
-  int32 ENUM;
-  int32 TIER;
-};
-
 struct CraneLeagueRuleset {
   bool TIMER_MODE;
   int32 TIMER_MODE_TIME_LIMIT;
@@ -1089,7 +1092,10 @@ struct CraneLeagueRuleset {
   int32 REVIVE_TOONS_TIME;
   int32 POINTS_GOON_STOMP;
   int32 POINTS_STUN;
-  int32 POINTS_SIDESTUN;
+  int32 POINTS_SIDE_STUN;
+  int32 POINTS_TNT_THROW_STUN;
+  int32 POINTS_TNT_CRANE_STUN;
+  int32 POINTS_DRONE_STUN;
   int32 POINTS_IMPACT;
   int32 POINTS_DESAFE;
   int32 POINTS_GOON_KILLED_BY_SAFE;
@@ -3056,7 +3062,7 @@ dclass DistributedCraneGame: DistributedMinigame {
   setBossCogId(uint32 doId) broadcast ram;
   setStatusEffectSystemId(uint32 doId) broadcast ram;
   setRawRuleset(CraneLeagueRuleset) required broadcast ram;
-  setModifiers(CraneLeagueModifier[]) broadcast ram;
+  setModifiers(MinigameModifier[]) broadcast ram;
   setToonSpawnpoints(uint8[]) broadcast ram;
   setToonSpawnpointOrder(uint32[]) broadcast ram;
   updateSpawnOrder(uint32[]) airecv clsend;

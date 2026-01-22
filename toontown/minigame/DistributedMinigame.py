@@ -13,7 +13,7 @@ from panda3d.core import *
 from otp.avatar import Emote
 from otp.distributed.TelemetryLimiter import RotationLimitToH, TLGatherAllAvs
 from toontown.toon import Toon
-from toontown.toonbase import TTLocalizer
+from toontown.toonbase import TTLocalizer, ToontownGlobals
 from . import MinigameGlobals
 from . import MinigameRulesPanel
 from ..archipelago.definitions import color_profile
@@ -67,6 +67,11 @@ class DistributedMinigame(DistributedObject.DistributedObject):
         # Ready timeout timer
         self.readyTimeoutTimer = None
         self.readyTimeoutDuration = 0
+        
+        # Generic modifier and round management (available to all minigames)
+        self.modifiers = []  # List of modifier instances (minigame-specific)
+        self.currentRound = 1
+        self.roundWins = {}  # Maps avId -> number of rounds won
         return
 
     def addChildGameFSM(self, gameFSM):
@@ -378,6 +383,87 @@ class DistributedMinigame(DistributedObject.DistributedObject):
         """
         self.skillProfileKey = key
         self.updatePlayerNametags()
+    
+    def setModifiers(self, mods):
+        """
+        Receive modifier updates from the server.
+        mods is a list of modifier structs [modifierEnum, tier]
+        Each minigame should handle deserialization using its own ModifierBase.
+        """
+        modsToSet = []
+        for modStruct in mods:
+            modifierEnum = modStruct[0] if isinstance(modStruct, (list, tuple)) else modStruct
+            
+            try:
+                # Try to determine which minigame this is and use its ModifierBase
+                # Check crane game first (most common)
+                from toontown.minigame.craning import CraneGameGlobals
+                if hasattr(CraneGameGlobals, 'CFORulesetModifierBase') and modifierEnum in CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES:
+                    modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+                # Check other minigames
+                elif self.minigameId == ToontownGlobals.PieGameId:
+                    from toontown.minigame.pie import PieGameGlobals
+                    if modifierEnum in PieGameGlobals.PieGameModifierBase.MODIFIER_SUBCLASSES:
+                        modifier = PieGameGlobals.PieGameModifierBase.fromStruct(modStruct)
+                    else:
+                        self.notify.warning(f"Unknown modifier enum: {modifierEnum}")
+                        continue
+                elif self.minigameId == ToontownGlobals.ScaleGameId:
+                    from toontown.minigame.scale import ScaleGameGlobals
+                    if modifierEnum in ScaleGameGlobals.ScaleGameModifierBase.MODIFIER_SUBCLASSES:
+                        modifier = ScaleGameGlobals.ScaleGameModifierBase.fromStruct(modStruct)
+                    else:
+                        self.notify.warning(f"Unknown modifier enum: {modifierEnum}")
+                        continue
+                elif self.minigameId == ToontownGlobals.SeltzerGameId:
+                    from toontown.minigame.seltzer import SeltzerGameGlobals
+                    if modifierEnum in SeltzerGameGlobals.SeltzerGameModifierBase.MODIFIER_SUBCLASSES:
+                        modifier = SeltzerGameGlobals.SeltzerGameModifierBase.fromStruct(modStruct)
+                    else:
+                        self.notify.warning(f"Unknown modifier enum: {modifierEnum}")
+                        continue
+                elif self.minigameId == ToontownGlobals.GolfGreenGameId:
+                    from toontown.minigame.golfgreen import GolfGreenGlobals
+                    if modifierEnum in GolfGreenGlobals.GolfGreenGameModifierBase.MODIFIER_SUBCLASSES:
+                        modifier = GolfGreenGlobals.GolfGreenGameModifierBase.fromStruct(modStruct)
+                    else:
+                        self.notify.warning(f"Unknown modifier enum: {modifierEnum}")
+                        continue
+                else:
+                    self.notify.warning(f"Unknown modifier enum: {modifierEnum} for minigame {self.minigameId}")
+                    continue
+                
+                modsToSet.append(modifier)
+            except Exception as e:
+                self.notify.warning(f"Failed to deserialize modifier {modStruct}: {e}")
+        
+        self.modifiers = modsToSet
+        self.modifiers.sort(key=lambda m: m.MODIFIER_TYPE)
+        
+        self.notify.debug(f"Received {len(self.modifiers)} modifiers")
+    
+    def setRoundInfo(self, currentRound, roundWins):
+        """
+        Receive round information from server.
+        currentRound is the current round number (1-indexed)
+        roundWins is a list of win counts, one per player in avIdList order
+        """
+        self.currentRound = currentRound
+        
+        # Convert roundWins list back to dict using avIdList
+        self.roundWins = {}
+        for i, avId in enumerate(self.avIdList):
+            if i < len(roundWins):
+                self.roundWins[avId] = roundWins[i]
+        
+        self.notify.debug(f"Round {currentRound}, Round wins: {self.roundWins}")
+    
+    def declareVictor(self, avId: int) -> None:
+        """
+        Called when a victor is declared for a round or match.
+        Override this in specific minigames to show victory UI.
+        """
+        self.notify.debug(f"Victor declared: {avId}")
 
     def setReadyTimeout(self, timeout):
         """

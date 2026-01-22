@@ -8,7 +8,7 @@ from direct.fsm.ClassicFSM import ClassicFSM
 from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
-from toontown.coghq import ScaleLeagueGlobals
+from toontown.minigame.scale import ScaleGameGlobals
 from toontown.minigame.utils.boss.BossComboTrackerAI import BossComboTrackerAI
 from toontown.coghq.DistributedLawbotBossGavelAI import DistributedLawbotBossGavelAI
 from toontown.coghq.DistributedLawbotChairAI import DistributedLawbotChairAI
@@ -26,7 +26,7 @@ class DistributedScaleGameAI(DistributedMinigameAI):
     def __init__(self, air, minigameId):
         super().__init__(air, minigameId)
 
-        self.ruleset = ScaleLeagueGlobals.CJRuleset()
+        self.ruleset = ScaleGameGlobals.ScaleGameRuleset()
         self.comboTrackers = {}
         self.boss: Optional[DistributedLawbotBossStrippedAI] = None
         self.weightPerToon = 1
@@ -409,7 +409,7 @@ class DistributedScaleGameAI(DistributedMinigameAI):
         self.sendUpdate('lawyerDisabled', [avId])
 
     def setupRuleset(self):
-        self.ruleset = ScaleLeagueGlobals.CJRuleset()
+        self.ruleset = ScaleGameGlobals.ScaleGameRuleset()
         # Make sure they didn't do anything bad
         self.ruleset.validate()
         # Update the client

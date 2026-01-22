@@ -422,6 +422,9 @@ class Purchase(PurchaseBase):
                 task.lastSfxT = now
 
     def _countUpTask(self, task):
+        # Check if counters exist (may have been cleaned up if ESC was pressed)
+        if not hasattr(self, 'counters') or not self.counters:
+            return Task.done
         now = globalClock.getRealTime()
         startT = task.getStartTime()
         if now >= startT + task.duration:
@@ -469,6 +472,9 @@ class Purchase(PurchaseBase):
                 base.playSfx(snd, time=startT)
 
     def _countDownTask(self, task):
+        # Check if counters exist (may have been cleaned up if ESC was pressed)
+        if not hasattr(self, 'counters') or not self.counters:
+            return Task.done
         now = globalClock.getRealTime()
         startT = task.getStartTime()
         if now >= startT + task.duration:
@@ -508,7 +514,9 @@ class Purchase(PurchaseBase):
         self.ignore('clientCleanup')
         self.ignore('escape')
         taskMgr.remove('countUpTask')
+        taskMgr.remove('countUp')  # Remove the continuous count-up task
         taskMgr.remove('countDownTask')
+        taskMgr.remove('countDown')  # Remove the continuous count-down task
         taskMgr.remove('celebrate')
         taskMgr.remove('purchase-trans')
         taskMgr.remove('delayAdd')

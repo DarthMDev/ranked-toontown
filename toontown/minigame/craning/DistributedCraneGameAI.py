@@ -17,7 +17,7 @@ from toontown.toonbase import ToontownGlobals
 from toontown.minigame.utils.statuseffects.DistributedStatusEffectSystemAI import DistributedStatusEffectSystemAI
 from toontown.minigame.utils.statuseffects.StatusEffectGlobals import StatusEffect
 from toontown.minigame.craning.managers.server.PlayerManagerAI import PlayerManagerAI
-from toontown.minigame.craning.managers.server.ModifierManagerAI import ModifierManagerAI
+from toontown.minigame.craning.managers.server.CraneModifierManagerAI import CraneModifierManagerAI
 from toontown.minigame.craning.managers.server.DroneManagerAI import DroneManagerAI
 from toontown.minigame.craning.managers.server.StatusEffectManagerAI import StatusEffectManagerAI
 from toontown.minigame.craning.managers.server.ComboManagerAI import ComboManagerAI
@@ -26,7 +26,7 @@ from toontown.minigame.craning.managers.server.GoonManagerAI import GoonManagerA
 from toontown.minigame.craning.managers.server.OvertimeManagerAI import OvertimeManagerAI
 from toontown.minigame.craning.managers.server.ForfeitRestartManagerAI import ForfeitRestartManagerAI
 from toontown.minigame.craning.managers.server.ScoreManagerAI import ScoreManagerAI
-from toontown.minigame.craning.managers.server.RoundManagerAI import RoundManagerAI
+from toontown.minigame.craning.managers.server.CraneRoundManagerAI import CraneRoundManagerAI
 
 
 class DistributedCraneGameAI(DistributedMinigameAI):
@@ -55,7 +55,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
 
         # Initialize managers
         self.playerManager = PlayerManagerAI(self)
-        self.modifierManager = ModifierManagerAI(self)
+        # Override base modifierManager with crane-specific one (which inherits from base)
+        # This allows the crane game to use both crane-specific and generic modifiers
+        self.modifierManager = CraneModifierManagerAI(self)
         self.droneManager = DroneManagerAI(self)
         self.statusEffectManager = StatusEffectManagerAI(self)
         self.comboManager = ComboManagerAI(self)
@@ -64,7 +66,9 @@ class DistributedCraneGameAI(DistributedMinigameAI):
         self.overtimeManager = OvertimeManagerAI(self)
         self.forfeitRestartManager = ForfeitRestartManagerAI(self)
         self.scoreManager = ScoreManagerAI(self)
-        self.roundManager = RoundManagerAI(self)
+        # Override base roundManager with crane-specific one (which inherits from base)
+        # This allows the crane game to use both crane-specific and generic round management
+        self.roundManager = CraneRoundManagerAI(self)
         
         # Expose ruleset for backward compatibility and direct access
         # Ruleset is managed by ModifierManager but exposed here for convenience
@@ -846,11 +850,13 @@ class DistributedCraneGameAI(DistributedMinigameAI):
             elif forceStun and crane is None:
                 # Check if this is Stunna drone (objId=999999) or pie stun
                 if objId == 999999:
-                    # Stunna drone - give 10 points
-                    points = 10
+                    # Stunna drone
+                    points = self.ruleset.POINTS_DRONE_STUN
+                    reason = CraneGameGlobals.ScoreReason.DRONE_STUN
                 else:
-                    # Pie stun - give 30 points
-                    points = 30
+                    # TNT stun
+                    points = self.ruleset.POINTS_TNT_THROW_STUN
+                    reason = CraneGameGlobals.ScoreReason.TNT_THROW_STUN
             else:
                 # Fallback for other cases
                 points = self.ruleset.POINTS_STUN // 2

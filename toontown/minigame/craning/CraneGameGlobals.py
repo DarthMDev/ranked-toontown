@@ -144,7 +144,7 @@ class CraneGameRuleset:
         self.SAFE_HELMET_COOLDOWN = 180 # How long should we wait before being able to safe helmet the CFO twice?
 
         self.WANT_BACKWALL = False
-        self.WANT_SIDECRANES = True
+        self.WANT_SIDECRANES = False
         self.WANT_BOOM_BARROWS = False
         self.WANT_HEAVY_CRANES = False
 
@@ -185,7 +185,7 @@ class CraneGameRuleset:
             ToontownGlobals.BossCogAreaAttack: 20,  # Jump
         }
 
-        # How much should attacks be multiplied by by the time we are towards the end?
+        # How much should attacks be multiplied by the time we are towards the end?
         self.CFO_ATTACKS_MULTIPLIER = 3
         # should multiplier gradually scale or go up by integers?  False means 1x then 2x then 3x, True gradually increases
         self.CFO_ATTACKS_MULTIPLIER_INTERPOLATE = True
@@ -247,7 +247,10 @@ class CraneGameRuleset:
         # POINTS SETTINGS
         self.POINTS_GOON_STOMP = 1  # Points per goon stomp
         self.POINTS_STUN = 10  # Points per stun
-        self.POINTS_SIDESTUN = 30  # Points per stun on sidecrane
+        self.POINTS_SIDE_STUN = 30  # Points per stun on sidecrane
+        self.POINTS_TNT_THROW_STUN = 50 # Points per TNT throw stun
+        self.POINTS_TNT_CRANE_STUN = 10 # Points per TNT crane stun
+        self.POINTS_DRONE_STUN = 15 # Points per drone stun
         self.POINTS_IMPACT = 2  # Points given when a max impact hit is achieved
         self.POINTS_DESAFE = 20  # Points for taking a safe helmet off
         self.POINTS_GOON_KILLED_BY_SAFE = 3  # Points for killing a goon with a safe
@@ -312,7 +315,10 @@ class CraneGameRuleset:
             self.REVIVE_TOONS_TIME,
             self.POINTS_GOON_STOMP,
             self.POINTS_STUN,
-            self.POINTS_SIDESTUN,
+            self.POINTS_SIDE_STUN,
+            self.POINTS_TNT_THROW_STUN,
+            self.POINTS_TNT_CRANE_STUN,
+            self.POINTS_DRONE_STUN,
             self.POINTS_IMPACT,
             self.POINTS_DESAFE,
             self.POINTS_GOON_KILLED_BY_SAFE,
@@ -347,21 +353,24 @@ class CraneGameRuleset:
         rulesetInstance.REVIVE_TOONS_TIME = attrs[12]
         rulesetInstance.POINTS_GOON_STOMP = attrs[13]
         rulesetInstance.POINTS_STUN = attrs[14]
-        rulesetInstance.POINTS_SIDESTUN = attrs[15]
-        rulesetInstance.POINTS_IMPACT = attrs[16]
-        rulesetInstance.POINTS_DESAFE = attrs[17]
-        rulesetInstance.POINTS_GOON_KILLED_BY_SAFE = attrs[18]
-        rulesetInstance.POINTS_PENALTY_SAFEHEAD = attrs[19]
-        rulesetInstance.POINTS_PENALTY_GO_SAD = attrs[20]
-        rulesetInstance.POINTS_PENALTY_SANDBAG = attrs[21]
-        rulesetInstance.POINTS_PENALTY_UNSTUN = attrs[22]
-        rulesetInstance.COMBO_DURATION = attrs[23]
-        rulesetInstance.WANT_BACKWALL = attrs[24]
-        rulesetInstance.CFO_FLINCHES_ON_HIT = attrs[25]
-        rulesetInstance.SAFES_STUN_GOONS = attrs[26]
-        rulesetInstance.GOONS_ALWAYS_WAKE_WHEN_GRABBED = attrs[27]
-        rulesetInstance.WANT_DRONES = attrs[28]
-        rulesetInstance.REMOVE_IMPACT_CAP = attrs[29]
+        rulesetInstance.POINTS_SIDE_STUN = attrs[15]
+        rulesetInstance.POINTS_TNT_THROW_STUN = attrs[16]
+        rulesetInstance.POINTS_TNT_CRANE_STUN = attrs[17]
+        rulesetInstance.POINTS_DRONE_STUN = attrs[18]
+        rulesetInstance.POINTS_IMPACT = attrs[19]
+        rulesetInstance.POINTS_DESAFE = attrs[20]
+        rulesetInstance.POINTS_GOON_KILLED_BY_SAFE = attrs[21]
+        rulesetInstance.POINTS_PENALTY_SAFEHEAD = attrs[22]
+        rulesetInstance.POINTS_PENALTY_GO_SAD = attrs[23]
+        rulesetInstance.POINTS_PENALTY_SANDBAG = attrs[24]
+        rulesetInstance.POINTS_PENALTY_UNSTUN = attrs[25]
+        rulesetInstance.COMBO_DURATION = attrs[26]
+        rulesetInstance.WANT_BACKWALL = attrs[27]
+        rulesetInstance.CFO_FLINCHES_ON_HIT = attrs[28]
+        rulesetInstance.SAFES_STUN_GOONS = attrs[29]
+        rulesetInstance.GOONS_ALWAYS_WAKE_WHEN_GRABBED = attrs[30]
+        rulesetInstance.WANT_DRONES = attrs[31]
+        rulesetInstance.REMOVE_IMPACT_CAP = attrs[32]
         return rulesetInstance
 
     def __str__(self):
@@ -1735,6 +1744,8 @@ class ScoreReason(Enum):
     GOON_STOMP = 'STOMP!'
     STUN = "STUN!"
     SIDE_STUN = "SIDE-STUN!"
+    TNT_THROW_STUN = "TNT-THROW STUN"
+    DRONE_STUN = "DRONE STUN!"
     FULL_IMPACT = "PERFECT!"
     REMOVE_HELMET = "DE-SAFE!"
     GOON_KILL = "DESTRUCTION!"

@@ -13,7 +13,7 @@ from panda3d.core import VBase3, CollisionNode, CollisionSphere, CollisionTube, 
     headsUp, Mat3
 
 from libotp import CFSpeech
-from toontown.coghq import SeltzerLeagueGlobals
+from toontown.minigame.seltzer import SeltzerGameGlobals
 from toontown.distributed import DelayDelete
 from toontown.effects import DustCloud
 from toontown.suit import Suit
@@ -32,7 +32,7 @@ class DistributedBossbotBoss(DistributedBossCog):
     def __init__(self, cr):
         self.notify.debug('----- __init___')
         DistributedBossCog.__init__(self, cr)
-        self.ruleset = SeltzerLeagueGlobals.CEORuleset()
+        self.ruleset = SeltzerGameGlobals.SeltzerGameRuleset()
         self.bossDamage = 0
         self.bossMaxDamage = self.ruleset.CEO_MAX_HP
         self.moveTrack = None

@@ -19,8 +19,6 @@ globalClock: ClockObject
 taskMgr: TaskManager
 messenger: Messenger
 
-cr: ToontownClientRepository
-
 render: NodePath
 hidden: NodePath
 aspect2d: NodePath

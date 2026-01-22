@@ -459,7 +459,6 @@ PlayerFriendRejectRemoveEvent = 'playerFriendRejectRemoveEvent'
 PlayerFriendNewSecretEvent = 'playerFriendNewSecretEvent'
 PlayerFriendRejectNewSecretEvent = 'playerFriendRejectNewSecretEvent'
 PlayerFriendRejectUseSecretEvent = 'playerFriendRejectUseSecretEvent'
-WhisperIncomingEvent = 'whisperIncomingEvent'
 ChatFeedback_PassedBlacklist = 32
 ChatFeedback_Whitelist = 64
 ChatFeedback_OpenChat = 128

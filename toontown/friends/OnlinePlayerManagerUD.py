@@ -102,10 +102,6 @@ class OnlinePlayerManagerUD(DistributedObjectGlobalUD):
             ['setTrackAccess', fields['setTrackAccess'][0]],
             ['setTrackBonusLevel', fields['setTrackBonusLevel'][0]],
             ['setInventory', base64.b64encode(fields['setInventory'][0]).decode(encoding='ascii')],
-            ['setHp', fields['setHp'][0]],
-            ['setMaxHp', fields['setMaxHp'][0]],
-            ['setDefaultShard', fields['setDefaultShard'][0]],
-            ['setLastHood', fields['setLastHood'][0]],
             ['setDNAString', base64.b64encode(fields['setDNAString'][0]).decode(encoding='ascii')],
             ['setHat', fields['setHat'][0], fields['setHat'][1], fields['setHat'][2]],
             ['setGlasses', fields['setGlasses'][0], fields['setGlasses'][1], fields['setGlasses'][2]],
@@ -115,11 +111,9 @@ class OnlinePlayerManagerUD(DistributedObjectGlobalUD):
             ['setGlassesList', fields['setGlassesList'][0]],
             ['setBackpackList', fields['setBackpackList'][0]],
             ['setShoesList', fields['setShoesList'][0]],
-            ['setCustomMessages', fields['setCustomMessages'][0]],
             ['setEmoteAccess', fields['setEmoteAccess'][0]],
             ['setClothesTopsList', fields['setClothesTopsList'][0]],
             ['setClothesBottomsList', fields['setClothesBottomsList'][0]],
-            ['setPetTrickPhrases', fields['setPetTrickPhrases'][0]],
         ]
 
         if 'setSkillProfiles' in fields:

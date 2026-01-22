@@ -6,7 +6,7 @@ from direct.interval.MetaInterval import Sequence
 from panda3d.core import CollisionPlane, Plane, Vec3, Point3, CollisionNode
 
 from libotp.nametag import NametagGlobals
-from toontown.coghq import SeltzerLeagueGlobals
+from toontown.minigame.seltzer import SeltzerGameGlobals
 from toontown.minigame.utils.boss.BossSpeedrunTimer import BossSpeedrunTimer
 from toontown.minigame.utils.boss.CogBossScoreboard import CogBossScoreboard
 from toontown.minigame.DistributedMinigame import DistributedMinigame
@@ -341,7 +341,7 @@ class DistributedSeltzerGame(DistributedMinigame):
         # self.heatDisplay.update(self.calculateHeat(), self.modifiers)
 
     def setRawRuleset(self, attrs):
-        self.ruleset = SeltzerLeagueGlobals.CEORuleset.fromStruct(attrs)
+        self.ruleset = SeltzerGameGlobals.SeltzerGameRuleset.fromStruct(attrs)
         self.updateRequiredElements()
         print(('ruleset updated: ' + str(self.ruleset)))
 

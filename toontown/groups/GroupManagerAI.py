@@ -444,6 +444,10 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         # Don't update the status if it's the leader. It doesn't matter.
         if avId == group.getLeader():
+            # But still broadcast group state to ensure UI is refreshed when leader returns to playground
+            if code == GroupGlobals.STATUS_READY:
+                self.Notify.debug(f"updateStatus: Leader {avId} returned to playground, broadcasting group state")
+                group.broadcastGroupState()
             return
 
         # Update the status and re update the members.
@@ -453,6 +457,10 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         if shouldUpdate:
             group.b_setMembers(group.getMembers())
+            # When a member returns to playground (STATUS_READY), ensure they receive fresh group state
+            if code == GroupGlobals.STATUS_READY:
+                self.Notify.debug(f"updateStatus: Member {avId} returned to playground, sending fresh group state")
+                self.d_setGroupState(avId, group.groupId, group.getMembers(), group.getCapacity(), group.desiredMinigame)
 
     def requestMinigameSwitch(self, minigameId: int):
 
@@ -479,6 +487,85 @@ class GroupManagerAI(DistributedObjectGlobalAI):
 
         group.b_setMinigameType(minigameId)
         group.announce(f"{requester.getName()} has changed to the {ToontownGlobals.MinigameId2Name.get(minigameId)} game!")
+    
+    def requestSetModifiers(self, minigameId: int, modifierStructs: list):
+        """Handle request to set modifiers for a minigame"""
+        requesterId = self.air.getAvatarIdFromSender()
+        requester = self.air.getDo(requesterId)
+        if requester is None:
+            return
+        
+        group = self.getGroup(requester)
+        if group is None:
+            return
+        
+        # Is this the group leader?
+        if group.getLeader() != requesterId:
+            return
+        
+        # Valid minigame?
+        if minigameId not in ToontownGlobals.ValidMinigameIds:
+            return
+        
+        # modifierStructs is already a list from Astron's MinigameModifier[] struct array
+        # Astron converts structs to tuples/lists based on struct field order: (ENUM, TIER)
+        # We need to ensure they're in [enum, tier] format for storage
+        normalizedStructs = []
+        for modStruct in modifierStructs:
+            if isinstance(modStruct, (list, tuple)):
+                # Already in list/tuple format - use as-is
+                normalizedStructs.append(list(modStruct))
+            elif isinstance(modStruct, dict):
+                # Convert dict to list format [ENUM, TIER]
+                normalizedStructs.append([modStruct.get('ENUM', modStruct.get('enum', 0)), 
+                                         modStruct.get('TIER', modStruct.get('tier', 1))])
+            else:
+                self.Notify.warning(f"Unexpected modifier struct format: {type(modStruct)} - {modStruct}")
+                continue
+        
+        self.Notify.debug(f"Received {len(modifierStructs)} modifiers for minigame {minigameId}, normalized to {len(normalizedStructs)} structs")
+        self.Notify.debug(f"Modifier structs: {normalizedStructs}")
+        
+        # Ensure config.minigameId matches the minigameId we're saving to
+        config = group.getMinigameConfig()
+        if config.minigameId != minigameId:
+            self.Notify.debug(f"Updating config.minigameId from {config.minigameId} to {minigameId}")
+            config.updateMinigameId(minigameId)
+        
+        # Set modifiers in group config
+        group.setMinigameModifiers(minigameId, normalizedStructs)
+        self.Notify.debug(f"Set {len(normalizedStructs)} modifiers for minigame {minigameId} in group {group.groupId}")
+        
+        # Verify storage
+        storedModifiers = config.getModifiers(minigameId)
+        self.Notify.debug(f"Verified: Stored {len(storedModifiers)} modifiers for minigame {minigameId} in config (config.minigameId={config.minigameId})")
+        
+        # Send updated modifiers back to all group members so their UI updates
+        config = group.getMinigameConfig()
+        updatedModifierStructs = config.getModifiers(minigameId)  # Get fresh from config
+        
+        # Astron will automatically serialize to MinigameModifier[] struct array
+        for member in group.getMembers():
+            if member.avId in self.air.doId2do:
+                self.sendUpdateToAvatarId(member.avId, "setModifiers", [minigameId, updatedModifierStructs])
+    
+    def requestGetModifiers(self, minigameId: int):
+        """Handle request to get current modifiers for a minigame"""
+        requesterId = self.air.getAvatarIdFromSender()
+        requester = self.air.getDo(requesterId)
+        if requester is None:
+            return
+        
+        group = self.getGroup(requester)
+        if group is None:
+            return
+        
+        # Get modifiers from group config
+        config = group.getMinigameConfig()
+        modifierStructs = config.getModifiers(minigameId)
+        
+        # Astron will automatically serialize to MinigameModifier[] struct array
+        self.sendUpdateToAvatarId(requesterId, "setModifiers", [minigameId, modifierStructs])
     
     def requestGroupDebug(self):
         """
@@ -577,10 +664,20 @@ class GroupManagerAI(DistributedObjectGlobalAI):
             self.Notify.info('\nRULESET DATA: None (using defaults)')
         
         # Modifiers Data
-        modifierStructs = config.getModifiers(config.minigameId)
+        # Check modifiers for the actual minigame being played
+        # Try config.minigameId first, then group.desiredMinigame as fallback
+        actualMinigameId = config.minigameId
+        if not config.getModifiers(actualMinigameId) and group.desiredMinigame != actualMinigameId:
+            # If no modifiers found for config.minigameId, try desiredMinigame
+            actualMinigameId = group.desiredMinigame
+        
+        self.Notify.debug(f"Debug: Checking modifiers for minigameId={actualMinigameId}, config.minigameId={config.minigameId}, group.desiredMinigame={group.desiredMinigame}")
+        self.Notify.debug(f"Debug: modifiersData keys={list(config.modifiersData.keys())}")
+        modifierStructs = config.getModifiers(actualMinigameId)
+        self.Notify.debug(f"Debug: Retrieved {len(modifierStructs) if modifierStructs else 0} modifiers for minigameId {actualMinigameId}")
         if modifierStructs:
             self.Notify.info('\nMODIFIERS (%s)' % len(modifierStructs))
-            if config.minigameId == ToontownGlobals.CraneGameId:
+            if actualMinigameId == ToontownGlobals.CraneGameId:
                 try:
                     from toontown.minigame.craning import CraneGameGlobals
                     for i, modStruct in enumerate(modifierStructs, 1):

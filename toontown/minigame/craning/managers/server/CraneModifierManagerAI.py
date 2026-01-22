@@ -1,18 +1,24 @@
 """
-ModifierManagerAI - Handles ruleset and modifier management.
+CraneModifierManagerAI - Handles ruleset and modifier management for the crane game.
+Inherits from the base ModifierManagerAI and uses CFORulesetModifierBase for crane-specific modifiers.
 """
 
 import random
 from toontown.minigame.craning import CraneGameGlobals
+from toontown.minigame.utils.managers import ModifierManagerAI
 
 
-class ModifierManagerAI:
-    """Manages ruleset and modifier application/removal."""
+class CraneModifierManagerAI(ModifierManagerAI):
+    """
+    Manages ruleset and modifier application/removal for the crane game.
+    Extends the base modifier manager with crane-specific functionality like ruleset management.
+    """
     
     def __init__(self, game):
-        self.game = game
-        self.modifiers = []  # A list of CFORulesetModifierBase instances
-        self.desiredModifiers = []  # Modifiers added manually via commands or by the host during game settings. Will always ensure these are added every crane round.
+        # Initialize base class - this sets up self.modifiers and self.desiredModifiers
+        ModifierManagerAI.__init__(self, game)
+        
+        # Crane-specific properties
         self.rollModsOnStart = False
         self.numModsWanted = 5
         self.defaultModifiersInitialized = False  # Track if we've initialized default modifiers
@@ -25,17 +31,24 @@ class ModifierManagerAI:
             rulesetStruct = config.getRuleset(self.game.minigameId)
             modifierStructs = config.getModifiers(self.game.minigameId)
             
-            # If we have saved state, restore it instead of creating defaults
+            # If we have a saved ruleset, restore it
             if rulesetStruct is not None:
                 self.setupRulesetFromStruct(rulesetStruct)
-                if modifierStructs:
-                    self.applyModifiersFromStructs(modifierStructs)
+            else:
+                # No saved ruleset - create fresh ruleset
+                self.game.ruleset = CraneGameGlobals.CraneGameRuleset()
+                self.modifiers.clear()
+            
+            # Apply modifiers from group config if they exist (even if no ruleset was saved)
+            # This handles the case where modifiers were set in playground before minigame ran
+            if modifierStructs:
+                self.applyModifiersFromStructs(modifierStructs)
                 # Save again to ensure it's up to date
                 if hasattr(self.game, 'saveStateToGroup'):
                     self.game.saveStateToGroup()
                 return
         
-        # No saved state - create fresh ruleset with defaults
+        # No group data - create fresh ruleset with defaults
         self.game.ruleset = CraneGameGlobals.CraneGameRuleset()
         self.modifiers.clear()
         modifiers = []
@@ -57,11 +70,13 @@ class ModifierManagerAI:
         if hasattr(self.game, 'saveStateToGroup'):
             self.game.saveStateToGroup()
     
-    def applyModifiers(self, modifiers: list[CraneGameGlobals.CFORulesetModifierBase], updateClient=False):
+    def applyModifiers(self, modifiers, updateClient=False):
         """
         Call to update the ruleset with the modifiers active, note calling more than once can cause unexpected behavior
         if the ruleset doesn't fallback to an initial value, for example if a cfo hp increasing modifier is active and we
         call this multiply times, his hp will be 1500 * 1.5 * 1.5 * 1.5 etc etc
+        
+        Uses CFORulesetModifierBase (crane-specific) modifiers.
         """
         for modifier in modifiers:
             self.applyModifier(modifier, updateClient=False)
@@ -69,11 +84,23 @@ class ModifierManagerAI:
             self.d_setRawRuleset()
             self.d_setModifiers()
     
-    def applyModifier(self, modifier: CraneGameGlobals.CFORulesetModifierBase, updateClient=False):
-        """Apply a single modifier to the ruleset"""
+    def applyModifier(self, modifier, updateClient=False):
+        """
+        Apply a single modifier to the ruleset.
+        Uses CFORulesetModifierBase (crane-specific) modifiers.
+        """
         self.modifiers.append(modifier)
-        modifier.apply(self.game.ruleset)
-        self.game.ruleset.validate()
+        
+        # Apply modifier based on type
+        if hasattr(modifier, 'apply'):
+            # Check if it's a crane-specific modifier (applies to ruleset)
+            if hasattr(CraneGameGlobals, 'CFORulesetModifierBase') and isinstance(modifier, CraneGameGlobals.CFORulesetModifierBase):
+                modifier.apply(self.game.ruleset)
+                self.game.ruleset.validate()
+            else:
+                # Generic modifier (applies to game)
+                modifier.apply(self.game)
+        
         if updateClient:
             self.d_setRawRuleset()
             self.d_setModifiers()
@@ -111,8 +138,12 @@ class ModifierManagerAI:
                 break
         
         if removedMod:
-            # Rebuild ruleset from scratch without the removed modifier
-            self._rebuildRuleset()
+            # Rebuild ruleset from scratch without the removed modifier (only if it was a crane-specific modifier)
+            if hasattr(CraneGameGlobals, 'CFORulesetModifierBase') and isinstance(removedMod, CraneGameGlobals.CFORulesetModifierBase):
+                self._rebuildRuleset()
+            # For generic modifiers, just update clients
+            else:
+                self.d_setModifiers()
             # Save to group if available
             if hasattr(self.game, 'saveStateToGroup'):
                 self.game.saveStateToGroup()
@@ -120,7 +151,10 @@ class ModifierManagerAI:
             self.game.notify.warning(f"Modifier {modifierEnum} not found to remove")
     
     def addModifier(self, modifierEnum, tier=1):
-        """Handle request to add a modifier from the client"""
+        """
+        Handle request to add a modifier from the client.
+        Supports both crane-specific and generic modifiers.
+        """
         # Only allow the leader to add modifiers
         avId = self.game.air.getAvatarIdFromSender()
         if not self.game.hasHost() or avId != self.game.getHost():
@@ -133,18 +167,19 @@ class ModifierManagerAI:
                 self.game.notify.warning(f"Modifier {modifierEnum} already exists")
                 return
         
-        # Get the modifier class and create instance
+        # Use crane-specific modifiers
         if modifierEnum in CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES:
             modifierClass = CraneGameGlobals.CFORulesetModifierBase.MODIFIER_SUBCLASSES[modifierEnum]
             modifier = modifierClass(tier)
-            
-            # Add to desired modifiers so it persists across game restarts
-            self.desiredModifiers.append(modifier)
-            
-            self.applyModifier(modifier, updateClient=True)
-            # saveStateToGroup is called inside applyModifier when updateClient=True
         else:
             self.game.notify.warning(f"Unknown modifier enum: {modifierEnum}")
+            return
+        
+        # Add to desired modifiers so it persists across game restarts
+        self.desiredModifiers.append(modifier)
+        
+        self.applyModifier(modifier, updateClient=True)
+        # saveStateToGroup is called inside applyModifier when updateClient=True
     
     def _rebuildRuleset(self):
         """Rebuild the ruleset from scratch with current modifiers"""
@@ -153,9 +188,17 @@ class ModifierManagerAI:
         
         # Reapply all remaining modifiers
         for modifier in self.modifiers:
-            modifier.apply(self.game.ruleset)
+            # Only apply crane-specific modifiers to ruleset
+            if hasattr(CraneGameGlobals, 'CFORulesetModifierBase') and isinstance(modifier, CraneGameGlobals.CFORulesetModifierBase):
+                modifier.apply(self.game.ruleset)
+            # Generic modifiers are applied to the game, not the ruleset
+            else:
+                modifier.apply(self.game)
         
-        self.game.ruleset.validate()
+        # Only validate if we have crane-specific modifiers
+        hasCraneModifiers = any(hasattr(CraneGameGlobals, 'CFORulesetModifierBase') and isinstance(m, CraneGameGlobals.CFORulesetModifierBase) for m in self.modifiers)
+        if hasCraneModifiers:
+            self.game.ruleset.validate()
         
         # Update clients
         self.d_setRawRuleset()
@@ -204,17 +247,6 @@ class ModifierManagerAI:
         """Get raw ruleset struct for transmission"""
         return self.game.ruleset.asStruct()
     
-    def _getRawModifierList(self):
-        """Get list of modifier structs for transmission"""
-        mods = []
-        for modifier in self.modifiers:
-            mods.append(modifier.asStruct())
-        return mods
-    
-    def d_setModifiers(self):
-        """Send modifiers to clients"""
-        self.game.sendUpdate('setModifiers', [self._getRawModifierList()])
-    
     def setupRulesetFromStruct(self, rulesetStruct):
         """
         Restore ruleset from a struct (e.g., from group config).
@@ -234,10 +266,19 @@ class ModifierManagerAI:
         """
         Restore modifiers from structs (e.g., from group config).
         This is used when creating a minigame from group data.
+        Supports both crane-specific and generic modifiers.
         """
         modifiers = []
         for modStruct in modifierStructs:
-            modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+            modifierEnum = modStruct[0] if isinstance(modStruct, (list, tuple)) else modStruct
+            
+            # Deserialize as crane-specific modifier
+            try:
+                modifier = CraneGameGlobals.CFORulesetModifierBase.fromStruct(modStruct)
+            except Exception as e:
+                self.game.notify.warning(f"Failed to deserialize modifier {modStruct}: {e}")
+                continue
+            
             modifiers.append(modifier)
             # Also add to desired modifiers so they persist
             # Check by enum to avoid duplicates
@@ -248,8 +289,10 @@ class ModifierManagerAI:
         # We'll update client after everything is set up
         for modifier in modifiers:
             self.modifiers.append(modifier)
+            # Apply crane-specific modifiers to ruleset
             modifier.apply(self.game.ruleset)
         
+        # Validate ruleset
         self.game.ruleset.validate()
         
         # Mark that we've initialized defaults so they don't get added again

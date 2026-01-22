@@ -5,7 +5,7 @@ from direct.fsm.ClassicFSM import ClassicFSM
 from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
-from toontown.coghq import SeltzerLeagueGlobals
+from toontown.minigame.seltzer import SeltzerGameGlobals
 from toontown.minigame.utils.boss.BossComboTrackerAI import BossComboTrackerAI
 from toontown.minigame.seltzer.objects.DistributedBanquetTableAI import DistributedBanquetTableAI
 from toontown.coghq.DistributedFoodBeltAI import DistributedFoodBeltAI
@@ -23,7 +23,7 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
     def __init__(self, air, minigameId):
         super().__init__(air, minigameId)
 
-        self.ruleset = SeltzerLeagueGlobals.CEORuleset()
+        self.ruleset = SeltzerGameGlobals.SeltzerGameRuleset()
 
         self.boss: Optional[DistributedBossbotBossAI] = None
 
@@ -363,7 +363,7 @@ class DistributedSeltzerGameAI(DistributedMinigameAI):
         return tracker.pointBonus
 
     def setupRuleset(self):
-        self.ruleset = SeltzerLeagueGlobals.CEORuleset()
+        self.ruleset = SeltzerGameGlobals.SeltzerGameRuleset()
         # Make sure they didn't do anything bad
         self.ruleset.validate()
         # Update the client

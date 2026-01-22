@@ -2,12 +2,11 @@ import math
 import random
 from math import pi
 
-from direct.fsm.ClassicFSM import ClassicFSM
-from direct.fsm.State import State
 from direct.gui import DirectGuiGlobals
 from direct.gui.DirectFrame import DirectFrame
 from direct.interval.LerpInterval import LerpPosInterval
 from direct.interval.MetaInterval import Sequence
+from direct.showbase.DirectObject import DirectObject
 from direct.showbase.MessengerGlobal import messenger
 from direct.task import Task
 from direct.task.TaskManagerGlobal import taskMgr
@@ -16,44 +15,56 @@ from panda3d.core import Vec4, Point3, BitMask32, TransparencyAttrib
 from toontown.battle import MovieUtil
 from toontown.coghq import GameSprite3D
 from toontown.golf import BuildGeometry
-from toontown.minigame.DistributedMinigame import DistributedMinigame
-from toontown.minigame.MinigameAvatarScorePanel import MinigameAvatarScorePanel
 from toontown.minigame.golfgreen import GolfGreenGlobals
-from toontown.toonbase import TTLocalizer, ToontownGlobals
-from toontown.toonbase.ToontownTimer import ToontownTimer
+from toontown.toonbase import ToontownGlobals
 
 
-class DistributedGolfGreenGame(DistributedMinigame):
-    # define constants that you won't want to tweak here
+class GolfGreenBoard(DirectObject):
+    """
+    The interface for the GolfGreenGame.
+    Handles all visual elements, game loop, input, and board state.
+    """
 
-    def __init__(self, cr):
-        super().__init__(cr)
-        self.scorePanels = {}
+    def __init__(self):
+        DirectObject.__init__(self)
 
+        # Callbacks
+        self.onBoardWin = None
+        self.onBoardFail = None
+
+        # Colors
         self.blankColor = Vec4(1.0, 1.0, 1.0, 1.0)
         self.fullColor = Vec4(0.6, 0.6, 0.6, 1.0)
         self.neighborColor = Vec4(0.8, 0.8, 0.8, 1.0)
         self.outColor = Vec4(0.0, 0.0, 0.0, 0.0)
         self.blackColor = Vec4(0.0, 0.0, 0.0, 1.0)
+        self.colorRed = (1, 0, 0, 1)
+        self.colorBlue = (0, 0, 1, 1)
+        self.colorGreen = (0, 1, 0, 1)
+        self.colorGhostRed = (1, 0, 0, 0.5)
+        self.colorGhostBlue = (0, 0, 1, 0.5)
+        self.colorGhostGreen = (0, 1, 0, 0.5)
+        self.colorWhite = (1, 1, 1, 1)
+        self.colorBlack = (0, 0, 0, 1.0)
+        self.colorShadow = (0, 0, 0, 0.5)
+
+        # Sprites
         self.sprites = []
         self.controlSprite = None
         self.standbySprite = None
+        self.cogSprite = None
+
+        # Board state
         self.colorGridFlag = 0
         self.boardIndex = None
         self.board = None
         self.attackPattern = None
+        self.attackCounter = 0
         self.tooLowFlag = 0
-        self.toonPoints = list(
-            Point3(
-                3 * ((offset // 2) + 1) * ((-1) ** offset),
-                13.0,
-                0
-            )
-            for offset in range(16)
-        )
-        self.flagNextLevel = 0
         self.wildIndex = 8
         self.bombIndex = 7
+
+        # Grid dimensions
         self.sizeMult = 1.4
         self.cellSizeX = 1.0 * self.sizeMult
         self.cellSizeZ = self.cellSizeX * 0.8
@@ -70,77 +81,96 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.maxZ = self.minZ + self.rangeZ
         self.sizeX = self.rangeX
         self.sizeZ = self.rangeZ
-        self.isActive = 0
+
+        # Sprite positioning
+        self.spriteNotchPos = 0
         self.giftId = None
-        self.holdGiftId = None
         self.rollTrack = None
         self.zGap = 0.092
         self.screenSizeX = base.a2dRight - base.a2dLeft
         self.screenSizeZ = base.a2dTop - base.a2dBottom
         self.XtoZ = self.screenSizeX / (self.screenSizeZ * (1.0 - self.zGap * 1.0))
+
+        # Countdown
         self.countTimeOld = None
         self.countDownRunning = 0
-        self.timer = None
-        self.hasEntered = 0
-        self.trackClosed = 0
+        self.countDown = GolfGreenGlobals.DRAG_BOARD_FWD_TIME
+
+        # Game state
         self.running = 0
         self.finished = 0
+        self.hasChanged = 0
+        self.lastTime = None
+        self.massCount = 0
+        self.foundCount = 0
+        self.controlOffsetX = 0.0
+        self.controlOffsetZ = 0.0
+        self.grid = []
+        self.matchList = []
+        self.newBallTime = 5.0
+        self.newBallCountUp = 0.0
+        self.cogX = 0
+        self.cogZ = 0
+        self.aimRadian = 0.0
+        self.ballLoaded = 0.0
 
-        self.gameFSM = ClassicFSM(self.__class__.__name__,
-                                  [
-                                      State('off',
-                                            self.enterOff,
-                                            self.exitOff,
-                                            ['play']),
-                                      State('play',
-                                            self.enterPlay,
-                                            self.exitPlay,
-                                            ['cleanup']),
-                                      State('cleanup',
-                                            self.enterCleanup,
-                                            self.exitCleanup,
-                                            []),
-                                  ],
-                                  # Initial State
-                                  'off',
-                                  # Final State
-                                  'cleanup',
-                                  )
+        # Visual nodes (will be set up in load)
+        self.baseNode = None
+        self.frame = None
+        self.spriteNode = None
+        self.squareNode = None
+        self.backBoard = None
+        self.aimbase = None
+        self.aimer = None
+        self.frame2D = None
+        self.bonusBoard = None
+        self.focusPoint = None
 
-        # it's important for the final state to do cleanup;
-        # on disconnect, the ClassicFSM will be forced into the
-        # final state. All states (except 'off') should
-        # be prepared to transition to 'cleanup' at any time.
+        # Models and sounds (will be set up in load)
+        self.model = None
+        self.model1 = None
+        self.block = None
+        self.soundFire = None
+        self.soundLand = None
+        self.soundBurst = None
+        self.soundBomb = None
+        self.soundLose = None
+        self.soundWin = None
+        self.soundDone = None
+        self.soundMove = None
 
-        # Add our game ClassicFSM to the framework ClassicFSM
-        self.addChildGameFSM(self.gameFSM)
+        # Board data
+        self.boardData = [
+            ((1, 0, 0),
+             (4, 0, 1),
+             (6, 0, 2),
+             (1, 1, 0)),
+            ((1, 0, 1),
+             (4, 0, 1),
+             (6, 0, 1),
+             (1, 1, 1)),
+            ((1, 0, 2),
+             (4, 0, 2),
+             (6, 0, 2),
+             (1, 1, 2))
+        ]
+        self.attackPatterns = [(0, 1, 2), (0, 0, 1, 1, 2, 2), (0, 1, 0, 2)]
 
-    def getTitle(self):
-        return TTLocalizer.GolfGreenGameTitle
+    def load(self, baseNode, models, sounds):
+        """Initialize visual elements and resources"""
+        self.baseNode = baseNode
+        self.model = models['model']
+        self.model1 = models['model1']
+        self.soundFire = sounds['fire']
+        self.soundLand = sounds['land']
+        self.soundBurst = sounds['burst']
+        self.soundBomb = sounds['bomb']
+        self.soundLose = sounds['lose']
+        self.soundWin = sounds['win']
+        self.soundDone = sounds['done']
+        self.soundMove = sounds['move']
 
-    def getInstructions(self):
-        return TTLocalizer.GolfGreenGameInstructions
-
-    def getMaxDuration(self):
-        # how many seconds can this minigame possibly last (within reason)?
-        # this is for debugging only
-        return GolfGreenGlobals.GAME_DURATION
-
-    def load(self):
-        self.notify.debug("load")
-        super().load()
-        # load resources and create objects here
-        rng = random.Random()
-        rng.seed(self.getDoId())
-        musicName = rng.choice(
-            ['phase_12/audio/bgm/Bossbot_Factory_v1.ogg', 'phase_12/audio/bgm/Bossbot_Factory_v2.ogg',
-             'phase_12/audio/bgm/Bossbot_Factory_v3.ogg'])
-        self.music = base.loader.loadMusic(musicName)
-
-        self.geom = loader.loadModel("phase_12/models/bossbotHQ/BossbotGreenRoom_A")
-        self.geom.reparentTo(render)
-
-        self.baseNode = render.attachNewNode('GolfGreenGameBase')
+        # Setup frame and nodes
         self.frame = self.baseNode.attachNewNode('GolfGreenGameFrame')
         self.spriteNode = self.frame.attachNewNode('GolfGreenGameSpriteNode')
         self.frame.setScale(1.0)
@@ -149,42 +179,23 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.frame.setY(10.0)
         self.frame.setZ(2.0)
         self.spriteNode.setY(0.5)
-        self.hasChanged = 0
+
+        # Square node
         self.squareNode = self.frame.attachNewNode('GolfGreenGameBase')
-        groundCircle = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_golf_green')
-        groundCircle.reparentTo(self.baseNode)
-        groundCircle.setScale(0.24)
-        self.groundFlag = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_golf_flag')
-        self.groundFlag.reparentTo(self.baseNode)
-        self.groundFlag.setScale(0.5)
-        self.groundFlag.setH(-45)
-        self.groundFlag.setPos(3.0, 4.0, 0.0)
         groundSquare = BuildGeometry.addSquareGeom(self.squareNode, self.sizeX, self.sizeZ,
                                                    color=Vec4(0.4, 0.4, 0.4, 0.5))
         self.centerZ = (self.minZ + self.maxZ) * 0.5
         self.squareNode.setZ((self.minZ + self.maxZ) * 0.5)
         self.squareNode.setP(-90)
-        groundCircle.setDepthWrite(False)
-        groundCircle.setDepthTest(True)
-        groundCircle.setBin('ground', 1)
         groundSquare[0].setDepthWrite(False)
         groundSquare[0].setDepthTest(False)
         groundSquare[0].setBin('ground', 2)
         self.squareNode.hide()
 
-        model = loader.loadModel('phase_5.5/models/gui/package_delivery_panel')
-        model1 = loader.loadModel('phase_3.5/models/gui/matching_game_gui')
-        self.model = model
-        self.model1 = model1
-        self.soundFire = base.loader.loadSfx('phase_6/audio/sfx/Golf_Hit_Ball.ogg')
-        self.soundLand = base.loader.loadSfx('phase_4/audio/sfx/MG_maze_pickup.ogg')
-        self.soundBurst = base.loader.loadSfx('phase_5/audio/sfx/Toon_bodyfall_synergy.ogg')
-        self.soundBomb = base.loader.loadSfx('phase_4/audio/sfx/MG_cannon_fire_alt.ogg')
-        self.soundLose = base.loader.loadSfx('phase_11/audio/sfx/LB_capacitor_discharge_3.ogg')
-        self.soundWin = base.loader.loadSfx('phase_4/audio/sfx/MG_pairing_match_bonus_both.ogg')
-        self.soundDone = base.loader.loadSfx('phase_3/audio/sfx/GUI_create_toon_back.ogg')
-        self.soundMove = base.loader.loadSfx('phase_3.5/audio/sfx/SA_shred.ogg')
-        self.focusPoint = self.baseNode.attachNewNode('GolfGreenGameFrame')
+        # Block model
+        self.block = self.model1.find('**/minnieCircle')
+
+        # Backboard
         self.backBoard = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_background')
         self.backBoard.setCollideMask(BitMask32.allOff())
         self.backBoard.reparentTo(self.frame)
@@ -193,6 +204,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.backBoard.setPos(0, -1.5, 8.0)
         self.backBoard.hide()
 
+        # Aimer
         self.aimbase = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_shooter')
         self.aimbase.setHpr(90, 0, 90)
         self.aimbase.setScale(0.3, 0.3, 0.15)
@@ -204,6 +216,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         aimer.setPos(0.0, 0.0, 0.0)
         self.aimbase.hide()
 
+        # 2D Frame
         self.frame2D = DirectFrame(scale=1.1, relief=DirectGuiGlobals.FLAT, frameSize=(-0.1,
                                                                                        0.1,
                                                                                        -0.1,
@@ -216,220 +229,39 @@ class DistributedGolfGreenGame(DistributedMinigame):
                                       text_pos=(0, -0.1), textMayChange=1)
         self.bonusBoard.hide()
 
+        self.focusPoint = self.baseNode.attachNewNode('GolfGreenGameFrame')
+
     def unload(self):
-        self.notify.debug("unload")
-        super().unload()
-        # unload resources and delete objects from load() here
-        # remove our game ClassicFSM from the framework ClassicFSM
-        self.removeChildGameFSM(self.gameFSM)
-        del self.gameFSM
-
-        self.geom.removeNode()
-        del self.geom
-
-        self.music.stop()
-        del self.music
-
-        self.soundFire = None
-        self.soundLand = None
-        self.soundBurst = None
-        self.soundBomb = None
-        self.soundLose = None
-        self.soundWin = None
-        self.soundDone = None
-        self.soundMove = None
-        self.baseNode.removeNode()
-        del self.baseNode
+        """Cleanup all resources"""
         self.stopCountDown()
-        self.__stop()
+        self.stop()
         self.ignoreAll()
-        self.frame2D.destroy()
 
-    def onstage(self):
-        self.notify.debug("onstage")
-        super().onstage()
-        # start up the minigame; parent things to render, start playing
-        # music...
-        # at this point we cannot yet show the remote players' toons
+        if self.frame2D:
+            self.frame2D.destroy()
+            self.frame2D = None
 
-    def offstage(self):
-        self.notify.debug("offstage")
-        # stop the minigame; parent things to hidden, stop the
-        # music...
-
-        # the base class parents the toons to hidden, so consider
-        # calling it last
-        super().offstage()
-
-    def handleDisabledAvatar(self, avId):
-        """This will be called if an avatar exits unexpectedly"""
-        self.notify.debug("handleDisabledAvatar")
-        self.notify.debug("avatar " + str(avId) + " disabled")
-        # clean up any references to the disabled avatar before he disappears
-
-        # then call the base class
-        super().handleDisabledAvatar(avId)
-
-    def setGameReady(self):
-        if not self.hasLocalToon: return
-        self.notify.debug("setGameReady")
-        if super().setGameReady():
-            return
-        # all of the remote toons have joined the game;
-        # it's safe to show them now.
-        for index, avId in enumerate(self.avIdList):
-            toon = self.getAvatar(avId)
-            if toon:
-                toon.reparentTo(render)
-                toon.setPos(self.toonPoints[index])
-                toon.setHpr(180, 0, 0)
-                toon.loop('neutral')
-
-        base.playMusic(self.music, looping=1, volume=1)
-
-        self.__setCamera()
-
-    def setGameStart(self, timestamp):
-        if not self.hasLocalToon: return
-        self.notify.debug("setGameStart")
-        # base class will cause gameFSM to enter initial state
-        super().setGameStart(timestamp)
-        # all players have finished reading the rules,
-        # and are ready to start playing.
-        # transition to the appropriate state
-        self.gameFSM.request("play")
-
-    # these are enter and exit functions for the game's
-    # fsm (finite state machine)
-
-    def enterOff(self):
-        self.notify.debug("enterOff")
-
-    def exitOff(self):
-        pass
-
-    def enterPlay(self):
-        self.notify.debug("enterPlay")
-        spacing = .4
-        for i in range(self.numPlayers):
-            avId = self.avIdList[i]
-            avName = self.getAvatarName(avId)
-            scorePanel = MinigameAvatarScorePanel(avId, avName)
-            scorePanel.setScale(.9)
-            scorePanel.setPos(.75 - spacing * ((len(self.avIdList) - 1) - i), 0.0, .875)
-            # make the panels slightly transparent
-            scorePanel.makeTransparent(.75)
-            self.scorePanels[avId] = scorePanel
-
-        self.timer = ToontownTimer()
-        self.timer.posInTopRightCorner()
-        self.timer.setTime(GolfGreenGlobals.GAME_DURATION)
-        self.timer.countdown(GolfGreenGlobals.GAME_DURATION, self.timerExpired)
-
-        self.setup()
-
-        self.backBoard.show()
-        self.aimbase.show()
-        self.squareNode.show()
-        self.standbySprite.nodeObj.show()
-        self.groundFlag.hide()
-        self.isActive = 1
-        self.__setCamera()
-        self.spriteNode.show()
-        base.setCellsAvailable([base.bottomCells[1], base.bottomCells[2], base.bottomCells[3]], 0)
-
-    def timerExpired(self):
-        self.notify.debug('local timer expired')
-        self.gameOver()
-
-    def exitPlay(self):
-        self.timer.destroy()
-        del self.timer
-
-        for panel in self.scorePanels.values():
-            panel.cleanup()
-
-        self.scorePanels = {}
-
-        taskMgr.remove('GolfGreenGameTask')
-        self.stopCountDown()
-        self.ignore('mouse1')
         for sprite in self.sprites:
             sprite.delete()
-
         self.sprites = []
-        self.controlSprite = None
-        self.running = 0
-        self.backBoard.hide()
-        self.aimbase.hide()
-        self.squareNode.hide()
-        self.groundFlag.show()
-        self.isActive = 0
-        if self.standbySprite:
-            self.standbySprite.nodeObj.hide()
-        base.setCellsAvailable([base.bottomCells[1], base.bottomCells[2], base.bottomCells[3]], 1)
 
-    def enterCleanup(self):
-        self.notify.debug("enterCleanup")
-
-    def exitCleanup(self):
-        pass
-
-    """
-    stuff
-    """
-
-    def updateSpritePos(self):
-        if self.spriteNode.isEmpty():
-            return
-        self.spriteNode.setZ(-self.spriteNotchPos * self.cellSizeZ)
-        self.colorGridFlag = 1
-
-    def lerpSpritePos(self):
-        if self.spriteNode.isEmpty():
-            return
-        x = self.spriteNode.getX()
-        y = self.spriteNode.getY()
-        self.rollTrack = Sequence(
-            LerpPosInterval(self.spriteNode, 0.5, Point3(x, y, -self.spriteNotchPos * self.cellSizeZ)))
-        if self.controlSprite:
-            if not self.controlSprite.isActive:
-                pass
-        self.colorGridFlag = 1
-        self.rollTrack.start()
-        if self.soundMove:
-            self.soundMove.play()
-        messenger.send('wakeup')
-
-    def findLowestSprite(self):
-        lowest = 100
-        for sprite in self.sprites:
-            if sprite.gridPosZ:
-                if sprite.gridPosZ < lowest:
-                    lowest = sprite.gridPosZ
-
-        return lowest
+        if self.rollTrack:
+            self.rollTrack.finish()
+            self.rollTrack = None
 
     def setup(self):
+        """Setup the game board"""
         self.updateSpritePos()
         self.spriteNode.setY(self.radiusBall)
-        thing = self.model.find('**/item_board')
-        self.block = self.model1.find('**/minnieCircle')
-        self.colorRed = (1, 0, 0, 1)
-        self.colorBlue = (0, 0, 1, 1)
-        self.colorGreen = (0, 1, 0, 1)
-        self.colorGhostRed = (1, 0, 0, 0.5)
-        self.colorGhostBlue = (0, 0, 1, 0.5)
-        self.colorGhostGreen = (0, 1, 0, 0.5)
-        self.colorWhite = (1, 1, 1, 1)
-        self.colorBlack = (0, 0, 0, 1.0)
-        self.colorShadow = (0, 0, 0, 0.5)
+
         self.lastTime = None
         self.running = 0
         self.massCount = 0
         self.foundCount = 0
         self.controlOffsetX = 0.0
         self.controlOffsetZ = 0.0
+
+        # Initialize grid
         self.grid = []
         for countX in range(0, self.gridDimX):
             newRow = []
@@ -446,9 +278,6 @@ class DistributedGolfGreenGame(DistributedMinigame):
                            None]
                 groundCircle = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_hole')
                 groundCircle.reparentTo(self.spriteNode)
-                if groundCircle is None:
-                    import pdb
-                    pdb.set_trace()
                 groundCircle.setTransparency(TransparencyAttrib.MAlpha)
                 groundCircle.setPos(newCell[1], -self.radiusBall, newCell[2])
                 groundCircle.setScale(1.2)
@@ -460,6 +289,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
 
             self.grid.append(newRow)
 
+        # Setup sprites
         self.cogSprite = self.addUnSprite(self.block, posX=0.25, posZ=0.5)
         self.cogSprite.setColor(self.colorShadow)
         self.cogSprite.nodeObj.hide()
@@ -468,22 +298,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.standbySprite.spriteBase.reparentTo(self.frame)
         self.standbySprite.spriteBase.setY(self.radiusBall)
         self.standbySprite.nodeObj.hide()
-        self.boardData = [
-            ((1, 0, 0),
-             (4, 0, 1),
-             (6, 0, 2),
-             (1, 1, 0)),
-            ((1, 0, 1),
-             (4, 0, 1),
-             (6, 0, 1),
-             (1, 1, 1)),
-            ((1, 0, 2),
-             (4, 0, 2),
-             (6, 0, 2),
-             (1, 1, 2))
-        ]
-        self.attackPatterns = [(0, 1, 2), (0, 0, 1, 1, 2, 2), (0, 1, 0, 2)]
-        self.winCounter = 0
+
         self.matchList = []
         self.newBallTime = 5.0
         self.newBallCountUp = 0.0
@@ -494,17 +309,38 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.countDown = GolfGreenGlobals.DRAG_BOARD_FWD_TIME
 
     def show(self):
-        self.frame.show()
+        """Show the board"""
+        if self.frame:
+            self.frame.show()
+        if self.backBoard:
+            self.backBoard.show()
+        if self.aimbase:
+            self.aimbase.show()
+        if self.squareNode:
+            self.squareNode.show()
+        if self.standbySprite:
+            self.standbySprite.nodeObj.show()
+        if self.spriteNode:
+            self.spriteNode.show()
 
     def hide(self):
-        self.frame.hide()
-
-    def __handleExit(self):
-        self.__acceptExit()
+        """Hide the board"""
+        if self.frame:
+            self.frame.hide()
+        if self.backBoard:
+            self.backBoard.hide()
+        if self.aimbase:
+            self.aimbase.hide()
+        if self.squareNode:
+            self.squareNode.hide()
+        if self.standbySprite:
+            self.standbySprite.nodeObj.hide()
 
     def startBoard(self, board, attackPattern):
+        """Start a new board with the given pattern"""
         if self.finished:
             return
+
         self.clearGrid()
         self.board = board
         self.attackPattern = attackPattern
@@ -512,6 +348,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.spriteNotchPos = 0
         self.countDown = GolfGreenGlobals.DRAG_BOARD_FWD_TIME
         self.tooLowFlag = 0
+
         for ball in self.board:
             newSprite = self.addSprite(self.block, found=1, color=ball[2])
             self.placeIntoGrid(newSprite, ball[0], self.gridDimZ - 1 - ball[1])
@@ -522,20 +359,62 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.updateSpritePos()
         self.killSprite(self.controlSprite)
         self.accept('mouse1', self.__handleMouseClick)
+        self.start()
+
+    def start(self):
+        """Start the game loop"""
         self.__run()
 
+    def stop(self):
+        """Stop the game loop"""
+        self.__stop()
+        self.ignore('mouse1')
+
+    def updateSpritePos(self):
+        """Update sprite positions"""
+        if self.spriteNode and not self.spriteNode.isEmpty():
+            self.spriteNode.setZ(-self.spriteNotchPos * self.cellSizeZ)
+            self.colorGridFlag = 1
+
+    def lerpSpritePos(self):
+        """Lerp sprite positions"""
+        if self.spriteNode and not self.spriteNode.isEmpty():
+            x = self.spriteNode.getX()
+            y = self.spriteNode.getY()
+            self.rollTrack = Sequence(
+                LerpPosInterval(self.spriteNode, 0.5, Point3(x, y, -self.spriteNotchPos * self.cellSizeZ)))
+            if self.controlSprite:
+                if not self.controlSprite.isActive:
+                    pass
+            self.colorGridFlag = 1
+            self.rollTrack.start()
+            if self.soundMove:
+                self.soundMove.play()
+            messenger.send('wakeup')
+
+    def findLowestSprite(self):
+        """Find the lowest sprite Z position"""
+        lowest = 100
+        for sprite in self.sprites:
+            if sprite.gridPosZ:
+                if sprite.gridPosZ < lowest:
+                    lowest = sprite.gridPosZ
+        return lowest
+
     def startCountDown(self):
+        """Start the countdown timer"""
         if self.countDownRunning == 0:
             taskMgr.add(self.doCountDown, 'GolfGreenGame countdown')
             self.countDownRunning = 1
 
     def stopCountDown(self):
+        """Stop the countdown timer"""
         taskMgr.remove('GolfGreenGame countdown')
         self.countDownRunning = 0
         self.countTimeOld = None
-        return
 
     def doCountDown(self, task):
+        """Countdown task"""
         currentTime = base.clock.getFrameTime()
         if self.countTimeOld is None:
             self.countTimeOld = currentTime
@@ -547,7 +426,6 @@ class DistributedGolfGreenGame(DistributedMinigame):
         if self.countDown in [3, 2, 1]:
             for sprite in self.sprites:
                 sprite.warningBump()
-
         elif self.countDown == 0:
             self.countDown = GolfGreenGlobals.DRAG_BOARD_FWD_TIME
             self.spriteNotchPos += 1
@@ -556,11 +434,13 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return task.cont
 
     def checkForTooLow(self):
+        """Check if any sprites are too low"""
         low = self.findLowestSprite()
         if low <= self.spriteNotchPos:
             self.doFail()
 
     def doFail(self):
+        """Handle board failure"""
         self.tooLowFlag = 1
         taskMgr.doMethodLater(1.0, self.failBoard, 'finishing Failure')
         for sprite in self.sprites:
@@ -570,21 +450,22 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.ignore('mouse1')
 
     def failBoard(self, task=None):
+        """Finish failed board"""
         self.__finishBoard(win=False)
 
-    def __handleWin(self):
-        self.__handleExit()
-
     def __finishBoard(self, win: bool):
+        """Finish the current board"""
         if self.rollTrack:
             self.rollTrack.finish()
         self.countDown = GolfGreenGlobals.DRAG_BOARD_FWD_TIME
+
         if win:
             if self.soundWin:
                 self.soundWin.play()
         elif self.soundLose:
             self.soundLose.play()
             self.giftId = None
+
         self.attackPattern = None
         self.stopCountDown()
         self.clearGrid()
@@ -592,69 +473,19 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.updateSpritePos()
         self.__stop()
         self.ignore('mouse1')
-        self.sendUpdate('requestBoard', [win])
 
-    def __acceptExit(self, buttonValue=None):
-        import pdb
-        pdb.set_trace()
-        if hasattr(self, 'frame'):
-            self.hide()
-            self.unload()
-        camera.reparentTo(base.localAvatar)
-        base.localAvatar.startUpdateSmartCamera()
-
-    def __removeGame(self):
-        self.spriteNode.removeNode()
-
-    def findGrid(self, x, z, force=0):
-        currentClosest = None
-        currentDist = 10000000
-        for countX in range(self.gridDimX):
-            for countZ in range(self.gridDimZ):
-                testDist = self.testPointDistanceSquare(x, z, self.grid[countX][countZ][1],
-                                                        self.grid[countX][countZ][2])
-                if self.grid[countX][countZ][0] is None and testDist < currentDist and (
-                        force or self.hasNeighbor(countX, countZ) is not None):
-                    currentClosest = self.grid[countX][countZ]
-                    self.closestX = countX
-                    self.closestZ = countZ
-                    currentDist = testDist
-
-        return currentClosest
-
-    def hasNeighbor(self, cellX, cellZ):
-        gotNeighbor = None
-        if cellZ % 2 == 0:
-            if self.testGridfull(self.getValidGrid(cellX - 1, cellZ)):
-                gotNeighbor = cellZ
-            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ)):
-                gotNeighbor = cellZ
-            elif self.testGridfull(self.getValidGrid(cellX, cellZ + 1)):
-                gotNeighbor = cellZ + 1
-            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ + 1)):
-                gotNeighbor = cellZ + 1
-            elif self.testGridfull(self.getValidGrid(cellX, cellZ - 1)):
-                gotNeighbor = cellZ - 1
-            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ - 1)):
-                gotNeighbor = cellZ - 1
-        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ)):
-            gotNeighbor = cellZ
-        elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ)):
-            gotNeighbor = cellZ
-        elif self.testGridfull(self.getValidGrid(cellX, cellZ + 1)):
-            gotNeighbor = cellZ + 1
-        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ + 1)):
-            gotNeighbor = cellZ + 1
-        elif self.testGridfull(self.getValidGrid(cellX, cellZ - 1)):
-            gotNeighbor = cellZ - 1
-        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ - 1)):
-            gotNeighbor = cellZ - 1
-        return gotNeighbor
+        # Trigger callbacks
+        if win and self.onBoardWin:
+            self.onBoardWin()
+        elif not win and self.onBoardFail:
+            self.onBoardFail()
 
     def clearFloaters(self):
+        """Clear floating sprites"""
         self.grounded = []
         self.unknown = []
         groundZ = self.gridDimZ - 1
+
         for indexX in range(0, self.gridDimX):
             gridCell = self.grid[indexX][groundZ]
             if gridCell[0]:
@@ -680,9 +511,8 @@ class DistributedGolfGreenGame(DistributedMinigame):
             sprite = gridEntry[0]
             self.killSprite(sprite)
 
-        return
-
     def explodeBombs(self):
+        """Explode all bomb sprites"""
         didBomb = 0
         for column in self.grid:
             for cell in column:
@@ -693,9 +523,9 @@ class DistributedGolfGreenGame(DistributedMinigame):
 
         if didBomb:
             self.soundBomb.play()
-        return
 
     def hasGroundedNeighbor(self, cellX, cellZ):
+        """Check if a cell has a grounded neighbor"""
         gotNeighbor = None
         if cellZ % 2 == 0:
             if (cellX - 1, cellZ) in self.grounded:
@@ -725,6 +555,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return gotNeighbor
 
     def clearMatchList(self, typeClear=0):
+        """Clear all sprites in the match list"""
         self.soundBurst.play()
         for entry in self.matchList:
             gridEntry = self.grid[entry[0]][entry[1]]
@@ -736,16 +567,19 @@ class DistributedGolfGreenGame(DistributedMinigame):
             self.killSprite(sprite)
 
     def shakeList(self, neighbors):
+        """Shake all sprites in the neighbor list"""
         for entry in neighbors:
             gridEntry = self.grid[entry[0]][entry[1]]
             sprite = gridEntry[0]
             self.shakeSprite(sprite)
 
     def createMatchList(self, x, z):
+        """Create a match list starting from position"""
         self.matchList = []
         self.fillMatchList(x, z)
 
     def matchWild(self, x, z, color):
+        """Check if a position matches wild card"""
         spriteType = self.getColorType(x, z)
         if not self.getBreakable(x, z):
             return 0
@@ -757,6 +591,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
             return 0
 
     def bombNeighbors(self, cellX, cellZ):
+        """Bomb all neighbors of a cell"""
         self.soundBomb.play()
         self.matchList = []
         if cellZ % 2 == 0:
@@ -787,10 +622,12 @@ class DistributedGolfGreenGame(DistributedMinigame):
                 self.addToMatchList(cellX - 1, cellZ - 1)
 
     def addToMatchList(self, posX, posZ):
+        """Add position to match list if breakable"""
         if self.getBreakable(posX, posZ) > 0:
             self.matchList.append((posX, posZ))
 
     def getNeighbors(self, cellX, cellZ):
+        """Get all neighbors of a cell"""
         neighborList = []
         if cellZ % 2 == 0:
             if self.getColorType(cellX - 1, cellZ) != -1:
@@ -821,6 +658,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return neighborList
 
     def fillMatchList(self, cellX, cellZ):
+        """Recursively fill match list with matching colors"""
         if (cellX, cellZ) in self.matchList:
             return
         self.matchList.append((cellX, cellZ))
@@ -855,24 +693,25 @@ class DistributedGolfGreenGame(DistributedMinigame):
                 self.fillMatchList(cellX - 1, cellZ - 1)
 
     def testGridfull(self, cell):
+        """Test if grid cell is full"""
         if not cell:
             return 0
         elif cell[0] is not None:
             return 1
         else:
             return 0
-        return
 
     def getValidGrid(self, x, z):
+        """Get grid cell if valid"""
         if x < 0 or x >= self.gridDimX:
             return None
         elif z < 0 or z >= self.gridDimZ:
             return None
         else:
             return self.grid[x][z]
-        return None
 
     def getColorType(self, x, z):
+        """Get color type at grid position"""
         if x < 0 or x >= self.gridDimX:
             return -1
         elif z < 0 or z >= self.gridDimZ:
@@ -881,9 +720,9 @@ class DistributedGolfGreenGame(DistributedMinigame):
             return -1
         else:
             return self.grid[x][z][0].colorType
-        return
 
     def getBreakable(self, x, z):
+        """Get breakable status at grid position"""
         if x < 0 or x >= self.gridDimX:
             return -1
         elif z < 0 or z >= self.gridDimZ:
@@ -892,9 +731,9 @@ class DistributedGolfGreenGame(DistributedMinigame):
             return -1
         else:
             return self.grid[x][z][0].breakable
-        return
 
     def findGridCog(self):
+        """Find center of gravity of all sprites"""
         self.cogX = 0
         self.cogZ = 0
         self.massCount = 0
@@ -908,18 +747,12 @@ class DistributedGolfGreenGame(DistributedMinigame):
         if self.massCount > 0:
             self.cogX = self.cogX / self.massCount
             self.cogZ = self.cogZ / self.massCount
-            self.cogSprite.setX(self.cogX)
-            self.cogSprite.setZ(self.cogZ)
-        return
-
-    def doOnClearGrid(self):
-        self.winCounter += 1
-        self.clearGrid()
-        self.flagNextLevel = 1
-        if self.winCounter > 4:
-            self.__handleWin()
+            if self.cogSprite:
+                self.cogSprite.setX(self.cogX)
+                self.cogSprite.setZ(self.cogZ)
 
     def clearGrid(self):
+        """Clear all sprites from grid"""
         for row in self.grid:
             for cell in row:
                 if cell[0] is not None:
@@ -927,9 +760,9 @@ class DistributedGolfGreenGame(DistributedMinigame):
                 cell[5].setColorScale(self.blankColor)
 
         self.killSprite(self.controlSprite)
-        return
 
     def killSprite(self, sprite):
+        """Remove a sprite"""
         if sprite is None:
             return
         if sprite.giftId is not None:
@@ -946,21 +779,22 @@ class DistributedGolfGreenGame(DistributedMinigame):
             sprite.deathEffect()
         sprite.delete()
         self.hasChanged = 1
-        return
 
     def shakeSprite(self, sprite):
+        """Shake a sprite"""
         if sprite is None:
             return
         sprite.shake()
-        return
 
     def questionSprite(self, sprite):
+        """Create question sprite effect"""
         newSprite = self.addSprite(self.block, found=0, color=1)
         newSprite.setX(sprite.getX())
         newSprite.setZ(sprite.getZ())
         newSprite.wildEffect()
 
     def colorGrid(self):
+        """Color the grid cells"""
         for row in self.grid:
             for cell in row:
                 if cell[0] is not None:
@@ -975,12 +809,12 @@ class DistributedGolfGreenGame(DistributedMinigame):
                 else:
                     cell[5].setColorScale(self.blankColor)
 
-        return
-
     def findPos(self, x, z):
+        """Find world position from grid coordinates"""
         return (self.grid[x][z][1], self.grid[x][z][2])
 
     def placeIntoGrid(self, sprite, x, z):
+        """Place sprite into grid"""
         if self.grid[x][z][0] is None:
             self.grid[x][z][0] = sprite
             sprite.gridPosX = x
@@ -997,9 +831,56 @@ class DistributedGolfGreenGame(DistributedMinigame):
             self.checkForTooLow()
         else:
             self.placeIntoGrid(sprite, x + 1, z - 1)
-        return
+
+    def findGrid(self, x, z, force=0):
+        """Find closest grid cell to position"""
+        currentClosest = None
+        currentDist = 10000000
+        for countX in range(self.gridDimX):
+            for countZ in range(self.gridDimZ):
+                testDist = self.testPointDistanceSquare(x, z, self.grid[countX][countZ][1],
+                                                        self.grid[countX][countZ][2])
+                if self.grid[countX][countZ][0] is None and testDist < currentDist and (
+                        force or self.hasNeighbor(countX, countZ) is not None):
+                    currentClosest = self.grid[countX][countZ]
+                    self.closestX = countX
+                    self.closestZ = countZ
+                    currentDist = testDist
+
+        return currentClosest
+
+    def hasNeighbor(self, cellX, cellZ):
+        """Check if cell has any neighbors"""
+        gotNeighbor = None
+        if cellZ % 2 == 0:
+            if self.testGridfull(self.getValidGrid(cellX - 1, cellZ)):
+                gotNeighbor = cellZ
+            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ)):
+                gotNeighbor = cellZ
+            elif self.testGridfull(self.getValidGrid(cellX, cellZ + 1)):
+                gotNeighbor = cellZ + 1
+            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ + 1)):
+                gotNeighbor = cellZ + 1
+            elif self.testGridfull(self.getValidGrid(cellX, cellZ - 1)):
+                gotNeighbor = cellZ - 1
+            elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ - 1)):
+                gotNeighbor = cellZ - 1
+        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ)):
+            gotNeighbor = cellZ
+        elif self.testGridfull(self.getValidGrid(cellX + 1, cellZ)):
+            gotNeighbor = cellZ
+        elif self.testGridfull(self.getValidGrid(cellX, cellZ + 1)):
+            gotNeighbor = cellZ + 1
+        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ + 1)):
+            gotNeighbor = cellZ + 1
+        elif self.testGridfull(self.getValidGrid(cellX, cellZ - 1)):
+            gotNeighbor = cellZ - 1
+        elif self.testGridfull(self.getValidGrid(cellX - 1, cellZ - 1)):
+            gotNeighbor = cellZ - 1
+        return gotNeighbor
 
     def stickInGrid(self, sprite, force=0):
+        """Stick sprite into grid"""
         if sprite.isActive:
             gridCell = self.findGrid(sprite.getX(), sprite.getZ(), force)
             if gridCell:
@@ -1030,6 +911,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
                         self.shakeList(neighbors)
 
     def addSprite(self, image, size=3.0, posX=0, posZ=0, found=0, color=None):
+        """Add a sprite to the board"""
         spriteBase = self.spriteNode.attachNewNode('sprite base')
         size = self.radiusBall * 2.0
         facing = 1
@@ -1046,12 +928,14 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return newSprite
 
     def addControlSprite(self, x=0.0, z=0.0, color=None):
+        """Add control sprite"""
         newSprite = self.addSprite(self.block, posX=x, posZ=z, color=color, found=1)
         newSprite.spriteBase.reparentTo(self.frame)
         newSprite.spriteBase.setPos(0.0, 0.7, -1.54)
         self.controlSprite = newSprite
 
     def addUnSprite(self, image, size=3.0, posX=0, posZ=0):
+        """Add unmanaged sprite"""
         size = self.radiusBall * 2.0
         spriteBase = self.spriteNode.attachNewNode('sprite base')
         newSprite = GameSprite3D.GameSprite(spriteBase, size)
@@ -1060,6 +944,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return newSprite
 
     def __handleMouseClick(self):
+        """Handle mouse click"""
         if self.ballLoaded and self.controlSprite:
             self.controlSprite.spriteBase.wrtReparentTo(self.spriteNode)
             self.controlSprite.setAccel(14.0, pi * 0.0 - self.aimRadian)
@@ -1068,6 +953,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
             self.ballLoaded = 0
 
     def __run(self, cont=1):
+        """Main game loop"""
         if cont and not self.running:
             taskMgr.add(self.__run, 'GolfGreenGameTask')
             self.running = 1
@@ -1076,6 +962,8 @@ class DistributedGolfGreenGame(DistributedMinigame):
         timeDelta = base.clock.getRealTime() - self.lastTime
         self.lastTime = base.clock.getRealTime()
         self.newBallCountUp += timeDelta
+
+        # Handle mouse input
         if base.mouseWatcherNode.hasMouse():
             inputX = base.mouseWatcherNode.getMouseX()
             inputZ = base.mouseWatcherNode.getMouseY()
@@ -1094,13 +982,19 @@ class DistributedGolfGreenGame(DistributedMinigame):
             elif self.aimRadian <= margin - pi:
                 self.aimRadian = margin - pi
             degrees = self.__toDegrees(self.aimRadian)
-            self.aimer.setH(degrees)
+            if self.aimer:
+                self.aimer.setH(degrees)
+
+        # Wall boundaries
         self.wallMaxX = self.maxX - self.radiusBall
         self.wallMinX = self.minX + self.radiusBall
         self.wallMaxZ = self.maxZ - self.radiusBall
         self.wallMinZ = self.minZ + self.radiusBall
+
         if self.controlSprite and self.controlSprite.nodeObj.isEmpty():
             self.controlSprite = None
+
+        # Handle gift
         if self.giftId:
             self.ballLoaded = 2
             self.updateSpritePos()
@@ -1108,6 +1002,8 @@ class DistributedGolfGreenGame(DistributedMinigame):
             self.standbySprite.setBallType(self.giftId, 1)
             self.standbySprite.face()
             self.giftId = None
+
+        # Create control sprite if needed
         while self.controlSprite is None and self.attackPattern:
             if self.attackCounter > len(self.attackPattern) - 1:
                 self.attackCounter = 0
@@ -1122,7 +1018,10 @@ class DistributedGolfGreenGame(DistributedMinigame):
             self.standbySprite.face()
             self.attackCounter += 1
 
-        self.standbySprite.runColor(timeDelta)
+        # Update sprites
+        if self.standbySprite:
+            self.standbySprite.runColor(timeDelta)
+
         for sprite in self.sprites:
             if sprite.deleteFlag:
                 self.sprites.remove(sprite)
@@ -1139,7 +1038,10 @@ class DistributedGolfGreenGame(DistributedMinigame):
                 if sprite.getZ() < self.wallMinZ:
                     pass
 
+        # Collision detection
         self.__colTest()
+
+        # Check for changes
         if self.hasChanged and self.running:
             self.clearFloaters()
             self.explodeBombs()
@@ -1157,32 +1059,39 @@ class DistributedGolfGreenGame(DistributedMinigame):
 
             if whiteCount == 0:
                 self.__finishBoard(win=True)
-                self.flagNextLevel = 0
                 self.killSprite(self.controlSprite)
-                self.standbySprite.holdType = None
+                if self.standbySprite:
+                    self.standbySprite.holdType = None
             self.colorGridFlag = 1
         self.hasChanged = 0
+
         if self.colorGridFlag:
             self.colorGridFlag = 0
             self.colorGrid()
+
         return Task.cont
 
     def predictAttackPattern(self, numSteps=1):
+        """Predict next attack pattern color"""
         predict = self.attackCounter + numSteps
         predict = predict % len(self.attackPattern)
         return self.attackPattern[predict]
 
     def __stop(self):
+        """Stop the game loop"""
         taskMgr.remove('GolfGreenGameTask')
         self.running = 0
 
     def __toRadians(self, angle):
+        """Convert degrees to radians"""
         return angle * 2.0 * math.pi / 360.0
 
     def __toDegrees(self, angle):
+        """Convert radians to degrees"""
         return angle * 360.0 / (2.0 * math.pi)
 
     def __colTest(self):
+        """Test collisions between sprites"""
         if not hasattr(self, 'tick'):
             self.tick = 0
         self.tick += 1
@@ -1199,16 +1108,16 @@ class DistributedGolfGreenGame(DistributedMinigame):
                             if not (movingSprite.isActive and testSprite.isActive):
                                 if movingSprite.canCollide and testSprite.canCollide:
                                     self.__collide(movingSprite, testSprite)
-                        if self.tick == 5:
-                            pass
 
     def getSprite(self, spriteIndex):
+        """Get sprite by index"""
         if spriteIndex >= len(self.sprites) or self.sprites[spriteIndex].markedForDeath:
             return None
         else:
             return self.sprites[spriteIndex]
 
     def testDistance(self, nodeA, nodeB):
+        """Test distance between two nodes"""
         if nodeA.isEmpty() or nodeB.isEmpty():
             return 10000
         distX = nodeA.getX() - nodeB.getX()
@@ -1218,6 +1127,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return dist
 
     def testPointDistance(self, x1, z1, x2, z2):
+        """Test distance between two points"""
         distX = x1 - x2
         distZ = z1 - z2
         distC = distX * distX + distZ * distZ
@@ -1227,6 +1137,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return dist
 
     def testPointDistanceSquare(self, x1, z1, x2, z2):
+        """Test squared distance between two points"""
         distX = x1 - x2
         distZ = z1 - z2
         distC = distX * distX + distZ * distZ
@@ -1235,6 +1146,7 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return distC
 
     def angleTwoSprites(self, sprite1, sprite2):
+        """Calculate angle between two sprites"""
         x1 = sprite1.getX()
         z1 = sprite1.getZ()
         x2 = sprite2.getX()
@@ -1245,12 +1157,14 @@ class DistributedGolfGreenGame(DistributedMinigame):
         return angle + pi * 0.5
 
     def angleTwoPoints(self, x1, z1, x2, z2):
+        """Calculate angle between two points"""
         x = x2 - x1
         z = z2 - z1
         angle = math.atan2(-x, z)
         return angle + pi * 0.5
 
     def __collide(self, move, test):
+        """Handle collision between two sprites"""
         test.velX = 0
         test.velZ = 0
         move.velX = 0
@@ -1260,39 +1174,12 @@ class DistributedGolfGreenGame(DistributedMinigame):
         self.stickInGrid(move)
         self.stickInGrid(test)
 
-    def __setCamera(self):
-        camera.setPos(0, 0, 0)
-        camera.setH(0)
-        camera.setP(-70)
-        camera.reparentTo(self.focusPoint)
-        base.camLens.setMinFov(46.8265)
-        self.focusPoint.setPos(0, 12, 27)
-        self.focusPoint.setH(180)
+    def setGiftId(self, giftId):
+        """Set gift ID for bonus"""
+        self.giftId = giftId
 
-    def boardCleared(self, avId):
-        self.doFail()
-
-    def scoreData(self, scoreList):
-        for avId, score in scoreList:
-            p: MinigameAvatarScorePanel = self.scorePanels[avId]
-            p.setScore(score)
-
-    def helpOthers(self, avId):
-        if avId != localAvatar.doId and self.running:
-            self.giftId = 7
-            toonName = ''
-            toon = base.cr.doId2do[avId]
-            if toon:
-                toonName = toon.getName()
-            self.bonusBoard['text'] = TTLocalizer.GolfGreenGameGotHelp % toonName
-            imageBall = loader.loadModel('phase_12/models/bossbotHQ/bust_a_cog_ball_fire')
-            imageBall.setHpr(0, 90, 0)
-            self.bonusBoard['image'] = imageBall
-            self.bonusBoard['image_scale'] = 0.13
-            self.bonusBoard.show()
-            taskMgr.doMethodLater(4.0, self.hideBonusBoard, 'hide bonus')
-
-    def hideBonusBoard(self, task):
+    def hideBonusBoard(self):
+        """Hide bonus board"""
         if self.bonusBoard:
             if not self.bonusBoard.isEmpty():
                 self.bonusBoard.hide()

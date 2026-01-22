@@ -145,9 +145,6 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
     def displayWhisper(self, fromId, chatString, whisperType, colorProfileOverride: ColorProfile = None):
         print('Whisper type %s from %s: %s' % (whisperType, fromId, chatString))
 
-    def displayWhisperPlayer(self, playerId, chatString, whisperType):
-        print('WhisperPlayer type %s from %s: %s' % (whisperType, playerId, chatString))
-
     def whisperSCTo(self, msgIndex, sendToId, toPlayer):
         if toPlayer:
             base.cr.playerFriendsManager.sendSCWhisper(sendToId, msgIndex)
@@ -262,12 +259,11 @@ class DistributedPlayer(DistributedAvatar.DistributedAvatar, PlayerBase.PlayerBa
 
     def setTalkWhisper(self, fromAV, fromAC, avatarName, chat, mods, flags):
         newText, scrubbed = self.scrubTalk(chat, mods)
-        self.displayTalkWhisper(fromAV, avatarName, chat, mods)
         base.talkAssistant.receiveWhisperTalk(fromAV, avatarName, fromAC, None, self.doId, self.getName(), newText, scrubbed)
         return
 
     def displayTalkWhisper(self, fromId, avatarName, chatString, mods):
-        print('TalkWhisper from %s: %s' % (fromId, chatString))
+        pass
 
     def scrubTalk(self, chat, mods):
         return chat

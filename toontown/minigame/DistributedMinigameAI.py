@@ -52,6 +52,14 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
 
         # The SR context to use for this minigame. If none, we assume this is not a ranked game.
         self.skillProfileKey: SkillProfileKey | None = SkillProfileKey.MINIGAMES
+        
+        # Generic modifier and round management (available to all minigames)
+        from toontown.minigame.utils.managers import ModifierManagerAI, RoundManagerAI
+        self.modifierManager = ModifierManagerAI(self)
+        self.roundManager = RoundManagerAI(self)
+        
+        # Reference to the group that created this minigame (if any)
+        self.group = None
 
     def hasHost(self) -> bool:
         """
@@ -639,7 +647,12 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
             self.notify.info('\nRULESET DATA: None (using defaults)')
         
         # Modifiers Data
-        modifierStructs = config.getModifiers(config.minigameId)
+        # Use self.minigameId instead of config.minigameId to ensure we're checking the correct minigame
+        # config.minigameId might be stale or different from the actual minigame being played
+        actualMinigameId = getattr(self, 'minigameId', config.minigameId)
+        self.notify.debug(f"Debug: Checking modifiers for minigameId={actualMinigameId}, config.minigameId={config.minigameId}")
+        self.notify.debug(f"Debug: modifiersData keys={list(config.modifiersData.keys())}")
+        modifierStructs = config.getModifiers(actualMinigameId)
         if modifierStructs:
             self.notify.info('\nMODIFIERS (%s)' % len(modifierStructs))
             if config.minigameId == ToontownGlobals.CraneGameId:
@@ -727,3 +740,122 @@ class DistributedMinigameAI(DistributedObjectAI.DistributedObjectAI):
     def logAllPerfect(self):
         for avId in self.avIdList:
             self.logPerfectGame(avId)
+    
+    def _initializeModifiers(self):
+        """Initialize modifiers from group config if available"""
+        if hasattr(self, 'group') and self.group is not None:
+            config = self.group.getMinigameConfig()
+            modifierStructs = config.getModifiers(self.minigameId)
+            
+            if modifierStructs:
+                self.modifierManager.applyModifiersFromStructs(modifierStructs)
+                self.notify.debug(f'Initialized {len(modifierStructs)} modifiers from group config')
+    
+    def setGroup(self, group):
+        """
+        Set the group reference for this minigame.
+        This allows the minigame to save its state back to the group.
+        """
+        self.group = group
+    
+    def saveStateToGroup(self):
+        """
+        Save the current modifiers to the group config.
+        This ensures the state persists for play-again scenarios.
+        """
+        if self.group is None:
+            self.notify.debug('saveStateToGroup: No group reference, cannot save')
+            return
+        
+        # Save modifiers
+        modifierStructs = self.modifierManager._getRawModifierList()
+        self.group.setMinigameModifiers(self.minigameId, modifierStructs)
+        self.notify.debug(f'saveStateToGroup: Saved {len(modifierStructs)} modifiers for minigame {self.minigameId}')
+    
+    def addModifier(self, modifierEnum, tier=1):
+        """Handle request to add a modifier from the client"""
+        self.modifierManager.addModifier(modifierEnum, tier)
+    
+    def removeModifier(self, modifierEnum):
+        """Handle request to remove a modifier from the client"""
+        self.modifierManager.removeModifierByEnum(modifierEnum)
+    
+    def getHighestScorers(self):
+        """
+        Get the list of players with the highest scores in the current round.
+        This should be overridden by specific minigames to determine winners.
+        Returns a list of avId integers.
+        """
+        # Default implementation: get highest scores from scoring context
+        currentRound = self.roundManager.currentRound
+        roundContext = self.context.get_round(currentRound)
+        allScores = roundContext.get_all_scores()
+        
+        if not allScores:
+            return []
+        
+        maxScore = max(allScores.values())
+        highestScorers = [avId for avId, score in allScores.items() if score == maxScore]
+        return highestScorers
+    
+    def handleGameVictory(self):
+        """
+        Handle game victory - determines winner and either ends game or continues to next round.
+        This should be called by minigames when a round ends.
+        """
+        highest_scorers = self.getHighestScorers()
+        
+        # If nobody is in the lead, check if this is a single-player forfeit
+        if len(highest_scorers) == 0:
+            participants = self.getParticipantIdsNotSpectating()
+            # If there's only one participant, they should be declared the victor (even if they forfeited)
+            if len(participants) == 1:
+                victorId = participants[0]
+                self._declareVictor(victorId)
+                self.context.get_round(self.roundManager.currentRound).set_winners([victorId])
+                # Single round match - end the game
+                from direct.task.TaskManagerGlobal import taskMgr
+                taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("minigameVictory"), extraArgs=[])
+                return
+            # Otherwise, go to next round (shouldn't normally happen)
+            self._declareVictor(0)
+            from direct.task.TaskManagerGlobal import taskMgr
+            taskMgr.doMethodLater(5, self.roundManager._startNextRound, self.uniqueName("minigameNextRound"), extraArgs=[])
+            return
+        
+        # If multiple people are in the lead, pick the first person
+        victorId = highest_scorers[0]
+        self.context.get_round(self.roundManager.currentRound).set_winners(highest_scorers)
+        
+        # Handle first-to-X-wins matches
+        winsNeeded = self.roundManager.getWinsNeeded()
+        if winsNeeded > 1:
+            # Track round wins
+            self.roundManager.recordRoundWin(victorId)
+            
+            # Send round info to clients
+            self.roundManager.d_setRoundInfo()
+            
+            # Check if match is complete
+            if self.roundManager.isMatchComplete(victorId):
+                # Match is complete
+                self._declareVictor(victorId)
+                from direct.task.TaskManagerGlobal import taskMgr
+                taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("minigameVictory"), extraArgs=[])
+            else:
+                # Round is complete, but match continues
+                self._declareVictor(victorId)
+                from direct.task.TaskManagerGlobal import taskMgr
+                taskMgr.doMethodLater(3, self.roundManager._startNextRound, self.uniqueName("minigameNextRound"), extraArgs=[])
+        else:
+            # Single round match
+            self._declareVictor(victorId)
+            from direct.task.TaskManagerGlobal import taskMgr
+            taskMgr.doMethodLater(5, self.gameOver, self.uniqueName("minigameVictory"), extraArgs=[])
+    
+    def _declareVictor(self, victorId):
+        """
+        Declare a victor. Override this if your minigame has a custom declareVictor method.
+        """
+        if hasattr(self, 'sendUpdate'):
+            self.sendUpdate('declareVictor', [victorId])

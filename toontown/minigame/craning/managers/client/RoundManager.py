@@ -19,7 +19,7 @@ class RoundManager:
         if not hasattr(self.game, 'modifierManager'):
             return 1
         
-        # Look for the First to X Wins modifier
+        # Look for the First to X Wins modifier (crane-specific, enum 39)
         for modifier in self.game.modifierManager.modifiers:
             if modifier.MODIFIER_ENUM == CraneGameGlobals.ModifierFirstToXWins.MODIFIER_ENUM:
                 return modifier.tier

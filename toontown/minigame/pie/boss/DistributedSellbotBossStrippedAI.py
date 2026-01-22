@@ -4,7 +4,7 @@ from direct.distributed.ClockDelta import *
 from direct.task.TaskManagerGlobal import taskMgr
 
 from otp.ai.AIBaseGlobal import *
-from toontown.minigame.pie.boss import SellbotBossGlobals
+from toontown.minigame.pie import PieGameGlobals
 from toontown.toonbase import ToontownGlobals
 from toontown.minigame.utils.boss import BossCogGlobals
 from toontown.minigame.utils.boss.DistributedBossCogAI import DistributedBossCogAI
@@ -19,7 +19,7 @@ class DistributedSellbotBossStrippedAI(DistributedBossCogAI):
         self.game = game
 
         self.bossMaxDamage = ToontownGlobals.SellbotBossMaxDamage
-        self.pieHitToonup = SellbotBossGlobals.PieToonup
+        self.pieHitToonup = PieGameGlobals.PieToonup
         self.recoverRate = 0
         self.recoverStartTime = 0
 
@@ -63,7 +63,7 @@ class DistributedSellbotBossStrippedAI(DistributedBossCogAI):
             self.healToon(toon, self.pieHitToonup)
 
     def getDamageMultiplier(self):
-        return SellbotBossGlobals.AttackMult
+        return PieGameGlobals.AttackMult
 
     def doNextAttack(self, task):
         if self.attackCode == ToontownGlobals.BossCogDizzyNow:
@@ -150,6 +150,6 @@ class DistributedSellbotBossStrippedAI(DistributedBossCogAI):
 
     def __recordHit(self):
         self.hitCount += 1
-        if self.hitCount < self.limitHitCount or self.bossDamage < SellbotBossGlobals.HitCountDamage:
+        if self.hitCount < self.limitHitCount or self.bossDamage < PieGameGlobals.HitCountDamage:
             return
         self.b_setAttackCode(ToontownGlobals.BossCogRecoverDizzyAttack)

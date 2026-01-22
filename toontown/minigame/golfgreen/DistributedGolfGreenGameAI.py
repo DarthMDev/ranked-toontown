@@ -5,7 +5,7 @@ from direct.fsm.State import State
 from direct.task.TaskManagerGlobal import taskMgr
 
 from toontown.minigame.DistributedMinigameAI import DistributedMinigameAI
-from toontown.minigame.golfgreen import GolfGreenConstants
+from toontown.minigame.golfgreen import GolfGreenGlobals
 
 
 class DistributedGolfGreenGameAI(DistributedMinigameAI):
@@ -95,7 +95,7 @@ class DistributedGolfGreenGameAI(DistributedMinigameAI):
         for avId in self.avIdList:
             self.d_startBoard(avId)
 
-        taskMgr.doMethodLater(GolfGreenConstants.GAME_DURATION, self.timerExpired, self.taskName('gameTimer'))
+        taskMgr.doMethodLater(GolfGreenGlobals.GAME_DURATION, self.timerExpired, self.taskName('gameTimer'))
 
     def timerExpired(self, task):
         self.notify.debug('timer expired')
@@ -123,24 +123,24 @@ class DistributedGolfGreenGameAI(DistributedMinigameAI):
             self.getScoringContext().get_round(0).add_score(senderId, 1)
             self.sendScoreData()
 
-            if GolfGreenConstants.WANT_GIFTS:
+            if GolfGreenGlobals.WANT_GIFTS:
                 self.sendUpdate('helpOthers', [senderId])
 
         self.d_startBoard(senderId)
 
     def d_startBoard(self, avId: int) -> None:
-        board = random.choice(GolfGreenConstants.BOARD_DATA)
+        board = random.choice(GolfGreenGlobals.BOARD_DATA)
 
         x = []
         for rowIndex in range(1, len(board)):
             for columnIndex in range(len(board[rowIndex])):
-                color = GolfGreenConstants.TRANSLATE_DATA.get(board[rowIndex][columnIndex])
+                color = GolfGreenGlobals.TRANSLATE_DATA.get(board[rowIndex][columnIndex])
                 if color is not None:
                     x.append((len(board[rowIndex]) - (columnIndex + 1), rowIndex - 1, color))
 
         attackPattern = []
         for ball in board[0]:
-            color = GolfGreenConstants.TRANSLATE_DATA.get(ball)
+            color = GolfGreenGlobals.TRANSLATE_DATA.get(ball)
             if color or color == 0:
                 place = random.choice(list(range(0, len(attackPattern) + 1)))
                 attackPattern.insert(place, color)
