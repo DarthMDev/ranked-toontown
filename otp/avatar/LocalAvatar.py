@@ -1139,23 +1139,6 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
         self.customMessages = customMessages
         messenger.send('customMessagesChanged')
 
-    def displayWhisperPlayer(self, fromId, chatString, whisperType):
-        sender = None
-        playerInfo = None
-        sfx = self.soundWhisper
-        playerInfo = base.cr.playerFriendsManager.playerId2Info.get(fromId, None)
-        if playerInfo == None:
-            return
-        senderName = playerInfo.playerName
-        if whisperType == WhisperType.WTNormal or whisperType == WhisperType.WTQuickTalker:
-            chatString = senderName + ': ' + chatString
-        whisper = WhisperPopup(chatString, OTPGlobals.getInterfaceFont(), whisperType)
-        if sender != None:
-            whisper.setClickable(senderName, fromId)
-        whisper.manage(base.marginManager)
-        base.playSfx(sfx)
-        return
-
     def setAnimMultiplier(self, value):
         self.animMultiplier = value
 
@@ -1352,7 +1335,6 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
 
     def startChat(self):
         self.chatMgr.start()
-        self.accept(OTPGlobals.WhisperIncomingEvent, self.handlePlayerFriendWhisper)
         self.accept(OTPGlobals.ThinkPosHotkey, self.showPos)
         self.accept(OTPGlobals.PrintCamPosHotkey, self.printCamPos)
         if self.__enableMarkerPlacement:
@@ -1360,7 +1342,6 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
 
     def stopChat(self):
         self.chatMgr.stop()
-        self.ignore(OTPGlobals.WhisperIncomingEvent)
         self.ignore(OTPGlobals.ThinkPosHotkey)
         self.ignore(OTPGlobals.PrintCamPosHotkey)
         if self.__enableMarkerPlacement:
@@ -1409,10 +1390,6 @@ class LocalAvatar(DistributedAvatar.DistributedAvatar, DistributedSmoothNode.Dis
 
     def d_setParent(self, parentToken):
         DistributedSmoothNode.DistributedSmoothNode.d_setParent(self, parentToken)
-
-    def handlePlayerFriendWhisper(self, playerId, charMessage):
-        print('handlePlayerFriendWhisper')
-        self.displayWhisperPlayer(playerId, charMessage, WhisperType.WTNormal)
 
     def canChat(self):
         return 0
