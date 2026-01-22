@@ -23,7 +23,6 @@ AICollisionPriority = 10
 AICollMovePriority = 8
 MaxFriends = 50
 MaxPlayerFriends = 300
-MaxBackCatalog = 48
 FriendChat = 1
 CommonChat = 1
 SuperChat = 2

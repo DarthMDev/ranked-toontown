@@ -17,7 +17,7 @@ from toontown.ai.HolidayManagerAI import HolidayManagerAI
 from toontown.ai.NewsManagerAI import NewsManagerAI
 from toontown.archipelago.distributed.DistributedArchipelagoManagerAI import DistributedArchipelagoManagerAI
 from toontown.building.DistributedTrophyMgrAI import DistributedTrophyMgrAI
-from toontown.catalog.CatalogManagerAI import CatalogManagerAI
+
 from toontown.coghq.PromotionManagerAI import PromotionManagerAI
 from toontown.distributed.ToontownDistrictAI import ToontownDistrictAI
 from toontown.distributed.ToontownDistrictStatsAI import ToontownDistrictStatsAI
@@ -59,7 +59,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.newsManager = None
         self.holidayManager = None
         self.welcomeValleyManager = None
-        self.catalogManager = None
         self.zoneDataStore = None
         self.inGameNewsMgr = None
         self.trophyMgr = None
@@ -89,7 +88,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.friendManager = None
         self.toontownTimeManager = None
         self.magicWordManager = None
-        self.deliveryManager = None
         self.leaderboardManager: LeaderboardManagerAI | None = None
         self.apiManager: ApiManagerAI | None = None
         self.groupManager: GroupManagerAI | None = None
@@ -203,10 +201,6 @@ class ToontownAIRepository(ToontownInternalRepository):
         # self.welcomeValleyManager = WelcomeValleyManagerAI(self)
         # self.welcomeValleyManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
 
-        # Generate our catalog manager...
-        self.catalogManager = CatalogManagerAI(self)
-        self.catalogManager.generateWithRequired(OTP_ZONE_ID_MANAGEMENT)
-
         # Generate our in-game news manager...
         self.inGameNewsMgr = DistributedInGameNewsMgrAI(self)
         self.inGameNewsMgr.setLatestIssueStr('2013-08-22 23:49:46')
@@ -244,9 +238,7 @@ class ToontownAIRepository(ToontownInternalRepository):
         self.leaderboardManager = self.generateGlobalObject(OTP_DO_ID_LEADERBOARD_MANAGER,
                                                          'LeaderboardManager')
 
-        # Generate our delivery manager...
-        self.deliveryManager = self.generateGlobalObject(OTP_DO_ID_TOONTOWN_DELIVERY_MANAGER,
-                                                         'DistributedDeliveryManager')
+
 
         # Generate our API manager...
         self.apiManager = self.generateGlobalObject(OTP_DO_ID_API_MANAGER,

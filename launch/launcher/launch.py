@@ -15,4 +15,9 @@ match os.environ.get("SERVICE_TO_RUN", None):
     case "UD":
         from toontown.uberdog import UDStart
     case _:
-        print("Unknown service type!")
+        service_to_run = os.environ.get("SERVICE_TO_RUN")
+        print(
+            "Unknown service type! Set the environment variable \n"
+            "SERVICE_TO_RUN to one of the following: CLIENT, AI, UD. "
+            f"(got: {service_to_run})"
+        )

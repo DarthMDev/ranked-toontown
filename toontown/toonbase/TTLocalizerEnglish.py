@@ -1,5 +1,5 @@
 from toontown.toonbase.TTLocalizerEnglishProperty import *
-from toontown.catalog import CatalogAccessoryItemGlobals
+
 from otp.otpbase import OTPLocalizer as OL
 
 commitmantst = 'kptmptest - removable'
@@ -5849,26 +5849,6 @@ RentalTypeName = 'Rental Item'
 GardenStarterTypeName = 'Gardening Kit'
 NametagTypeName = 'Name tag'
 AccessoryTypeName = 'Accessory'
-CatalogItemTypeNames = {0: 'INVALID_ITEM',
- 1: FurnitureTypeName,
- 2: ChatTypeName,
- 3: ClothingTypeName,
- 4: EmoteTypeName,
- 5: 'WALLPAPER',
- 6: 'Window View',
- 7: 'FLOORING',
- 8: 'MOULDING',
- 9: 'WAINSCOTING',
- 10: PoleTypeName,
- 11: PetTrickTypeName,
- 12: BeanTypeName,
- 13: GardenTypeName,
- 14: RentalTypeName,
- 15: GardenStarterTypeName,
- 16: NametagTypeName,
- 17: 'TOON_STATUE',
- 18: 'ANIMATED FURNITURE',
- 19: AccessoryTypeName}
 HatStylesDescriptions = {'hbb1': 'Green Baseball Cap',
  'hbb2': 'Blue Baseball Cap',
  'hbb3': 'Orange Baseball Cap',
@@ -6062,19 +6042,9 @@ AccessoryNamePrefix = {0: 'hat unisex ',
  11: 'shoes girl '}
 AwardManagerAccessoryNames = {}
 AccessoryTypeNames = {}
-for accessoryId in list(CatalogAccessoryItemGlobals.AccessoryTypes.keys()):
-    accessoryInfo = CatalogAccessoryItemGlobals.AccessoryTypes[accessoryId]
-    if accessoryInfo[0] % 4 == 0:
-        accessoryStyleDescription = HatStylesDescriptions
-    elif accessoryInfo[0] % 4 == 1:
-        accessoryStyleDescription = GlassesStylesDescriptions
-    elif accessoryInfo[0] % 4 == 2:
-        accessoryStyleDescription = BackpackStylesDescriptions
-    else:
-        accessoryStyleDescription = ShoesStylesDescriptions
-    if accessoryInfo[3]:
-        AwardManagerAccessoryNames[accessoryId] = AccessoryNamePrefix[accessoryInfo[0]] + accessoryStyleDescription[accessoryInfo[1]]
-    AccessoryTypeNames[accessoryId] = accessoryStyleDescription[accessoryInfo[1]]
+
+
+
 
 ShirtStylesDescriptions = {'bss1': 'solid',
  'bss2': 'single stripe',
@@ -6910,181 +6880,9 @@ SpecialEventNames = {1: 'Generic Award',
  15: 'Operation Storm Sellbot Event',
  16: 'Most C.J.s Defeated',
  17: 'Operation Lawbots Lose Event'}
-NewCatalogNotify = 'There are new items available to order at your phone!'
-NewDeliveryNotify = 'A new delivery has just arrived at your mailbox!'
-CatalogNotifyFirstCatalog = 'Your first cattlelog has arrived!  You may use this to order new items for yourself or for your house.'
-CatalogNotifyNewCatalog = 'Your cattlelog #%s has arrived!  You can go to your phone to order items from this cattlelog.'
-CatalogNotifyNewCatalogNewDelivery = 'A new delivery has arrived at your mailbox!  Also, your cattlelog #%s has arrived!'
-CatalogNotifyNewDelivery = 'A new delivery has arrived at your mailbox!'
-CatalogNotifyNewCatalogOldDelivery = 'Your cattlelog #%s has arrived, and there are still items waiting in your mailbox!'
-CatalogNotifyOldDelivery = 'There are still items waiting in your mailbox for you to pick up!'
-CatalogNotifyInstructions = 'Click the "Go home" button on the map page in your Shticker Book, then walk up to the phone inside your house.'
-CatalogNewDeliveryButton = 'New\nDelivery!'
-CatalogNewCatalogButton = 'New\nCattlelog'
-CatalogSaleItem = 'Sale!  '
-DistributedMailboxEmpty = 'Your mailbox is empty right now.  Come back here to look for deliveries after you place an order from your phone!'
-DistributedMailboxWaiting = 'Your mailbox is empty right now, but the package you ordered is on its way.  Check back later!'
-DistributedMailboxReady = 'Your order has arrived!'
-DistributedMailboxNotOwner = 'Sorry, this is not your mailbox.'
-DistributedPhoneEmpty = "You can use any phone to order special items for you and your house.  New items will become available to order over time.\n\nYou don't have any items available to order right now, but check back later!"
-Clarabelle = 'Clarabelle'
-MailboxExitButton = 'Close Mailbox'
-MailboxAcceptButton = 'Take this item'
-MailBoxDiscard = 'Discard this item'
-MailboxAcceptInvite = 'Accept this invite'
-MailBoxRejectInvite = 'Reject this invite'
-MailBoxDiscardVerify = 'Are you sure you want to Discard %s?'
-MailBoxRejectVerify = 'Are you sure you want to Reject %s?'
-MailboxOneItem = 'Your mailbox contains 1 item.'
-MailboxNumberOfItems = 'Your mailbox contains %s items.'
-MailboxGettingItem = 'Taking %s from mailbox.'
-MailboxGiftTag = 'Gift From: %s'
-MailboxGiftTagAnonymous = 'Anonymous'
-MailboxItemNext = 'Next\nItem'
-MailboxItemPrev = 'Previous\nItem'
-MailboxDiscard = 'Discard'
-MailboxReject = 'Reject'
-MailboxLeave = 'Keep'
-CatalogCurrency = 'beans'
-CatalogHangUp = 'Hang Up'
-CatalogNew = 'NEW'
-CatalogBackorder = 'BACKORDER'
-CatalogLoyalty = 'SPECIAL'
-CatalogEmblem = 'EMBLEM'
-CatalogPagePrefix = 'Page'
-CatalogGreeting = "Hello! Thanks for calling Clarabelle's Cattlelog. Can I help you?"
-CatalogGoodbyeList = ['Bye now!',
- 'Call back soon!',
- 'Thanks for calling!',
- 'Ok, bye now!',
- 'Bye!']
-CatalogHelpText1 = 'Turn the page to see items for sale.'
-CatalogSeriesLabel = 'Series %s'
-CatalogGiftFor = 'Buy Gift for:'
-CatalogGiftTo = 'To: %s'
-CatalogGiftToggleOn = 'Stop Gifting'
-CatalogGiftToggleOff = 'Buy Gifts'
-CatalogGiftToggleWait = 'Trying!...'
-CatalogGiftToggleNoAck = 'Unavailable'
-CatalogPurchaseItemAvailable = 'Congratulations on your new purchase!  You can start using it right away.'
-CatalogPurchaseGiftItemAvailable = 'Excellent!  %s can start using your gift right away.'
-CatalogPurchaseItemOnOrder = 'Congratulations! Your purchase will be delivered to your mailbox soon.'
-CatalogPurchaseGiftItemOnOrder = 'Excellent! Your gift to %s will be delivered to their mailbox.'
-CatalogAnythingElse = 'Anything else I can get you today?'
-CatalogPurchaseClosetFull = 'Your closet is full.  You may purchase this item anyway, but if you do you will need to delete something from your closet to make room for it when it arrives.\n\nDo you still want to purchase this item?'
-CatalogPurchaseNoTrunk = 'In order to wear this item, you need to buy a trunk.\n\nDo you still want to purchase this item?'
-CatalogPurchaseTrunkFull = 'Your trunk is full. If you purchase this item, you\xe2\x80\x99ll need to delete another item from your trunk to make more room.\n\nDo you still want to purchase this item?'
-CatalogAcceptClosetFull = 'Your closet is full.  You must go inside and delete something from your closet to make room for this item before you can take it out of your mailbox.'
-CatalogAcceptNoTrunk = "You don't have a trunk. You must buy a trunk before you can take this item out of your mailbox."
-CatalogAcceptTrunkFull = 'Your trunk is full.  You must delete something from your trunk before you can take this item out of your mailbox.'
-CatalogAcceptShirt = 'You are now wearing your new hat.  The hat you were wearing before has been moved to your trunk.'
-CatalogAcceptShorts = 'You are now wearing your new shorts.  What you were wearing before has been moved to your closet.'
-CatalogAcceptSkirt = 'You are now wearing your new skirt.  What you were wearing before has been moved to your closet.'
-CatalogAcceptHat = 'You are now wearing your new hat.  The hat you were wearing before has been moved to your trunk.'
-CatalogAcceptGlasses = 'You are now wearing your new glasses.  The glasses you were wearing before have been moved to your trunk.'
-CatalogAcceptBackpack = 'You are now wearing your new backpack.  The backpack you were wearing before has been moved to your trunk.'
-CatalogAcceptShoes = 'You are now wearing your new shoes.  The shoes you were wearing before have been moved to your trunk.'
-CatalogAcceptPole = "You're now ready to go catch some bigger fish with your new pole!"
-CatalogAcceptPoleUnneeded = 'You already have a better pole than this one!'
-CatalogAcceptChat = 'You now have a new SpeedChat!'
-CatalogAcceptEmote = 'You now have a new Emotion!'
-CatalogAcceptBeans = 'You received some jelly beans!'
-CatalogAcceptRATBeans = 'Your Toon recruit reward has arrived!'
-CatalogAcceptPartyRefund = "Your party was never started. Here's your refund!"
-CatalogAcceptNametag = 'Your new name tag has arrived!'
-CatalogAcceptGarden = 'Your garden supplies have arrived!'
-CatalogAcceptPet = 'You now have a new Pet Trick!'
-CatalogPurchaseHouseFull = 'Your house is full.  You may purchase this item anyway, but if you do you will need to delete something from your house to make room for it when it arrives.\n\nDo you still want to purchase this item?'
-CatalogAcceptHouseFull = 'Your house is full. You can not accept this item until you free up some room. Would you like to discard this item now?'
-CatalogAcceptInAttic = 'Your new item is now in your attic.  You can put it in your house by going inside and clicking on the "Move Furniture" button.'
-CatalogAcceptInAtticP = 'Your new items are now in your attic.  You can put them in your house by going inside and clicking on the "Move Furniture" button.'
-CatalogPurchaseMailboxFull = "Your mailbox is full!  You can't purchase this item until you take some items out of your mailbox to make room."
-CatalogPurchaseGiftMailboxFull = "%s's mailbox is full!  You can't purchase this item."
-CatalogPurchaseOnOrderListFull = "You have too many items currently on order.  You can't order any more items until some of the ones you have already ordered arrive."
-CatalogPurchaseGiftOnOrderListFull = '%s has too many items currently on order.'
-CatalogPurchaseGeneralError = 'The item could not be purchased because of some internal game error: error code %s.'
-CatalogPurchaseGiftGeneralError = 'The item could not be gifted to %(friend)s because of some internal game error: error code %(error)s.'
-CatalogPurchaseGiftNotAGift = 'This item could not be sent to %s because it would be an unfair advantage.'
-CatalogPurchaseGiftWillNotFit = "This item could not be sent to %s because it doesn't fit them."
-CatalogPurchaseGiftLimitReached = "This item could not be sent to %s because they've already have it."
-CatalogPurchaseGiftNotEnoughMoney = "This item could not be sent to %s because you can't afford it."
-CatalogAcceptGeneralError = 'The item could not be removed from your mailbox because of some internal game error: error code %s.'
-CatalogAcceptRoomError = "You don't have any place to put this. You'll have to get rid of something."
-CatalogAcceptLimitError = "You already have as many of these as you can handle. You'll have to get rid of something."
-CatalogAcceptFitError = "This won't fit you!"
-CatalogAcceptInvalidError = 'This item has gone out of style!'
-CatalogAcceptClosetError = 'You already have a bigger closet!'
-MailboxOverflowButtonDicard = 'Discard'
-MailboxOverflowButtonLeave = 'Leave'
-HDMoveFurnitureButton = 'Move\nFurniture'
-HDStopMoveFurnitureButton = 'Done\nMoving'
-HDAtticPickerLabel = 'In the attic'
-HDInRoomPickerLabel = 'In the room'
-HDInTrashPickerLabel = 'In the trash'
-HDDeletePickerLabel = 'Delete?'
-HDInAtticLabel = 'Attic'
-HDInRoomLabel = 'Room'
-HDInTrashLabel = 'Trash'
-HDToAtticLabel = 'Send\nto attic'
-HDMoveLabel = 'Move'
-HDRotateCWLabel = 'Rotate Right'
-HDRotateCCWLabel = 'Rotate Left'
-HDReturnVerify = 'Return this item to the attic?'
-HDReturnFromTrashVerify = 'Return this item to the attic from the trash?'
-HDDeleteItem = 'Click OK to send this item to the trash, or Cancel to keep it.'
-HDNonDeletableItem = "You can't delete items of this type!"
-HDNonDeletableBank = "You can't delete your bank!"
-HDNonDeletableCloset = "You can't delete your wardrobe!"
-HDNonDeletablePhone = "You can't delete your phone!"
-HDNonDeletableTrunk = "You can't delete your trunk!"
-HDNonDeletableNotOwner = "You can't delete %s's things!"
-HDHouseFull = 'Your house is full.  You have to delete something else from your house or attic before you can return this item from the trash.'
-HDHelpDict = {'DoneMoving': 'Finish room decorating.',
- 'Attic': 'Show list of items in attic. The attic stores items that are not in your room.',
- 'Room': 'Show list of items in room. Useful for finding lost items.',
- 'Trash': 'Show items in trash. Oldest items are deleted after a while or when trash overflows.',
- 'ZoomIn': 'Get a closer view of room.',
- 'ZoomOut': 'Get a farther view of room.',
- 'SendToAttic': 'Send the current furniture item to attic for storage.',
- 'RotateLeft': 'Turn left.',
- 'RotateRight': 'Turn right.',
- 'DeleteEnter': 'Change to delete mode.',
- 'DeleteExit': 'Exit delete mode.',
- 'FurnitureItemPanelDelete': 'Send %s to trash.',
- 'FurnitureItemPanelAttic': 'Place %s in room.',
- 'FurnitureItemPanelRoom': 'Return %s to attic.',
- 'FurnitureItemPanelTrash': 'Return %s to attic.'}
 MessagePickerTitle = 'You have too many phrases. In order to purchase\n"%s"\n you must choose one to remove:'
 MessagePickerCancel = lCancel
 MessageConfirmDelete = 'Are you sure you want to remove "%s" from your SpeedChat menu?'
-CatalogBuyText = 'Buy'
-CatalogRentText = 'Rent'
-CatalogGiftText = 'Gift'
-CatalogOnOrderText = 'On Order'
-CatalogPurchasedText = 'Already\nPurchased'
-CatalogCurrent = 'Current'
-CatalogGiftedText = 'Gifted\nTo You'
-CatalogPurchasedGiftText = 'Already\nOwned'
-CatalogMailboxFull = 'No Room'
-CatalogNotAGift = 'Not a Gift'
-CatalogNoFit = "Doesn't\nFit"
-CatalogMembersOnly = 'Members\nOnly!'
-CatalogSndOnText = 'Snd On'
-CatalogSndOffText = 'Snd Off'
-CatalogPurchasedMaxText = 'Already\nPurchased Max'
-CatalogVerifyPurchase = 'Purchase %(item)s for %(price)s jellybeans?'
-CatalogVerifyPurchaseBeanSilverGold = 'Purchase %(item)s for %(price)s jellybeans, %(silver)s silver emblems and %(gold)s gold emblems?'
-CatalogVerifyPurchaseBeanGold = 'Purchase %(item)s for %(price)s jellybeans and %(gold)s gold emblems?'
-CatalogVerifyPurchaseBeanSilver = 'Purchase %(item)s for %(price)s jellybeans and %(silver)s silver emblems?'
-CatalogVerifyPurchaseSilverGold = 'Purchase %(item)s for %(silver)s silver emblems and %(gold)s gold emblems?'
-CatalogVerifyPurchaseSilver = 'Purchase %(item)s for %(silver)s silver emblems?'
-CatalogVerifyPurchaseGold = 'Purchase %(item)s for %(gold)s gold emblems?'
-CatalogVerifyRent = 'Rent %(item)s for %(price)s jellybeans?'
-CatalogVerifyGift = 'Purchase %(item)s for %(price)s jellybeans as a gift for %(friend)s?'
-CatalogOnlyOnePurchase = 'You may only have one of these items at a time.  If you purchase this one, it will replace %(old)s.\n\nAre you sure you want to purchase %(item)s for %(price)s jellybeans?'
-CatalogExitButtonText = 'Hang Up'
-CatalogCurrentButtonText = 'To Current Items'
-CatalogPastButtonText = 'To Past Items'
 TutorialHQOfficerName = 'HQ Harry'
 NPCToonNames = {20000: 'Tutorial Tom',
  999: 'Toon Tailor',

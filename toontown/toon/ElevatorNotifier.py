@@ -6,7 +6,7 @@ from panda3d.core import *
 from toontown.toontowngui import TTDialog
 
 class ElevatorNotifier:
-    notify = DirectNotifyGlobal.directNotify.newCategory('CatalogNotifyDialog')
+    notify = DirectNotifyGlobal.directNotify.newCategory('ElevatorNotifier')
 
     def __init__(self):
         self.frame = None

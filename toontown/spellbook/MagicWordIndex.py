@@ -869,16 +869,6 @@ class SetTracks(MagicWord):
 
         return msg
 
-
-class Catalog(MagicWord):
-    desc = "Gives the toon a new catalog."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        simbase.air.catalogManager.deliverCatalogFor(toon)
-
-
 class GetAccId(MagicWord):
     administrative = True
     aliases = ["accId", "accountId"]
@@ -2366,17 +2356,6 @@ class FreeBldg(MagicWord):
             return "Toons are currently taking back the building!"
         return "Couldn't free building."
 
-class InstaDelivery(MagicWord):
-    aliases = ["fastdel"]
-    desc = "Instant delivery of an item."
-    execLocation = MagicWordConfig.EXEC_LOC_SERVER
-    accessLevel = 'TTOFF_DEVELOPER'
-
-    def handleWord(self, invoker, avId, toon, *args):
-        invoker.instantDelivery = not invoker.instantDelivery
-        for item in toon.onOrder:
-            item.deliveryDate = int(time.time() / 60)  # Deliver all the packages that they already ordered, too.
-        return "Instant Delivery has been turned {0}.".format('on' if invoker.instantDelivery else 'off')
 
 
 class SetMuzzle(MagicWord):

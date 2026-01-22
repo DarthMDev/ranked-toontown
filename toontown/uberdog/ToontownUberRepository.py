@@ -17,7 +17,6 @@ class ToontownUberRepository(ToontownInternalRepository):
         self.onlinePlayerManager = None
         self.leaderboardManager: LeaderboardManagerUD | None = None
         self.chatManager = None
-        self.deliveryManager = None
 
         self.apiManager: ApiManagerUD | None = None
 
@@ -39,9 +38,6 @@ class ToontownUberRepository(ToontownInternalRepository):
         self.onlinePlayerManager = self.generateGlobalObject(OTP_DO_ID_ONLINE_PLAYER_MANAGER, 'OnlinePlayerManager')
         self.leaderboardManager = self.generateGlobalObject(OTP_DO_ID_LEADERBOARD_MANAGER, 'LeaderboardManager')
         self.chatManager = self.generateGlobalObject(OTP_DO_ID_CHAT_MANAGER, 'TTOffChatManager')
-        self.deliveryManager = self.generateGlobalObject(OTP_DO_ID_TOONTOWN_DELIVERY_MANAGER,
-                                                         'DistributedDeliveryManager')
-
         self.apiManager = self.generateGlobalObject(OTP_DO_ID_API_MANAGER, 'ApiManager')
 
         self.groupManager = self.generateGlobalObject(OTP_DO_ID_GROUP_MANAGER, "GroupManager")

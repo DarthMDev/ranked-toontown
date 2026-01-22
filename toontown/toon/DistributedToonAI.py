@@ -16,8 +16,7 @@ from toontown.quest import Quests
 from toontown.toonbase import ToontownBattleGlobals
 from toontown.battle import SuitBattleGlobals
 from direct.task import Task
-from toontown.catalog import CatalogItemList
-from toontown.catalog import CatalogItem
+
 from direct.distributed.ClockDelta import *
 from toontown.fishing import FishCollection, FishTank, FishGlobals
 from .NPCToons import isZoneProtected
@@ -30,7 +29,7 @@ from toontown.hood import ZoneUtil
 from toontown.toon import NPCToons
 from toontown.golf import GolfGlobals
 from toontown.toonbase import ToontownAccessAI
-from toontown.catalog import CatalogAccessoryItem
+
 from . import ModuleListAI
 
 from ..archipelago.definitions.death_reason import DeathReason
@@ -138,18 +137,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             self.bingoCheat = False
         self.customMessages = []
         self.droneSetup = [0, 1, 2]  # Default: Laser, Heal, Explodey
-        self.catalogNotify = ToontownGlobals.NoItems
-        self.mailboxNotify = ToontownGlobals.NoItems
-        self.catalogScheduleCurrentWeek = 0
-        self.catalogScheduleNextTime = 0
-        self.monthlyCatalog = CatalogItemList.CatalogItemList()
-        self.weeklyCatalog = CatalogItemList.CatalogItemList()
-        self.backCatalog = CatalogItemList.CatalogItemList()
-        self.onOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        self.onGiftOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
-        self.mailboxContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization)
-        self.awardMailboxContents = CatalogItemList.CatalogItemList(store=CatalogItem.Customization)
-        self.onAwardOrder = CatalogItemList.CatalogItemList(store=CatalogItem.Customization | CatalogItem.DeliveryDate)
         self.kart = None
         self.setBattleId(0)
         self.gardenStarted = False
@@ -170,7 +157,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.modulelist = ModuleListAI.ModuleList()
         self.unlimitedGags = False
         self.instaKill = False
-        self.instantDelivery = False
         self.alwaysHitSuits = False
 
         self._skillProfiles: dict[str, PlayerSkillProfile] = {}
@@ -272,14 +258,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             messenger.send('avatarExited', [self])
         taskName = self.uniqueName('cheesy-expires')
         taskMgr.remove(taskName)
-        taskName = self.uniqueName('next-catalog')
-        taskMgr.remove(taskName)
-        taskName = self.uniqueName('next-delivery')
-        taskMgr.remove(taskName)
-        taskName = self.uniqueName('next-award-delivery')
-        taskMgr.remove(taskName)
-        taskName = 'next-bothDelivery-%s' % self.doId
-        taskMgr.remove(taskName)
         self.stopToonUp()
         del self.dna
         if self.inventory:
@@ -297,8 +275,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             self.inventory.unload()
         del self.inventory
         self.experience = None
-        taskName = self.uniqueName('next-catalog')
-        taskMgr.remove(taskName)
         return
 
     def ban(self, comment):
@@ -363,27 +339,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
             return 0
         try:
             styleStr = stylesDict.keys()[stylesDict.values().index([idx, textureIdx, colorIdx])]
-            accessoryItemId = 0
-            for itemId in CatalogAccessoryItem.AccessoryTypes.keys():
-                if styleStr == CatalogAccessoryItem.AccessoryTypes[itemId][CatalogAccessoryItem.ATString]:
-                    accessoryItemId = itemId
-                    break
-
-            if accessoryItemId == 0:
-                self.air.writeServerEvent('suspicious', self.doId,
-                                          'Toon tried to wear invalid %s %d %d %d' % (accessoryTypeStr,
-                                                                                      idx,
-                                                                                      textureIdx,
-                                                                                      colorIdx))
-                return 0
-            if not simbase.config.GetBool('want-check-accessory-sanity', False):
-                return 1
-            accessoryItem = CatalogAccessoryItem.CatalogAccessoryItem(accessoryItemId)
-            result = self.air.catalogManager.isItemReleased(accessoryItem)
-            if result == 0:
-                self.air.writeServerEvent('suspicious', self.doId,
-                                          'Toon wore unreleased accessoryItem %d' % accessoryItemId)
-            return result
+            return 1
         except:
             self.air.writeServerEvent('suspicious', self.doId,
                                       'Toon tried to wear invalid %s %d %d %d' % (accessoryTypeStr,
@@ -973,12 +929,6 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
                 return 1
 
         return 0
-
-    def d_catalogGenClothes(self):
-        self.sendUpdate('catalogGenClothes', [self.doId])
-
-    def d_catalogGenAccessories(self):
-        self.sendUpdate('catalogGenAccessories', [self.doId])
 
     def takeDamage(self, hpLost, quietly=0, sendTotal=1):
         if not self.immortalMode:

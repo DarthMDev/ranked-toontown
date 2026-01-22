@@ -139,32 +139,6 @@ class DistributedToonUD(DistributedObjectUD):
     def setPetTrickPhrases(self, todo0):
         pass
 
-    def setCatalogSchedule(self, todo0, todo1):
-        pass
-
-    def setCatalog(self, todo0, todo1, todo2):
-        pass
-
-    def setMailboxContents(self, todo0):
-        pass
-
-    def setDeliverySchedule(self, todo0):
-        pass
-
-    def setGiftSchedule(self, todo0):
-        pass
-
-    def setAwardMailboxContents(self, todo0):
-        pass
-
-    def setAwardSchedule(self, todo0):
-        pass
-
-    def setAwardNotify(self, todo0):
-        pass
-
-    def setCatalogNotify(self, todo0, todo1):
-        pass
 
     def playSplashEffect(self, todo0, todo1, todo2):
         pass
@@ -298,11 +272,6 @@ class DistributedToonUD(DistributedObjectUD):
     def setNumPies(self, todo0):
         pass
 
-    def catalogGenClothes(self, todo0):
-        pass
-
-    def catalogGenAccessories(self, todo0):
-        pass
 
     def setPetId(self, todo0):
         pass

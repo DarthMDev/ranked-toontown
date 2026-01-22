@@ -91,7 +91,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         self.speedchatRelay = None
         self.trophyManager = None
         self.bankManager = None
-        self.catalogManager = None
         self.welcomeValleyManager = None
         self.newsManager = None
         self.distributedDistrict = None
@@ -107,7 +106,6 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
         self.groupManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_GROUP_MANAGER, 'GroupManager')
         self.matchmaker = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_MATCHMAKER, 'DistributedMatchmaker')
         self.speedchatRelay = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_TOONTOWN_SPEEDCHAT_RELAY, 'TTSpeedchatRelay')
-        self.deliveryManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_TOONTOWN_DELIVERY_MANAGER, 'DistributedDeliveryManager')
         if config.GetBool('want-code-redemption', 1):
             self.codeRedemptionManager = self.generateGlobalObject(OtpDoGlobals.OTP_DO_ID_TOONTOWN_CODE_REDEMPTION_MANAGER, 'TTCodeRedemptionMgr')
 
@@ -574,7 +572,7 @@ class ToontownClientRepository(OTPClientRepository.OTPClientRepository):
             else:
                 self.notify.info('dumpAllSubShardObjects: defaultShard is %s' % localAvatar.defaultShard)
 
-            ignoredClasses = ('MagicWordManager', 'TimeManager', 'DistributedDistrict', 'FriendManager', 'NewsManager', 'ToontownMagicWordManager', 'WelcomeValleyManager', 'DistributedTrophyMgr', 'CatalogManager', 'DistributedBankMgr', 'EstateManager', 'RaceManager', 'SafeZoneManager', 'DeleteManager', 'TutorialManager', 'ToontownDistrict', 'DistributedDeliveryManager', 'LeaderboardManager', 'GroupManager', 'DistributedMatchmaker', 'DistributedPartyManager', 'AvatarFriendsManager', 'InGameNewsMgr', 'WhitelistMgr', 'TTCodeRedemptionMgr', 'DistributedArchipelagoManager')
+            ignoredClasses = ('MagicWordManager', 'TimeManager', 'DistributedDistrict', 'FriendManager', 'NewsManager', 'ToontownMagicWordManager', 'WelcomeValleyManager', 'DistributedTrophyMgr', 'DistributedBankMgr', 'EstateManager', 'RaceManager', 'SafeZoneManager', 'DeleteManager', 'TutorialManager', 'ToontownDistrict', 'LeaderboardManager', 'GroupManager', 'DistributedMatchmaker', 'DistributedPartyManager', 'AvatarFriendsManager', 'InGameNewsMgr', 'WhitelistMgr', 'TTCodeRedemptionMgr', 'DistributedArchipelagoManager')
         messenger.send('clientCleanup')
         for avId, pad in list(self.__queryAvatarMap.items()):
             pad.delayDelete.destroy()

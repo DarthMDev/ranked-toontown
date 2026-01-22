@@ -42,3 +42,6 @@ launch/docker/.env
 # Temporary MongoDB config files for singleplayer
 astron/config/astrond_mongo_*.yml
 astron/config/astrond_mongo_temp.yml
+
+# VSCode IDE 
+/.vscode
