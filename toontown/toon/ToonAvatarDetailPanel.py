@@ -172,23 +172,12 @@ class ToonAvatarDetailPanel(DirectFrame):
         online = 1
         if base.cr.isFriend(self.avId):
             online = base.cr.isFriendOnline(self.avId)
+        text = ''
         if online:
-            shardName = base.cr.getShardName(av.defaultShard)
-            hoodName = base.cr.hoodMgr.getFullnameFromId(av.lastHood)
-            if ZoneUtil.isWelcomeValley(av.lastHood):
-                shardName = '%s (%s)' % (TTLocalizer.WelcomeValley[-1], shardName)
             if self.playerInfo:
                 guiButton = loader.loadModel('phase_3/models/gui/quit_button')
                 self.gotoAvatarButton = DirectButton(parent=self, relief=None, image=(guiButton.find('**/QuitBtn_UP'), guiButton.find('**/QuitBtn_DN'), guiButton.find('**/QuitBtn_RLVR')), image_scale=1.1, text=TTLocalizer.AvatarShowPlayer, text_scale=0.07, text_pos=(0.0, -0.02), textMayChange=0, pos=(0.44, 0, 0.41), command=self.__showAvatar)
-                text = TTLocalizer.AvatarDetailPanelOnlinePlayer % {'district': shardName,
-                 'location': hoodName,
-                 'player': self.playerInfo.playerName}
             else:
-                text = TTLocalizer.AvatarDetailPanelOnline % {
-                    'district': shardName,
-                    'location': hoodName,
-                }
-
                 # If we are in the same area, add their rank. This is temporary.
                 if self.avatar is not None:
                     solos_profile = self.avatar.getSkillProfile(SkillProfileKey.CRANING_SOLOS.value)
@@ -199,8 +188,6 @@ class ToonAvatarDetailPanel(DirectFrame):
                     if ffa_profile is not None:
                         rank = Rank.get_from_skill_rating(ffa_profile.skill_rating)
                         text += f"\nFFA Rank: {rank.colored_with_sr(ffa_profile.skill_rating)}"
-        else:
-            text = TTLocalizer.AvatarDetailPanelOffline
         self.dataText['text'] = text
         self.__updateTrackInfo()
         self.__updateTrophyInfo()

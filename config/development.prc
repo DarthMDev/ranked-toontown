@@ -17,6 +17,7 @@ vfs-mount resources/phase_14 /phase_14
 
 # Developer settings
 want-injector true
+direct-gui-edit false
 
 # Logging
 log-private-info true

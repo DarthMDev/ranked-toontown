@@ -242,6 +242,7 @@ class FriendsListPanel(DirectFrame, StateData.StateData):
         self.__updateTitle()
         self.__updateArrows()
         self.show()
+        self.setBin('gui-popup', 0) #temp fix for boarding group but prob shouldve been in tto code in the first place
 
         # Accept all events that fire when our friends list changes.
         self.accept(FriendsGlobals.FRIENDS_ONLINE_EVENT, self.__friendOnline)
