@@ -1956,9 +1956,7 @@ AvatarDetailPanelFailedLookup = 'Unable to get details for %s.'
 AvatarDetailPanelPlayer = 'Player: %(player)s\nWorld: %(world)s'
 AvatarDetailPanelPlayerShort = '%(player)s\nWorld: %(world)s\nLocation: %(location)s'
 AvatarDetailPanelRealLife = 'Offline'
-AvatarDetailPanelOnline = 'District: %(district)s\nLocation: %(location)s'
-AvatarDetailPanelOnlinePlayer = 'District: %(district)s\nLocation: %(location)s\nPlayer: %(player)s'
-AvatarDetailPanelOffline = 'District: offline\nLocation: offline'
+AvatarDetailPanelOnlinePlayer = 'Player: %(player)s'
 AvatarShowPlayer = 'Show Player'
 OfflineLocation = 'Offline'
 PlayerToonName = 'Toon: %(toonname)s'
@@ -9769,8 +9767,7 @@ OptionNames = {
     "fovEffects": "Sprinting FOV Effects",
     "cam-toggle-lock": "Camera Toggle Lock",
     "speedchat-style": "Speedchat Color",
-    'discord-rich-presence': 'Discord Rich Presence',
-    "archipelago-textsize": "Archipelago Log Text Size",
+    # 'discord-rich-presence': 'Discord Rich Presence',
     "color-blind-mode": "Colorblind Mode",
     "want-legacy-models": "Toggle TTO Species Models*",
     'laff-display': "Toggle Overhead Laff Meter",

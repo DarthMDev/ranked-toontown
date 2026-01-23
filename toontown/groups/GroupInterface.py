@@ -8,7 +8,7 @@ from toontown.friends.OnlineToon import OnlineToon
 from toontown.groups import GroupGlobals
 from toontown.groups.GroupMemberStruct import GroupMemberStruct
 from toontown.toonbase import ToontownGlobals
-from toontown.ui.UIHelpers import coords_to_pos, px_to_scale, fontpx_to_scale
+from toontown.ui.UIHelpers import *
 
 if typing.TYPE_CHECKING:
     from toontown.groups.GroupManager import GroupManager
@@ -19,9 +19,9 @@ class GroupInterface(DirectFrame):
     GUI_MODEL_PATH = 'phase_14/models/gui/boarding-gui.egg'
 
     OPTS = {
-        'pos': coords_to_pos(208.5734, 540),
+        'pos': coords_to_pos(1711.4266, 540),
         'image_scale': px_to_scale(332, 704),
-        'frameColor': (1, 1, 1, 0)
+        'frameColor': (0,0,0,0)
     }
 
     GAME_OPTIONS_BUTTON_STRETCH_FACTOR = 3.8
@@ -65,10 +65,13 @@ class GroupInterface(DirectFrame):
         self.initialiseoptions(GroupInterface)
 
         # Create any other elements that should be on this frame immediately when it is created.
-        self.gameSettingsButton = DirectButton(parent=base.aspect2d, text='Crane Game', text_font=uiFont2, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(0.08, 0.08, 1), text_pos=(-0.018, -0.02, 0), textMayChange=1, image_scale=px_to_scale(308, 78), pos=coords_to_pos(208.5734, 757.75), relief=None,image=selectGameTexture, command=self.__onGameSettingsClicked)
+        self.gameSettingsButton = DirectButton(parent=base.aspect2d, text='Crane Game', text_font=uiFont2, text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), text_scale=(0.08, 0.08, 1), text_pos=(-0.018, -0.02, 0), textMayChange=1, image_scale=px_to_scale(308, 78), pos=coords_to_pos(1711.4266, 757.75), relief=None,image=selectGameTexture, command=self.__onGameSettingsClicked)
+        self.gameSettingsButton.wrtReparentTo(self)
         self.__updateMinigameLabel()
-        self.leaveButton = DirectButton(parent=base.aspect2d, image_scale=px_to_scale(78,78), relief=None, pos=coords_to_pos(323.5082, 842.75), image=leaveTexture, command=self.__onLeaveClicked)
-        self.startButton = DirectButton(parent=base.aspect2d, text='Start!', text_font=uiFont2, text_pos=(-0.01, -0.02, 0), text_scale=(0.09, 0.09, 1), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), relief=None, image=playGameTexture, pos=coords_to_pos(166.6386, 842.75), image_scale=px_to_scale(224,78), command=self.__onPlayClicked)
+        self.leaveButton = DirectButton(parent=base.aspect2d, image_scale=px_to_scale(78,78), relief=None, pos=coords_to_pos(1826.3614, 842.75), image=leaveTexture, command=self.__onLeaveClicked)
+        self.leaveButton.wrtReparentTo(self)
+        self.startButton = DirectButton(parent=base.aspect2d, text='Start!', text_font=uiFont2, text_pos=(-0.01, -0.02, 0), text_scale=(0.09, 0.09, 1), text_fg=(1, 1, 1, 1), text_shadow=(0, 0, 0, 1), relief=None, image=playGameTexture, pos=coords_to_pos(1669.4918, 842.75), image_scale=px_to_scale(224,78), command=self.__onPlayClicked)
+        self.startButton.wrtReparentTo(self)
 
         self.rows: list[GroupInterfaceMemberButton] = []
         for i in range(GroupInterface.MEMBER_ROWS):
@@ -76,6 +79,7 @@ class GroupInterface(DirectFrame):
             textures = (promoteTexture, switchTeamTexture, kickTexture,
                         leaderTexture, readyStatusTexture, notReadyStatusTexture)
             button = GroupInterfaceMemberButton(textures, parent=base.aspect2d, pos=pos)
+            button.wrtReparentTo(self)
             # Bind a special hover event to this button to handle the sub option hiding/showing.
             button.bind(DGG.ENTER, self.__onHoverRow, extraArgs=[button])
             self.rows.append(button)
@@ -239,7 +243,7 @@ class GroupInterfaceMemberButton(DirectButton):
 
     HOVER_FRAME_COLOR = (.0625, .0625, 0.109375, 1)
 
-    X_ORIGIN = -1.6767159259259259
+    X_ORIGIN = 1.1063455555555555
     Y_ORIGIN = 0.38356481481481486
     Y_PADDING = -0.7111111111111111/16
 
