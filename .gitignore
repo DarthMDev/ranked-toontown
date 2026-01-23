@@ -45,3 +45,4 @@ astron/config/astrond_mongo_temp.yml
 
 # VSCode IDE 
 /.vscode
+.vscode/launch.json
