@@ -37,8 +37,7 @@ OptionToType = {
     'fovEffects': OptionTypes.BUTTON,
     'cam-toggle-lock': OptionTypes.BUTTON,
     'speedchat-style': OptionTypes.BUTTON_SPEEDCHAT,
-    'discord-rich-presence': OptionTypes.BUTTON,
-    'archipelago-textsize': OptionTypes.SLIDER,
+    # 'discord-rich-presence': OptionTypes.BUTTON,
     'color-blind-mode': OptionTypes.BUTTON,
     'want-legacy-models': OptionTypes.BUTTON,
     'laff-display': OptionTypes.BUTTON,
@@ -140,8 +139,7 @@ class OptionsTabPage(DirectFrame, FSM):
             'fovEffects',
             'cam-toggle-lock',
             'speedchat-style',
-            'discord-rich-presence',
-            'archipelago-textsize',
+            # 'discord-rich-presence',
             'color-blind-mode',
             'want-legacy-models',
             'laff-display'
@@ -912,6 +910,66 @@ class OptionElement(DirectFrame):
             self.accept(self.controlTask, registerKeyWrapper)
             return
 
+        elif self.optionType == OptionTypes.BUTTON_SPEEDCHAT:
+            # Increment the speedchat index.
+            current = base.localAvatar.getSpeedChatStyleIndex()
+            new = current + 1
+            if new >= len(speedChatStyles):
+                new = 0
+
+            # We handle this differently, as it gets saved on the toon itself.
+            base.localAvatar.b_setSpeedChatStyleIndex(new)
+
+            # Update the button text with the new setting.
+            self.optionModifier["text"] = self.formatSpeedchat(new)
+            return
+
+        # Get the current setting.
+        currSetting = base.settings.get(self.optionName)
+
+        # Get the index of the next element of the list of options
+        # for this setting.
+        index = self.optionOptions[self.optionName].index(currSetting) + 1
+
+        # If it's beyond the scope, set it to 0.
+        if index >= len(self.optionOptions[self.optionName]):
+            index = 0
+
+        # Index into the options with the new index.
+        newSetting = self.optionOptions[self.optionName][index]
+
+        # Update the new setting.
+        base.settings.set(self.optionName, newSetting)
+
+        # Update the client with the new value.
+        if self.optionName == "music":
+            base.enableMusic(newSetting)
+        elif self.optionName == "sfx":
+            base.enableSoundEffects(newSetting)
+        elif self.optionName == "toon-chat-sounds":
+            base.toonChatSounds = newSetting
+        elif self.optionName in ("borderless", "vertical-sync"):
+            base.updateDisplay()
+        elif self.optionName == "frame-rate-meter":
+            base.setFrameRateMeter(newSetting)
+        elif self.optionName == "movement_mode":
+            base.localAvatar.updateMovementMode()
+        elif self.optionName == "fovEffects":
+            base.WANT_FOV_EFFECTS = newSetting
+        elif self.optionName == 'discord-rich-presence':
+            pass
+        elif self.optionName == "cam-toggle-lock":
+            base.CAM_TOGGLE_LOCK = newSetting
+        elif self.optionName == "color-blind-mode":
+            base.colorBlindMode = newSetting
+        elif self.optionName == "want-legacy-models":
+            base.WANT_LEGACY_MODELS = newSetting
+        elif self.optionName == "laff-display":
+            base.laffMeterDisplay = newSetting
+
+        # Update the button text with the new setting.
+        self.optionModifier["text"] = self.formatSetting(newSetting)
+        
     def _updateButtonOption2(self) -> None:
         """Handle secondary bind button click"""
         print(f"[DEBUG] _updateButtonOption2 called for {self.optionName}")
